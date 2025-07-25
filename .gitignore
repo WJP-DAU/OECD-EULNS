@@ -47,3 +47,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# MAC files
+.DS_Store
+*.DS_Store
+
+# Data files
+data/master.csv
+/output/tabs
