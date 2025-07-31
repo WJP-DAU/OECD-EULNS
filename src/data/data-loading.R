@@ -1,6 +1,6 @@
 load_data <- function(path2EU, source){
   
-  if (!(source %in% c("gpp", "subset", "regions"))){
+  if (!(source %in% c("gpp", "subset", "regions", "jg"))){
     stop("'source' argument should be one of: 'gpp', 'subset', 'regions'")
   }
   
@@ -26,7 +26,7 @@ load_data <- function(path2EU, source){
         show_col_types = FALSE
       )
     } else {
-      stop(glue("File '{path2data}' does not exist."))
+      stop(glue::glue("File '{path2data}' does not exist. Make sure to run the data routines first!!!"))
     }
   }
   
@@ -39,7 +39,20 @@ load_data <- function(path2EU, source){
         show_col_types = FALSE
       )
     } else {
-      stop(glue("File '{path2data}' does not exist."))
+      stop(glue::glue("File '{path2data}' does not exist."))
+    }
+  }
+  
+  if (source == "jg"){
+    path2data <- "data/jg_data_keepdk.csv"
+    
+    if (file.exists(path2data)){
+      df <- read_csv(
+        path2data, 
+        show_col_types = FALSE
+      )
+    } else {
+      stop(glue::glue("File '{path2data}' does not exist. Make sure to run the data routines first!!!"))
     }
   }
   

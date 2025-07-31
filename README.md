@@ -53,7 +53,18 @@ Rscript main.R [OPTIONS]
 ## Project Structure
 
 ```bash
-
+OECD-EULNS
+├── data
+├── main.R
+├── OECD-EULNS.Rproj
+├── output
+├── README.md
+├── renv
+├── renv.lock
+└── src
+    ├── analysis
+    ├── data
+    └── utils
 ```
 
 ## Contact

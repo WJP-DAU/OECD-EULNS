@@ -28,40 +28,45 @@ study_vars <- c(
   "nationality", "emp_status",
   
   # GPP variables
-  "JSE_access2info", "JSE_access2assis",
+  "JSE_access2info", "JSE_access2assis", "JSE_mediation",
+  "TRT_judges", "TRT_prosecutors", "TRT_pda",
   
   # A2J variables
   "prevalence1", "prevalence2",
-  "vulnerability1", "vulnerability2", 
+  "vulnerability1", "vulnerability2", "vulnerability3",
   "access2info", "access2rep", "access2drm",
-  "rp_time", "rp_cost", "rp_fair", "rp_outcome",
+  "rp_time", "rp_cost", "rp_fair", "rp_outcome", "rp_quick", "rp_costdiff",
   "non_trivial_problem", "selected_problem_category", 
-  "nproblems", "cooccurence_group"
+  "problem_status", "resolution_favor", "rp_satisfaction",
+  "nproblems", "cooccurence_group",
+  
+  # Justice Gap variables
+  "inside_justice_gap_nodk", "inside_justice_gap_keepdk"
 )
 
 # Loading data
 if(!interactive()){
   verbose_message("--- Loading EU-GPP data...")
 }
-eugpp <- load_data(
+eugpp_subset <- load_data(
   path2EU = path2EU,
   source = "gpp"
-)
+) %>% 
+  filter(
+    country_name_ltn %in% study_countries
+  )
 
 # Processing data
 if(!interactive()){
   verbose_message("--- Processing data...")
 }
-master <- eugpp %>%
-  filter(
-    country_name_ltn %in% c("Italy", "Malta")
-  ) %>%
+master <- eugpp_subset %>%
   left_join(
-    add_special_demographics(eugpp),
+    add_special_demographics(eugpp_subset),
     by = "country_year_id"
   ) %>%
   left_join(
-    add_a2j_vars(eugpp),
+    add_a2j_vars(eugpp_subset),
     by = "country_year_id"
   ) %>%
   select(

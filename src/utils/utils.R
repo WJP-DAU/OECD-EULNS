@@ -155,7 +155,7 @@ estimate_logit <- function(data, f){
   
   fitted_model <- glm(
     as.formula(f),
-    data = master,
+    data = data,
     family  = binomial(link = "logit")
   )
   
@@ -180,7 +180,8 @@ independent_vars <- list(
   "Italy" = c(
     "gender", "financial", "residence",
     "age_group", "edu_level", "marital_status", 
-    "nationality", "emp_status", "selected_problem_category", "nproblems"
+    "nationality", "emp_status", "selected_problem_category", "nproblems", 
+    "nuts_id"
   ),
   "Malta" = c(
     "gender", "financial",
@@ -196,36 +197,52 @@ independent_vars <- list(
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-get_results_table <- function(master, regions, target, ctype = "full", transform_var = NULL){
+get_results_table <- function(
+    master, regions, target, 
+    ctype = "full", 
+    transform_var = NULL,
+    prop = TRUE
+  ){
   
   if (ctype == "full"){
     categories <- c(
-      "national", "gender", "financial", "residence", "selected_problem_category", "cooccurence_group"
+      "national", "gender", "age_group", "financial", "residence", 
+      "selected_problem_category", "cooccurence_group"
     )
     names(categories) <- c(
-      "National", "Gender", "Fin. Situation", "Area of Res.", "Category", "Co-occurence Group"
+      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", 
+      "Category", "Co-occurence Group"
     )
   } 
   
   if (ctype == "short"){
     categories <- c(
-      "national", "gender", "financial", "residence"
+      "national", "gender", "age_group", "financial", "residence"
     )
     names(categories) <- c(
-      "National", "Gender", "Fin. Situation", "Area of Res."
+      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res."
     )
   }
   
-  # Some Disaggregations are not possible for Malta !!!
-  # master <- master %>%
-  #   mutate(
-  #     selected_problem_category = if_else(
-  #       country_name_ltn == "Malta", NA_character_, selected_problem_category
-  #     ),
-  #     residence = if_else(
-  #       country_name_ltn == "Malta", NA_character_, residence
-  #     )
-  #   )
+  if (ctype == "trust"){
+    categories <- c(
+      "national", "gender", "age_group", "financial", "residence", 
+      "problem_status", "non_trivial_problem_broader"
+    )
+    names(categories) <- c(
+      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", 
+      "Problem Status", "Non-Trivial Problem Reported"
+    )
+  }
+  
+  if (ctype == "custom_1"){
+    categories <- c(
+      "national", "gender", "age_group", "financial", "residence", "problem_status", "resolution_favor"
+    )
+    names(categories) <- c(
+      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", "Problem Status", "Resolution"
+    )
+  }
   
   if(!is.null(transform_var)){
     tranforming_fct = transform_var
@@ -289,7 +306,19 @@ get_results_table <- function(master, regions, target, ctype = "full", transform
       values_from = proportion
     )
   
+  if (!prop){
+    results_tbl <- results_tbl %>%
+      mutate(
+        across(
+          c("Italy", "Malta"),
+          \(x) x/100
+        )
+      )
+  }
+  
+  return(results_tbl)
 }
+
 
 export_results_kable <- function(
     results_tbl, title, file, ctype = "full", country = NULL
@@ -305,10 +334,11 @@ export_results_kable <- function(
       ) %>%
         kableExtra::pack_rows("National", 1, 1) %>%
         kableExtra::pack_rows("Gender", 2, 3) %>%
-        kableExtra::pack_rows("Financial Situation", 4, 5) %>%
-        kableExtra::pack_rows("Area of Residence", 6, 7) %>%
-        kableExtra::pack_rows("Category", 8, 19) %>%
-        kableExtra::pack_rows("Co-occurence", 20, 23) %>%
+        kableExtra::pack_rows("Age Group", 4, 9) %>%
+        kableExtra::pack_rows("Financial Situation", 10, 11) %>%
+        kableExtra::pack_rows("Area of Residence", 12, 13) %>%
+        kableExtra::pack_rows("Category", 14, 25) %>%
+        kableExtra::pack_rows("Co-occurence", 26, 29) %>%
         kableExtra::kable_classic(
           # full_width = F, 
           html_font = "Cambria"
@@ -331,8 +361,63 @@ export_results_kable <- function(
       ) %>%
         kableExtra::pack_rows("National", 1, 1) %>%
         kableExtra::pack_rows("Gender", 2, 3) %>%
-        kableExtra::pack_rows("Financial Situation", 4, 5) %>%
-        kableExtra::pack_rows("Area of Residence", 6, 7) %>%
+        kableExtra::pack_rows("Age Group", 4, 9) %>%
+        kableExtra::pack_rows("Financial Situation", 10, 11) %>%
+        kableExtra::pack_rows("Area of Residence", 12, 13) %>%
+        kableExtra::kable_classic(
+          # full_width = F, 
+          html_font = "Cambria"
+        ) %>% 
+        kableExtra::kable_styling(
+          font_size = 18,
+          latex_options = "striped"
+        ) %>%
+        kableExtra::save_kable(file)
+    )
+  }
+  
+  if (ctype == "trust"){
+    suppressMessages(
+      kableExtra::kbl(
+        results_tbl %>% select(-grouping), 
+        digits = 1, 
+        caption = title,
+        col.names = c("Category", "Italy", "Malta")
+      ) %>%
+        kableExtra::pack_rows("National", 1, 1) %>%
+        kableExtra::pack_rows("Gender", 2, 3) %>%
+        kableExtra::pack_rows("Age Group", 4, 9) %>%
+        kableExtra::pack_rows("Financial Situation", 10, 11) %>%
+        kableExtra::pack_rows("Area of Residence", 12, 13) %>%
+        kableExtra::pack_rows("Problem Status", 14, 15) %>%
+        kableExtra::pack_rows("Non-Trivial Problem Reported", 16, 17) %>%
+        kableExtra::kable_classic(
+          # full_width = F, 
+          html_font = "Cambria"
+        ) %>% 
+        kableExtra::kable_styling(
+          font_size = 18,
+          latex_options = "striped"
+        ) %>%
+        kableExtra::save_kable(file)
+    )
+  }
+  
+  if (ctype == "custom_1"){
+    suppressMessages(
+      kableExtra::kbl(
+        results_tbl %>% select(-grouping), 
+        digits = 1, 
+        caption = title,
+        col.names = c("Category", "Italy", "Malta")
+      ) %>%
+        kableExtra::pack_rows("National", 1, 1) %>%
+        kableExtra::pack_rows("Gender", 2, 3) %>%
+        kableExtra::pack_rows("Age Group", 4, 9) %>%
+        kableExtra::pack_rows("Financial Situation", 10, 11) %>%
+        kableExtra::pack_rows("Area of Residence", 12, 13) %>%
+        kableExtra::pack_rows("Problem Status", 14, 15) %>%
+        kableExtra::pack_rows("Resolution", 16, 17) %>%
         kableExtra::kable_classic(
           # full_width = F, 
           html_font = "Cambria"
@@ -347,8 +432,30 @@ export_results_kable <- function(
   
   if (ctype == "logit"){
     
+    results_tbl <- results_tbl %>%
+      mutate(
+        term = factor(
+          term, levels = c(
+            "gender", "edu_level", "financial", "marital_status", "nationality", 
+            "emp_status", "age_group", "residence", "nuts_id", "nproblems", 
+            "selected_problem_category"
+          )
+        )
+      ) %>% 
+      arrange(
+        term
+      )
+    
     kable <- kableExtra::kbl(
-      results_tbl %>% select(-c(term, statistic, s.value)), 
+      results_tbl %>% 
+        mutate(
+          contrast = if_else(
+            term == "nproblems",
+            "Co-occurrent Problems (dY/dX)",
+            contrast
+          )
+        ) %>% 
+        select(-c(term, statistic, s.value)), 
       digits = 3, 
       align = "c",
       caption = title,
@@ -358,17 +465,19 @@ export_results_kable <- function(
     if (country == "Italy") {
       
       kable <- kable %>%
-        kableExtra::pack_rows("Age Group", 1, 5) %>%
-        kableExtra::pack_rows("Sociodemographics", 6, 13) %>%
-        kableExtra::pack_rows("Problem Category", 14, 24)
+        kableExtra::pack_rows("Sociodemographics", 1, 6) %>%
+        kableExtra::pack_rows("Age Group", 7, 11) %>%
+        kableExtra::pack_rows("Geographic Location", 12, 16) %>% 
+        kableExtra::pack_rows("Co-Occurrence & Problem Category", 17, 28)
       
     } 
     
     if (country == "Malta") {
       
       kable <- kable %>%
-        kableExtra::pack_rows("Age Group", 1, 5) %>%
-        kableExtra::pack_rows("Sociodemographics", 6, 11)
+        kableExtra::pack_rows("Sociodemographics", 1, 5) %>%
+        kableExtra::pack_rows("Age Group", 6, 10) %>%
+        kableExtra::pack_rows("Co-Occurrence", 11, 11)
       
     }
     
