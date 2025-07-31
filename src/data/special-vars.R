@@ -82,7 +82,7 @@ add_special_demographics <- function(data){
 
 add_a2j_vars <- function(data){
 
-  # Legal Problem prevalence
+  ### Legal Problem prevalence ----
   legalProblems <- c(
     "A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4", "D5", "D6", "E1", 
     "E2", "E3", "F1", "F2", "G1", "G2", "G3", "H1", "H2", "H3", "I1", "J1", "J2", "J3", "J4", "K1", "K2", "K3", 
@@ -172,8 +172,8 @@ add_a2j_vars <- function(data){
       )
     )
   
-  # A2J special wranglings
-  agg_data <- data %>%
+  ### A2J special wranglings ----
+  legal_needs <- data %>%
     left_join(
       selec_sev,
       by = "country_year_id"
@@ -197,8 +197,16 @@ add_a2j_vars <- function(data){
       
       # Legal vulnerability: official proof of housing or land tenure
       vulnerability2 = case_when(
-        A5b == 1  ~ 1,
-        A5b <= 98 ~ 0
+        A5b  == 1 ~ 1,
+        A5b <= 98 ~ 0,
+      ),
+      
+      # Legal vulnerability: written agreement
+      vulnerability3 = case_when(
+        wagreement == 1  ~ 1,
+        wagreement <= 98 ~ 0,
+        work == 1 ~ 1
+        # work == 8 ~ 0
       ),
       
       # Access to appropriate information and advice
@@ -236,6 +244,13 @@ add_a2j_vars <- function(data){
         # AJR_resolution == 98 (We don't know if they really needed the DRM, so we exclude 98s)
       ),
       
+      # Court mentioned as drm
+      court_as_DRM = case_when(
+        AJR_court_bin == 1 ~ "Court or Tribunal",
+        AJR_court_bin == 0 ~ "Other",
+        
+      ),
+      
       # Timeliness of the resolution process
       rp_time = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
@@ -248,6 +263,18 @@ add_a2j_vars <- function(data){
         AJR_solvingtime <= 12       ~ 1
       ),
       
+      # Quickness of the resolution process
+      rp_quick = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_slow == 99 ~ NA_real_,
+        AJR_slow == 98 ~ 0,
+        AJR_slow == 1  ~ 0,
+        AJR_slow == 2  ~ 1
+      ),
+      
       # Costliness of the resolution process
       rp_cost = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
@@ -257,6 +284,17 @@ add_a2j_vars <- function(data){
         AJR_solvingcosts == 2 ~ 1,
         AJR_solvingcosts == 1 & (AJR_costdiff %in% c(1,2)) ~ 1,
         AJR_solvingcosts == 1 & (AJR_costdiff %in% c(3,4,98)) ~ 0
+      ),
+      
+      # Ease of covering the costs of the resolution process 
+      # Similar to costliness, but takes into account ONLY those who incurred in costs
+      rp_costdiff = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_costdiff %in% c(1,2) ~ 1,
+        AJR_costdiff %in% c(3,4,98) ~ 0,
       ),
       
       # Fairness of the resolution process
@@ -273,12 +311,34 @@ add_a2j_vars <- function(data){
       rp_outcome = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
-        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_resol   %in% c(1,2,98,99) ~ NA_real_,
         AJR_state_noresol %in% c(1,2,98,99) ~ NA_real_,
         AJR_state_resol    == 3     ~ 0,
         AJR_state_resol    == 4     ~ 1,
         AJR_state_noresol  == 3     ~ 0,
         AJR_state_noresol  == 4     ~ 1
+      ),
+      
+      # Problem Status
+      problem_status = case_when(
+        AJR_state_resol   %in% c(1,2) ~ "Ongoing",
+        AJR_state_noresol %in% c(1,2) ~ "Ongoing",
+        AJR_state_resol   %in% c(3,4) ~ "Done",
+        AJR_state_noresol %in% c(3,4) ~ "Done"
+      ),
+      
+      # Outcome resolution was in favor?
+      resolution_favor = case_when(
+        AJR_outcome %in% c(1,2) ~ "In favor of respondent",
+        AJR_outcome %in% c(3,98) ~ "Not in favor / Unknown",
+      ),
+      
+      # Satisfaction with the process
+      rp_satisfaction = case_when(
+        AJR_satis_outcome %in% c(1,2) ~ 1,
+        AJR_satis_ongoing %in% c(1,2) ~ 1,
+        AJR_satis_outcome %in% c(3,4,98) ~ 0,
+        AJR_satis_ongoing %in% c(3,4,98) ~ 0,
       ),
       
       # Problem Category
@@ -300,13 +360,14 @@ add_a2j_vars <- function(data){
     ) %>%
     select(
       country_year_id, 
-      vulnerability1, vulnerability2, 
+      vulnerability1, vulnerability2, vulnerability3,
       access2info, access2rep, access2drm,
-      rp_time, rp_cost, rp_fair, rp_outcome,
-      non_trivial_problem, selected_problem_category
+      rp_time, rp_cost, rp_fair, rp_outcome, rp_quick, rp_costdiff,
+      problem_status, resolution_favor, rp_satisfaction,
+      non_trivial_problem, selected_problem_category,
     )
   
-  # Co-occurence of legal problems
+  ### Co-occurence of legal problems ----
   cooc_data <- data %>%
     select(
       country_year_id,
@@ -334,13 +395,286 @@ add_a2j_vars <- function(data){
       )
     )
   
+  ### Justice Gap wranglings ----
+  jg_vars <- c(
+    "jg_access2info", "jg_access2rep",
+    "jg_time", "jg_cost", "jg_fair", 
+    "jg_outcome"
+  )
+  
+  jg_inverse_vars <- c(
+    "jg_inverse_access2info", "jg_inverse_access2rep",
+    "jg_inverse_time", "jg_inverse_cost", "jg_inverse_fair", 
+    "jg_inverse_outcome"
+  )
+  
+  jg_legal_needs <- data %>%
+    left_join(
+      selec_sev,
+      by = "country_year_id"
+    ) %>%
+    mutate(
+      
+      # Triviality of problem
+      non_trivial_problem = case_when(
+        is.na(sev_problem_selected) ~ NA_real_,
+        sev_problem_selected <= 3  ~ 0,
+        sev_problem_selected <= 10 ~ 1,
+        sev_problem_selected <= 99 ~ 0
+      ),
+      
+      # Access to appropriate information and advice
+      jg_access2info = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJE_infosource <= 2        ~ 1,
+        AJE_infosource <= 4        ~ 0
+      ),
+      jg_inverse_access2info = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJE_infosource <= 2        ~ 0,
+        AJE_infosource <= 4        ~ 1,
+        AJE_infosource <= 98       ~ 0
+      ),
+      
+      # Access to appropriate assistance and representation
+      jg_access2rep = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJD_inst_advice == 1 & (
+          AJD_adviser_2 == 1 | AJD_adviser_3 == 1 | AJD_adviser_4 == 1 | 
+            AJD_adviser_5 == 1 | AJD_adviser_6 == 1 | AJD_adviser_7 == 1 |
+            AJD_adviser_8 == 1
+        ) ~ 1,
+        AJD_inst_advice == 1 & AJD_adviser_1 == 1 & AJD_expert_adviser == 1 ~ 1,
+        AJD_inst_advice == 1 & (
+          AJD_adviser_1 == 1 | AJD_adviser_9 == 1
+        ) ~ 0,
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(1,2,3)) ~ 1,
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(4,5,6,7,8,9,10)) ~ 0,
+        AJD_inst_advice == 98 ~ NA_real_
+      ),
+      jg_inverse_access2rep = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJD_inst_advice == 1 & (
+          AJD_adviser_2 == 1 | AJD_adviser_3 == 1 | AJD_adviser_4 == 1 | 
+            AJD_adviser_5 == 1 | AJD_adviser_6 == 1 | AJD_adviser_7 == 1 |
+            AJD_adviser_8 == 1
+        ) ~ 0,
+        AJD_inst_advice == 1 & AJD_adviser_1 == 1 & AJD_expert_adviser == 1 ~ 0,
+        AJD_inst_advice == 1 & (
+          AJD_adviser_1 == 1 | AJD_adviser_9 == 1
+        ) ~ 1,
+        AJD_inst_advice == 1 & AJD_adviser_98 == 1 ~ 0,
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(1,2,3)) ~ 0,
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(4,5,6,7,8,9,10)) ~ 1,
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(98)) ~ 0,
+        AJD_inst_advice == 98 ~ 0
+      ),
+      
+      # Timeliness of the resolution process
+      jg_time = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_solvingtime == -9999    ~ NA_real_,
+        AJR_solvingtime == -8888    ~ NA_real_,
+        AJR_solvingtime >  12       ~ 0,
+        AJR_solvingtime <= 12       ~ 1
+      ),
+      jg_inverse_time = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_solvingtime == -9999    ~ NA_real_,
+        AJR_solvingtime == -8888    ~ 0,
+        AJR_solvingtime >  12       ~ 1,
+        AJR_solvingtime <= 12       ~ 0
+      ),
+      
+      # Costliness of the resolution process
+      jg_cost = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_solvingcosts == 2 ~ 1,
+        AJR_solvingcosts == 1 & (AJR_costdiff %in% c(1,2)) ~ 1,
+        AJR_solvingcosts == 1 & (AJR_costdiff %in% c(3,4)) ~ 0,
+        AJR_solvingcosts == 1 & (AJR_costdiff %in% c(98))  ~ NA_real_
+      ),
+      jg_inverse_cost = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_solvingcosts == 2 ~ 0,
+        AJR_solvingcosts == 1 & (AJR_costdiff %in% c(1,2)) ~ 0,
+        AJR_solvingcosts == 1 & (AJR_costdiff %in% c(3,4)) ~ 1,
+        AJR_solvingcosts == 1 & (AJR_costdiff %in% c(98))  ~ 0
+      ),
+      
+      # Fairness of the resolution process
+      jg_fair = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_fair == 1  ~ 1,
+        AJR_fair == 2  ~ 0,
+        AJR_fair == 98 ~ NA_real_
+      ),
+      jg_inverse_fair = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+        AJR_fair == 1  ~ 0,
+        AJR_fair == 2  ~ 1,
+        AJR_fair == 98 ~ 0
+      ),
+      
+      # Outcome of the resolution process
+      jg_outcome = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol   %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_resol    == 3     ~ 0,
+        AJR_state_resol    == 4     ~ 1,
+        AJR_state_noresol  == 3     ~ 0,
+        AJR_state_noresol  == 4     ~ 1
+      ),
+      jg_inverse_outcome = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol   %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_resol    == 3     ~ 1,
+        AJR_state_resol    == 4     ~ 0,
+        AJR_state_noresol  == 3     ~ 1,
+        AJR_state_noresol  == 4     ~ 0
+      )
+    )
+  
+  justice_gap_data <- imap(
+    list(
+      "noDK" = jg_vars,
+      "keepDK" = jg_inverse_vars
+    ),
+    function(var_set, method){
+      
+      jg_data_comp4th <- jg_legal_needs %>%
+        filter(
+          non_trivial_problem == 1
+        ) %>%
+        select(
+          country_year_id,
+          all_of(var_set)
+        ) %>%
+        select(
+          country_year_id,
+          ends_with(c("time", "cost", "fair"))
+        ) %>% 
+        pivot_longer(
+          !country_year_id,
+          names_to = "variable",
+          values_to = "value"
+        ) %>% 
+        group_by(country_year_id) %>% 
+        summarise(
+          jg_resol_process = mean(value, na.rm = TRUE)
+        )
+      
+      jg_data <- left_join(
+        jg_legal_needs %>%
+          select(
+            country_year_id,
+            all_of(var_set)
+          ),
+        jg_data_comp4th,
+        by = "country_year_id"
+      ) %>% 
+        left_join(
+          
+          jg_legal_needs %>%
+            select(
+              country_year_id,
+              all_of(var_set)
+            ) %>% 
+            left_join(
+              jg_data_comp4th,
+              by = "country_year_id"
+            ) %>%
+            select(
+              country_year_id,
+              ends_with(c("info", "rep", "process", "outcome"))
+            ) %>% 
+            pivot_longer(
+              !country_year_id,
+              names_to = "variable",
+              values_to = "value"
+            ) %>% 
+            group_by(country_year_id) %>% 
+            summarise(
+              a2j_score = mean(value, na.rm = TRUE)
+            ),
+          by = "country_year_id"
+        )
+      
+      if(method == "keepDK"){
+        jg_data <- jg_data %>%
+          rename(
+            jg_inverse_resol_process = jg_resol_process,
+            a2j_inverse_score = a2j_score
+          ) %>%
+          mutate(
+            a2j_score = if_else(
+              is.na(a2j_inverse_score),
+              NA_real_,
+              1-a2j_inverse_score,
+              missing = NA_real_
+            )
+          )
+      }
+      
+      jg_data <- jg_data %>%
+        mutate(
+          inside_gap = if_else(
+            a2j_score < 0.67,
+            1, 0,
+            missing = NA_real_
+          )
+        )
+      
+      return(jg_data)
+    }
+  )
+  
+  # Saving Justice Gap data
+  write_csv(
+    justice_gap_data[["noDK"]],
+    "data/jg_data_nodk.csv"
+  )
+  write_csv(
+    justice_gap_data[["keepDK"]],
+    "data/jg_data_keepdk.csv"
+  )
   
   # Listing individual data
   specialData <- reduce(
     list(
       probPrev,
-      agg_data,
-      cooc_data
+      legal_needs,
+      cooc_data,
+      justice_gap_data[["noDK"]] %>%
+        select(country_year_id, inside_justice_gap_nodk = inside_gap),
+      justice_gap_data[["keepDK"]] %>%
+        select(country_year_id, inside_justice_gap_keepdk = inside_gap)
     ),
     left_join,
     by = "country_year_id"

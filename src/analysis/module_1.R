@@ -306,6 +306,32 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+cooccurence_nproblems <- function(master, regions){
+  
+  results_tbl <- get_results_table(
+    master %>% 
+      mutate(
+        nproblems = if_else(
+          nproblems==0, NA_integer_, nproblems
+        )
+      ), 
+    regions, 
+    target = "nproblems",
+    ctype = "short",
+    prop = FALSE
+  )
+  write_csv(results_tbl, "output/tabs/csv/1_3_cooccurence_nproblems.csv")
+  export_results_kable(
+    results_tbl, 
+    title = "Co-Occurence of Justice Problems (Number of Problems)",
+    file  = "output/tabs/png/1_3_cooccurence_nproblems.png",
+    ctype = "short"
+  )
+  
+  return(results_tbl)
+}
+
+
 cooccurence_network <- function(master, regions){
   
   lapply(

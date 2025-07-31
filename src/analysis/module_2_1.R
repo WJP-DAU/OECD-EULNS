@@ -46,11 +46,12 @@ access2information_logit <- function(master, regions, study_countries){
         paste(independent_vars[[country]], collapse = " + ")
       )
       
+      data4logit = master %>% filter(country_name_ltn == country)
       results_tbl <- estimate_logit(
-        data = master %>% filter(country_name_ltn == country), 
+        data = data4logit, 
         f = formula
       )
-      
+
       write_csv(results_tbl, "output/tabs/csv/2_1_2_access_to_information_logit.csv")
       
       export_results_kable(

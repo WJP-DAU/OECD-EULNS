@@ -141,6 +141,7 @@ contacted_advisers <- function(master, regions, study_countries){
         "Gvt. Body or Police", "Health/Welfare Prof.", "Trade Union or Employer", 
         "Rel. or Comm. Leader", "CSO", "None"
       )
+      n_rows <- nrow(df)
       
       upset <- ComplexUpset::upset(
         df, names(df), 
@@ -160,17 +161,26 @@ contacted_advisers <- function(master, regions, study_countries){
             ),
             
             text_mapping = aes(
+              # label = paste0(
+              #   # !!ComplexUpset::upset_text_percentage(),
+              #   !!ComplexUpset::get_size_mode("exclusive_intersection"),
+              #   "\n(",
+              #   format(
+              #     round(
+              #       ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 1
+              #     ),
+              #     nsmall = 1
+              #   ),
+              #   "%)"
+              # )
               label = paste0(
-                # !!ComplexUpset::upset_text_percentage(),
-                !!ComplexUpset::get_size_mode("exclusive_intersection"),
-                "\n(",
                 format(
                   round(
-                    ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 1
+                    ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 0
                   ),
-                  nsmall = 1
+                  nsmall = 0
                 ),
-                "%)"
+                "%"
               )
             )
             
@@ -182,12 +192,29 @@ contacted_advisers <- function(master, regions, study_countries){
         set_sizes = ComplexUpset::upset_set_size(
           geom = geom_bar(
             stat  = "count",
-            fill  = "#003E1F"
+            fill  = "#003E1F",
+            width = 0.75
           ) 
-        ) + ylab("No. of respondents") + 
+        ) + 
+          geom_text(
+            aes(
+              label = paste0(
+                format(
+                  round(
+                    (after_stat(count)/n_rows)*100, 0
+                  ),
+                  nsmall = 0
+                ), "%"
+              )
+            ), 
+            hjust = 1.1, 
+            stat  = "count"
+          ) +
+          ylab("No. of respondents") + 
+          expand_limits(y = 1000) +
           theme (
-            axis.text.x  = element_text(color = "grey25"),
-            axis.title.x = element_text(color = "grey25")
+            axis.text.x  = element_blank(),
+            axis.title.x = element_blank()
           )
       )
       
@@ -196,6 +223,8 @@ contacted_advisers <- function(master, regions, study_countries){
         width = 12, 
         height = 6
       )
+      
+      return(df)
     }
   )
   
