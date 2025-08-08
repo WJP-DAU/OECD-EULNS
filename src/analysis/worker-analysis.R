@@ -98,7 +98,7 @@ timeliness_rp <- timeliness_rp(master, regions)
 slowness_rp <- slowness_rp(master, regions)
 fair_rp <- fair_rp(master, regions)
 cost_rp <- cost_rp(master, regions)
-costdiff_rp <- costdiff_rp(master, regions)
+expensive_rp <- expensive_rp(master, regions)
 
 
 if(!interactive()){
@@ -123,6 +123,7 @@ justice_gap_keepdk <- justice_gap_keepdk(master, regions)
 justice_gap_nodk   <- justice_gap_nodk(master, regions)
 unmet_legal_needs  <- unmet_legal_needs(jg_data, study_countries)
 justice_gap_logit  <- justice_gap_logit(master, regions, study_countries)
+hardships <- hardships(master, regions)
 
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -151,5 +152,5 @@ if(!interactive()){
   verbose_message("--- Performing data analysis for Module 5 ...")
 }
 source("src/analysis/module_5.R")
-trust_judges <- trust_judges(master, regions)
+trust <- trust(master, regions)
   

@@ -107,18 +107,18 @@ cost_rp <- function(master, regions){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-costdiff_rp <- function(master, regions){
+expensive_rp <- function(master, regions){
   
   results_tbl <- get_results_table(
     master, 
     regions, 
-    target = "rp_costdiff"
+    target = "rp_expensive"
   )
-  write_csv(results_tbl, "output/tabs/csv/2_4_5_fairness_ease_covering_costs.csv")
+  write_csv(results_tbl, "output/tabs/csv/2_4_5_expensive.csv")
   export_results_kable(
     results_tbl, 
-    title = "Ease of Covering the Costs of the Resolution Process",
-    file  = "output/tabs/png/2_4_5_fairness_ease_covering_costs.png"
+    title = "Perception of Expensive Costs associated to the Resolution Process",
+    file  = "output/tabs/png/2_4_5_expensive.png"
   )
   
   return(results_tbl)

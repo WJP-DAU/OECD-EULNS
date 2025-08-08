@@ -11,7 +11,7 @@
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-trust_judges <- function(master, regions){
+trust <- function(master, regions){
   
   master <- master %>% 
     mutate(
