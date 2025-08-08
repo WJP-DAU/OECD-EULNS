@@ -52,7 +52,7 @@ justice_gap_nodk <- function(master, regions){
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ##
-## 1.  Co-occurence of Unmet Legal Needs ----
+## 2.  Co-occurence of Unmet Legal Needs ----
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -221,3 +221,64 @@ justice_gap_logit <- function(master, regions, study_countries){
 }
 
 
+## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+##
+## 4.  Hardships ----
+##
+## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+hardships <- function(master, regions){
+  
+  target_vars <- c(
+    "hardships_health", "hardships_emotional", 
+    "hardships_income", "hardships_drugs"
+  )
+  names(target_vars) <- target_vars
+  
+  results_tbl <- map_dfr(
+    target_vars,
+    function(var){
+      get_results_table(
+        master, 
+        regions, 
+        target = var
+      ) %>%
+        filter(
+          grouping == "National"
+        ) %>%
+        mutate(
+          category = var
+        )
+    }
+  )
+  
+  write_csv(results_tbl, "output/tabs/csv/3_4_hardships.csv")
+  suppressMessages(
+    kableExtra::kbl(
+      results_tbl %>% 
+        select(-grouping) %>%
+        mutate(
+          category = case_when(
+            category == "hardships_health"    ~ "Health issues",
+            category == "hardships_emotional" ~ "Relationship breakdown",
+            category == "hardships_income"    ~ "Economic issues",
+            category == "hardships_drugs"     ~ "Alcohol/Drugs problems"
+          )
+        ), 
+      digits = 1, 
+      caption = "Hardships experienced by people in their justice pathway",
+      col.names = c("Hardship", "Italy", "Malta")
+    ) %>%
+      kableExtra::kable_classic(
+        html_font = "Cambria"
+      ) %>% 
+      kableExtra::kable_styling(
+        font_size = 18,
+        latex_options = "striped"
+      ) %>%
+      kableExtra::save_kable("output/tabs/PNG/3_4_hardships.png")
+  )
+  
+  
+}
+  

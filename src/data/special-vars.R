@@ -144,7 +144,7 @@ add_a2j_vars <- function(data){
         )
     ),
     left_join,
-    by = "country_year_id"
+    by = c("country_year_id", "problem")
   ) %>%
     mutate(
       prevalence1 = case_when(
@@ -166,6 +166,14 @@ add_a2j_vars <- function(data){
       )
     ) %>%
     mutate(
+      nproblems = prevalence2,
+      cooccurence_group = case_when(
+        nproblems == 0 ~ NA_character_,
+        nproblems == 1 ~ "1 problem",
+        nproblems <= 3 ~ "2-3 problems",
+        nproblems <= 5 ~ "4-5 problems",
+        nproblems >= 6 ~ "5 or more problems"
+      ),
       across(
         starts_with("prevalence"),
         \(x) if_else(x > 0, 1, 0)
@@ -247,8 +255,7 @@ add_a2j_vars <- function(data){
       # Court mentioned as drm
       court_as_DRM = case_when(
         AJR_court_bin == 1 ~ "Court or Tribunal",
-        AJR_court_bin == 0 ~ "Other",
-        
+        AJR_court_bin == 0 ~ "Other"
       ),
       
       # Timeliness of the resolution process
@@ -286,15 +293,14 @@ add_a2j_vars <- function(data){
         AJR_solvingcosts == 1 & (AJR_costdiff %in% c(3,4,98)) ~ 0
       ),
       
-      # Ease of covering the costs of the resolution process 
-      # Similar to costliness, but takes into account ONLY those who incurred in costs
-      rp_costdiff = case_when(
+      # Resolution process was NOT expensive
+      rp_expensive = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
         AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
         AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
-        AJR_costdiff %in% c(1,2) ~ 1,
-        AJR_costdiff %in% c(3,4,98) ~ 0,
+        AJR_expensive == 1 ~ 1,
+        AJR_expensive %in% c(2,98) ~ 0,
       ),
       
       # Fairness of the resolution process
@@ -335,6 +341,8 @@ add_a2j_vars <- function(data){
       
       # Satisfaction with the process
       rp_satisfaction = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
         AJR_satis_outcome %in% c(1,2) ~ 1,
         AJR_satis_ongoing %in% c(1,2) ~ 1,
         AJR_satis_outcome %in% c(3,4,98) ~ 0,
@@ -355,44 +363,29 @@ add_a2j_vars <- function(data){
         AJP_problem %in% c("J1", "J2", "J3") ~ "Citizenship & ID",
         AJP_problem %in% c("K1", "K2", "K3", "L1", "L2") ~ "Money & Debt",
         AJP_problem %in% c("E3", "C3") ~ "Community"
+      ),
+      
+      # Hardships
+      across(
+        c(AJE_health, AJE_emotional, AJE_income, AJE_drugs),
+        \(x) case_when(
+          is.na(non_trivial_problem) ~ NA_real_,
+          non_trivial_problem == 0   ~ NA_real_,
+          x == 1 ~ 1,
+          x %in% c(2,98) ~ 0
+        ),
+        .names = "hardships_{str_remove(.col, 'AJE_')}"
       )
     
-    ) %>%
+    ) %>% 
     select(
       country_year_id, 
       vulnerability1, vulnerability2, vulnerability3,
       access2info, access2rep, access2drm,
-      rp_time, rp_cost, rp_fair, rp_outcome, rp_quick, rp_costdiff,
+      rp_time, rp_cost, rp_fair, rp_outcome, rp_quick, rp_expensive,
       problem_status, resolution_favor, rp_satisfaction,
       non_trivial_problem, selected_problem_category,
-    )
-  
-  ### Co-occurence of legal problems ----
-  cooc_data <- data %>%
-    select(
-      country_year_id,
-      all_of(legprob_bin)
-    ) %>%
-    pivot_longer(
-      !country_year_id,
-      names_to = "problem",
-      values_to = "value"
-    ) %>%
-    mutate(
-      value = if_else(value == 1, 1, 0)
-    ) %>% 
-    group_by(country_year_id) %>%
-    summarise(
-      nproblems = sum(value, na.rm = TRUE)
-    ) %>%
-    mutate(
-      cooccurence_group = case_when(
-        nproblems == 0 ~ NA_character_,
-        nproblems == 1 ~ "1 problem",
-        nproblems <= 3 ~ "2-3 problems",
-        nproblems <= 5 ~ "4-5 problems",
-        nproblems >= 6 ~ "5 or more problems"
-      )
+      starts_with("hardships_")
     )
   
   ### Justice Gap wranglings ----
@@ -670,7 +663,7 @@ add_a2j_vars <- function(data){
     list(
       probPrev,
       legal_needs,
-      cooc_data,
+      # cooc_data,
       justice_gap_data[["noDK"]] %>%
         select(country_year_id, inside_justice_gap_nodk = inside_gap),
       justice_gap_data[["keepDK"]] %>%
