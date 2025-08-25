@@ -28,7 +28,8 @@ study_vars <- c(
   "nationality", "emp_status",
   
   # GPP variables
-  "JSE_access2info", "JSE_access2assis", "JSE_mediation",
+  "JSE_access2info", "JSE_access2assis", "JSE_mediation", 
+  "JSE_affordcosts", "JSE_fairoutcomes",
   "TRT_judges", "TRT_prosecutors", "TRT_pda",
   
   # A2J variables
@@ -42,7 +43,11 @@ study_vars <- c(
   "hardships_health", "hardships_emotional", "hardships_income", "hardships_drugs",
   
   # Justice Gap variables
-  "inside_justice_gap_nodk", "inside_justice_gap_keepdk"
+  "inside_justice_gap_nodk", "inside_justice_gap_keepdk",
+  
+  # Sankey variables
+  "sankey_advice_stage_1", "sankey_advice_stage_2", "sankey_drm_stage_1", 
+  "sankey_drm_stage_2"
 )
 
 # Loading data

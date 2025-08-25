@@ -16,9 +16,9 @@ trust <- function(master, regions){
   master <- master %>% 
     mutate(
       non_trivial_problem_broader = case_when(
-        non_trivial_problem == 1 ~ "Experienced",
-        non_trivial_problem == 0 ~ "Did not experienced",
-        is.na(non_trivial_problem) ~ "Did not experienced"
+        non_trivial_problem == 1 ~ "Yes",
+        non_trivial_problem == 0 ~ "No",
+        is.na(non_trivial_problem) ~ "No"
       )
     )
   

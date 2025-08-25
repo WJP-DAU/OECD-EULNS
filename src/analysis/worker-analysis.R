@@ -74,9 +74,9 @@ if(!interactive()){
 source("src/analysis/module_2_2.R")
 access2representation <- access2representation(master, regions)
 access2representation_logit <- access2representation_logit(master, regions, study_countries)
-access2representation_perceptions <- access2representation_perceptions(master, regions)
 contacted_advisers <- contacted_advisers(master, regions, study_countries)
 access2representation_barriers <- access2representation_barriers(master, regions, study_countries)
+access2representation_perceptions <- access2representation_perceptions(master, regions)
 
 
 if(!interactive()){
@@ -95,7 +95,7 @@ if(!interactive()){
 }
 source("src/analysis/module_2_4.R")
 timeliness_rp <- timeliness_rp(master, regions)
-slowness_rp <- slowness_rp(master, regions)
+quickness_rp <- quickness_rp(master, regions)
 fair_rp <- fair_rp(master, regions)
 cost_rp <- cost_rp(master, regions)
 expensive_rp <- expensive_rp(master, regions)
@@ -107,6 +107,7 @@ if(!interactive()){
 source("src/analysis/module_2_5.R")
 outcome_rp <- outcome_rp(master, regions)
 satisfaction_rp <- satisfaction_rp(master, regions)
+status_rp <- status_rp(master, regions)
 
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -153,4 +154,7 @@ if(!interactive()){
 }
 source("src/analysis/module_5.R")
 trust <- trust(master, regions)
+
+
+access2representation_perceptions <- access2representation_perceptions(master, regions)
   

@@ -115,11 +115,17 @@ contacted_advisers <- function(master, regions, study_countries){
     study_countries,
     function(country){
       
-      df <- master %>%
+      df_full <- master %>%
         filter(
           access2rep == 1 & country_name_ltn == country
         ) %>%
+        mutate(
+          AJD_adviser_1 = if_else(
+            AJD_adviser_1 == 1 & (AJD_expert_adviser %in% c(2,98,99)), 2, AJD_adviser_1
+          )
+        ) %>%
         select(
+          country_year_id, country_name_ltn, nuts_id,
           all_of(possible_advisers)
         ) %>%
         mutate(
@@ -128,7 +134,7 @@ contacted_advisers <- function(master, regions, study_countries){
             is.na(AJD_adviser_1) ~ TRUE
           ),
           across(
-            everything(),
+            !c(country_year_id, country_name_ltn, nuts_id),
             \(x) case_when(
               x == 1 ~ TRUE,
               x == 2 ~ FALSE,
@@ -136,6 +142,8 @@ contacted_advisers <- function(master, regions, study_countries){
             )
           )
         )
+      df <- df_full %>% 
+        select(-c(country_year_id, country_name_ltn, nuts_id))
       names(df) <- c(
         "Relative or Friend", "Lawyer or Prof. Advisor", "Gvt. Legal Aid",
         "Gvt. Body or Police", "Health/Welfare Prof.", "Trade Union or Employer", 
@@ -224,9 +232,62 @@ contacted_advisers <- function(master, regions, study_countries){
         height = 6
       )
       
-      return(df)
+      weighted_data <- df_full %>% 
+        group_by(country_name_ltn, nuts_id) %>%
+        filter(none == FALSE) %>% 
+        select(-country_year_id) %>% 
+        summarise(
+          across(
+            everything(),
+            \(x) sum(x)
+          ),
+          nuts_size = n(),
+          .groups = "keep"
+        ) %>% 
+        left_join(
+          regions %>% select(nuts_id, wgt = regionpoppct),
+          by = "nuts_id"
+        ) %>%
+        mutate(
+          across(
+            starts_with("AJD_adviser_"),
+            \(x) (x/nuts_size)*wgt
+          )
+        ) %>% 
+        group_by(country_name_ltn) %>% 
+        summarise(
+          across(
+            starts_with("AJD_adviser_"),
+            \(x) sum(x)*100
+          )
+        ) %>%
+        pivot_longer(
+          !country_name_ltn,
+          names_to = "category",
+          values_to = "value"
+        ) %>% 
+        mutate(
+          category = case_when(
+            category == "AJD_adviser_1" ~ "Friend or Family",
+            category == "AJD_adviser_2" ~ "Lawyer or Prof. Advisor",
+            category == "AJD_adviser_3" ~ "Gvt. Legal Aid",
+            category == "AJD_adviser_4" ~ "Gvt. Body or Police",
+            category == "AJD_adviser_5" ~ "Health/Welfare Prof.",
+            category == "AJD_adviser_6" ~ "Trade Union or Employer",
+            category == "AJD_adviser_7" ~ "Rel. or Comm. Leader",
+            category == "AJD_adviser_8" ~ "CSO"
+          ),
+          country_name_ltn = "national_avg"
+        )
+      names(weighted_data) <- c("grouping", "category", country)
+        
+      return(weighted_data)
     }
-  )
+  ) %>%
+    reduce(
+      left_join,
+      by = c("grouping", "category")
+    )
   
 }
 
@@ -319,4 +380,123 @@ access2representation_barriers <- function(master, regions, study_countries){
     }
   )
   
+  return(
+    results_tbl %>% 
+      pivot_wider(
+        id_cols = target,
+        names_from = country_name_ltn,
+        values_from = proportion_national
+      ) %>% 
+      mutate(
+        grouping = "National avg."
+      ) %>% 
+      rename(
+        category = target
+      )
+  )
+  
 }
+
+## 6. No of Advisors contacted ----
+ncontacts <- function(){
+  possible_advisers <- c(
+    "AJD_adviser_1", "AJD_adviser_2", "AJD_adviser_3" , "AJD_adviser_4" ,
+    "AJD_adviser_5" , "AJD_adviser_6", "AJD_adviser_7", "AJD_adviser_8" 
+  )
+  data_subset <- master %>% 
+    mutate(
+      AJD_adviser_1 = if_else(
+        AJD_adviser_1 == 1 & (AJD_expert_adviser %in% c(2,98,99)), 2, AJD_adviser_1
+      )
+    ) %>% 
+    filter(
+      access2rep == 1
+    ) %>% 
+    mutate(
+      across(
+        possible_advisers,
+        \(x) case_when(
+          x == 1 ~ 1,
+          x == 2 ~ 0
+        )
+      )
+    ) %>% 
+    select(
+      country_year_id, country_name_ltn, nuts_id,
+      all_of(possible_advisers)
+    ) %>% 
+    pivot_longer(
+      !c(country_year_id, country_name_ltn, nuts_id),
+      names_to = "category",
+      values_to = "value"
+    ) %>% 
+    mutate(
+      contacted_lawyer = if_else(
+        category == "AJD_adviser_2" & value == 1, 1, 0,
+        missing = NA_real_
+      )
+    ) %>% 
+    group_by(country_year_id) %>% 
+    summarise(
+      country_name_ltn = first(country_name_ltn),
+      nuts_id = first(nuts_id),
+      contacted_advisors = sum(value),
+      contacted_lawyer = sum(contacted_lawyer)
+    ) %>% 
+    filter(
+      !is.na(contacted_advisors)
+    )
+  
+  only_lawyer <- data_subset %>% 
+    mutate(
+      contacted_only_lawyer = if_else(
+        contacted_advisors == 1 & contacted_lawyer == 1, 1, 0
+      )
+    ) %>% 
+    group_by(country_name_ltn, nuts_id) %>% 
+    summarise(
+      nuts_sample = n(),
+      contacted_only_lawyer = sum(contacted_only_lawyer)
+    ) %>% 
+    mutate(
+      proportion = contacted_only_lawyer/nuts_sample
+    ) %>% 
+    left_join(
+      regions %>% select(nuts_id, wgt = regionpoppct),
+      by = "nuts_id"
+    ) %>%
+    mutate(
+      weighted_proportion = proportion*wgt
+    ) %>% 
+    group_by(country_name_ltn) %>% 
+    summarise(
+      national_avg = sum(weighted_proportion)
+    )
+  
+  two_or_more_advisers <- data_subset %>% 
+    mutate(
+      two_or_more = if_else(
+        contacted_advisors >= 2, 1, 0
+      )
+    ) %>% 
+    group_by(country_name_ltn, nuts_id) %>% 
+    summarise(
+      nuts_sample = n(),
+      three_or_more = sum(two_or_more)
+    ) %>% 
+    mutate(
+      proportion = three_or_more/nuts_sample
+    ) %>% 
+    left_join(
+      regions %>% select(nuts_id, wgt = regionpoppct),
+      by = "nuts_id"
+    ) %>%
+    mutate(
+      weighted_proportion = proportion*wgt
+    ) %>% 
+    group_by(country_name_ltn) %>% 
+    summarise(
+      national_avg = sum(weighted_proportion)
+    )
+}
+  

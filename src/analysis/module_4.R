@@ -128,6 +128,18 @@ perceived_causes <- function(master, regions, study_countries){
     }
   )
   
+  return(
+    results_tbl %>% 
+      pivot_wider(
+        id_cols = category,
+        names_from = country_name_ltn,
+        values_from = proportion_national
+      ) %>% 
+      mutate(
+        grouping = "National Avg."
+      )
+  )
+  
 }
 
 
@@ -193,9 +205,33 @@ legal_empowerment <- function(master, regions){
         ctype = "short"
       )
       
-      return(results_tbl)
+      return(
+        results_tbl %>% 
+          mutate(
+            category = if_else(
+              category == "National",
+              type,
+              category
+            )
+          )
+      )
       
     }
   )
   
+  results_table <- map_dfr(
+    results_list,
+    function(x){
+      x %>% filter(grouping == "National")
+    }
+  ) %>% 
+    mutate(
+      category = case_when(
+        category == "identity" ~ "Official proof of identity",
+        category == "housing"  ~ "Proof of housing or land tenure",
+        category == "contract" ~ "Written work agreement"
+      )
+    )
+  
+  return(results_table)
 }

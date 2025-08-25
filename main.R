@@ -15,6 +15,12 @@ option_list <- list(
     help    = "Perform data analysis routines"
   ),
   make_option(
+    c("--viz"),
+    action  = "store_true",
+    default = FALSE,
+    help    = "Perform data visualization routines"
+  ),
+  make_option(
     c("--verbose"),
     action  = "store_true",
     default = FALSE,
@@ -46,6 +52,11 @@ main <- function(){
     verbose_message("Performing data analysis routines:")
     source("src/analysis/worker-analysis.R")
     verbose_message("Data analysis successful ✅")
+  }
+  if (opt$viz){
+    verbose_message("Performing data visualization routines:")
+    source("src/viz/worker-viz.R")
+    verbose_message("Data visualization successful ✅")
   }
   
 }

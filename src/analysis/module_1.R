@@ -273,6 +273,20 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
     mutate(
       category = str_remove(
         category, "problem_cat_"
+      ),
+      category = case_when(
+        category == "accidental" ~ "Accidental",
+        category == "community"  ~ "Community",
+        category == "consumer"   ~ "Consumer",
+        category == "education"  ~ "Education",
+        category == "employment" ~ "Employment",
+        category == "family"     ~ "Family",
+        category == "housing"    ~ "Housing",
+        category == "id"         ~ "Citinzenship & ID",
+        category == "land"       ~ "Land",
+        category == "law"        ~ "Law Enforcement",
+        category == "money"      ~ "Money & Debt",
+        category == "public"     ~ "Public Services"
       )
     ) %>%
     arrange(category)
