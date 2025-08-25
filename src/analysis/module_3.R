@@ -98,7 +98,7 @@ unmet_legal_needs <- function(jg_data, study_countries){
           df, names(df), 
           name = "Unmet Legal Needs", 
           width_ratio = 0.1, 
-          min_size    = 11,
+          min_size    = 1,
           base_annotations = list(
             "Intersection size" = ComplexUpset::intersection_size(
               
@@ -112,27 +112,27 @@ unmet_legal_needs <- function(jg_data, study_countries){
               ),
               
               text_mapping = aes(
-                # label = paste0(
-                #   # !!ComplexUpset::upset_text_percentage(),
-                #   !!ComplexUpset::get_size_mode("exclusive_intersection"),
-                #   "\n(",
-                #   format(
-                #     round(
-                #       ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 1
-                #     ),
-                #     nsmall = 1
-                #   ),
-                #   "%)"
-                # )
                 label = paste0(
+                  # !!ComplexUpset::upset_text_percentage(),
+                  !!ComplexUpset::get_size_mode("exclusive_intersection"),
+                  "\n(",
                   format(
                     round(
-                      ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 0
+                      ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 1
                     ),
-                    nsmall = 0
+                    nsmall = 1
                   ),
-                  "%"
+                  "%)"
                 )
+                # label = paste0(
+                #   format(
+                #     round(
+                #       ((!!ComplexUpset::get_size_mode("exclusive_intersection"))/nrow(df))*100, 0
+                #     ),
+                #     nsmall = 0
+                #   ),
+                #   "%"
+                # )
               )
               
             ) + scale_fill_manual(
@@ -279,6 +279,17 @@ hardships <- function(master, regions){
       kableExtra::save_kable("output/tabs/PNG/3_4_hardships.png")
   )
   
+  return(
+    results_tbl %>% 
+      mutate(
+        category = case_when(
+          category == "hardships_health"    ~ "Health issues",
+          category == "hardships_emotional" ~ "Relationship breakdown",
+          category == "hardships_income"    ~ "Economic issues",
+          category == "hardships_drugs"     ~ "Alcohol/Drugs problems"
+        )
+      )
+  )
   
 }
   

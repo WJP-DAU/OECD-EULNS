@@ -648,6 +648,80 @@ add_a2j_vars <- function(data){
     }
   )
   
+  ### Special Sankey Wranglings ----
+  sankey_data <- data %>%
+    left_join(
+      selec_sev,
+      by = "country_year_id"
+    ) %>%
+    mutate(
+      
+      # Triviality of problem
+      non_trivial_problem = case_when(
+        is.na(sev_problem_selected) ~ NA_real_,
+        sev_problem_selected <= 3  ~ 0,
+        sev_problem_selected <= 10 ~ 1,
+        sev_problem_selected <= 99 ~ 0
+      ),
+      
+      # Advice & Representation: First Stage
+      sankey_advice_stage_1 = case_when(
+        is.na(non_trivial_problem)    ~ NA_character_,
+        non_trivial_problem == 0      ~ NA_character_,
+        AJD_inst_advice == 1          ~ "Contacted an advisor",
+        AJD_inst_advice %in% c(2, 98) ~ "Did not contact an advisor"
+      ),
+      
+      # Advice & Representation:  Second Stage
+      sankey_advice_stage_2 = case_when(
+        is.na(non_trivial_problem) ~ NA_character_,
+        non_trivial_problem == 0   ~ NA_character_,
+        AJD_inst_advice == 1 & (
+          AJD_adviser_2 == 1 | AJD_adviser_3 == 1 | AJD_adviser_4 == 1 | 
+            AJD_adviser_5 == 1 | AJD_adviser_6 == 1 | AJD_adviser_7 == 1 |
+            AJD_adviser_8 == 1
+        ) ~ "Appropriate Advisor",
+        AJD_inst_advice == 1 & AJD_adviser_1 == 1 & AJD_expert_adviser == 1 ~ "Appropriate Advisor",
+        AJD_inst_advice == 1 & (
+          AJD_adviser_1 == 1 | AJD_adviser_9 == 1 | AJD_adviser_98 == 1
+        ) ~ "Non-Appropriate Advisor",
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(1,2,3)) ~ "Did not need an advisor",
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(4,5,6,7,8,9,10,98)) ~ "Needed but did not have access to an advisor",
+        AJD_inst_advice == 98 ~ "Unknown Reason"
+      ),
+      
+      # Access to DRM: Stage 1
+      sankey_drm_stage_1 = case_when(
+        is.na(non_trivial_problem) ~ NA_character_,
+        non_trivial_problem == 0   ~ NA_character_,
+        AJR_resolution == 1        ~ "Turned to a DRM",
+        AJR_resolution == 2 & (
+          AJR_noresol_reason %in% c(3,5,6,7,8)
+        ) ~ "Needed but did not have access to a DRM",
+        AJR_resolution == 2 & (
+          AJR_noresol_reason %in% c(1,2,4,9,10)
+        ) ~ "Did not need to turn to a DRM",
+        AJR_resolution == 2 & (
+          AJR_noresol_reason %in% c(11,98)
+        ) ~ "Unknown Reason"
+      ),
+      
+      # Access to DRM: Stage 2
+      sankey_drm_stage_2 = case_when(
+        is.na(non_trivial_problem) ~ NA_character_,
+        non_trivial_problem == 0   ~ NA_character_,
+        AJR_resolution == 1        ~ "Had access to a DRM",
+        AJR_resolution == 2 & (
+          AJR_noresol_reason %in% c(3,5,6,7,8)
+        ) ~ "Did not have access to a DRM"
+      )
+      
+    ) %>% 
+    select(
+      country_year_id,
+      sankey_advice_stage_1, sankey_advice_stage_2, sankey_drm_stage_1, sankey_drm_stage_2
+    )
+  
   # Saving Justice Gap data
   write_csv(
     justice_gap_data[["noDK"]],
@@ -663,11 +737,11 @@ add_a2j_vars <- function(data){
     list(
       probPrev,
       legal_needs,
-      # cooc_data,
       justice_gap_data[["noDK"]] %>%
         select(country_year_id, inside_justice_gap_nodk = inside_gap),
       justice_gap_data[["keepDK"]] %>%
-        select(country_year_id, inside_justice_gap_keepdk = inside_gap)
+        select(country_year_id, inside_justice_gap_keepdk = inside_gap),
+      sankey_data
     ),
     left_join,
     by = "country_year_id"

@@ -35,7 +35,7 @@ timeliness_rp <- function(master, regions){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-slowness_rp <- function(master, regions){
+quickness_rp <- function(master, regions){
   
   results_tbl <- get_results_table(
     master, 

@@ -211,7 +211,7 @@ get_results_table <- function(
     )
     names(categories) <- c(
       "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", 
-      "Category", "Co-occurence Group"
+      "Category", "Co-occurrence Group"
     )
   } 
   
@@ -231,7 +231,7 @@ get_results_table <- function(
     )
     names(categories) <- c(
       "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", 
-      "Problem Status", "Non-Trivial Problem Reported"
+      "Problem Status", "Non-Trivial Problem Experienced"
     )
   }
   
