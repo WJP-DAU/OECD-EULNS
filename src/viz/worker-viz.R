@@ -5,25 +5,69 @@
 ## Creation date:     July 23, 2025
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+if(!interactive()){
+  verbose_message("--- Performing estimations for data points")
+}
+source("src/analysis/worker-analysis.R")
+
 source("src/viz/grouped_bars.R")
 source("src/viz/horizontal_bars.R")
 source("src/viz/dumbbells.R")
 source("src/viz/sankey_advice&rep.R")
 source("src/viz/sankey_drm.R")
+source("src/viz/jg_upset.R")
 
 path2fonts <- glue::glue(
   "{path2DA}/6. Country Reports/0. Fonts"
 )
-
-# Adding Inter font specs
 sysfonts::font_add(
   "inter",
-  regular    = glue::glue("{path2fonts}/Inter_24pt-Regular.ttf"),
-  bold       = glue::glue("{path2fonts}/Inter_24pt-SemiBold.ttf"),
-  italic     = glue::glue("{path2fonts}/Inter_24pt-Italic.ttf"),
-  bolditalic = glue::glue("{path2fonts}/Inter_24pt-SemiBoldItalic.ttf")
+  regular    = glue::glue("{path2fonts}/InterTight-Regular.ttf"),
+  bold       = glue::glue("{path2fonts}/InterTight-Bold.ttf"),
+  italic     = glue::glue("{path2fonts}/InterTight-Italic.ttf"),
+  bolditalic = glue::glue("{path2fonts}/InterTight-SemiBoldItalic.ttf")
 )
 showtext::showtext_auto()
+
+path2data4web <- glue::glue(
+  "{path2EU}/reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv"
+)
+pvars <- c(
+  "prevalence2", "access2info", "access2rep", "access2drm",
+  "rp_time", "rp_fair", "rp_cost", "rp_outcome",
+  "TRT_judges", "TRT_prosecutors", "TRT_pda"
+)
+data4web <- read_csv(
+  path2data4web,
+  show_col_types = FALSE
+) %>% 
+  filter(
+    (id %in% pvars) & 
+      (demographic == "Total Sample") & 
+      (level == "eu")
+  ) %>% 
+  select(
+    country_name = country, id, value
+  )
+
+eu_rankings_data <- read_csv(
+  path2data4web,
+  show_col_types = FALSE
+) %>% 
+  filter(
+    (id %in% pvars) & 
+      (demographic == "Total Sample") & 
+      (level == "national")
+  ) %>% 
+  select(
+    country_name = country, id, value
+  ) %>% 
+  distinct(country_name, id, value, .keep_all = TRUE) %>% 
+  group_by(id) %>% 
+  arrange(desc(value)) %>% 
+  mutate(
+    rank=row_number()
+  )
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ##
@@ -44,8 +88,10 @@ invisible(
       gen_grouped_bars(
         name = "prevalence_nontrivial_problems",
         country = country,
-        w = 15,
-        h = 10
+        w = 280,
+        h = 265,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -61,8 +107,8 @@ invisible(
       gen_horizontal_bars(
         name = "prevalence_nontrivial_problems_by_category",
         country = country,
-        w = 10,
-        h = 8
+        w = 280,
+        h = 180
       )
       
     }
@@ -78,8 +124,8 @@ invisible(
       gen_grouped_bars(
         name = "cooccurence_nproblems",
         country = country,
-        w = 15,
-        h = 10,
+        w = 280,
+        h = 225,
         perc = FALSE
       )
       
@@ -106,13 +152,13 @@ invisible(
       
       if (country == "Malta") {
         omit.cats <- c("Category")
-        w <- 14
-        h <- 12
+        w <- 280
+        h <- 300
         
       } else {
         omit.cats = NULL
-        w <- 15
-        h <- 16
+        w <- 280
+        h <- 375
         
       }
       
@@ -121,7 +167,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -137,8 +185,8 @@ invisible(
       gen_dumbbells(
         name = "access2information",
         country = country,
-        w = 12,
-        h = 12
+        w = 280,
+        h = 265
       )
       
     }
@@ -174,13 +222,13 @@ invisible(
       
       if (country == "Malta") {
         omit.cats <- c("Category")
-        w <- 14
-        h <- 12
+        w <- 280
+        h <- 300
         
       } else {
         omit.cats = NULL
-        w <- 15
-        h <- 16
+        w <- 280
+        h <- 375
         
       }
       
@@ -189,7 +237,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -205,8 +255,8 @@ invisible(
       gen_horizontal_bars(
         name = "contacted_advisers",
         country = country,
-        w = 10,
-        h = 8
+        w = 280,
+        h = 120
       )
       
     }
@@ -222,8 +272,8 @@ invisible(
       gen_horizontal_bars(
         name = "access2representation_barriers",
         country = country,
-        w = 12,
-        h = 10
+        w = 280,
+        h = 120
       )
       
     }
@@ -239,8 +289,8 @@ invisible(
       gen_dumbbells(
         name = "access2representation",
         country = country,
-        w = 12,
-        h = 12
+        w = 280,
+        h = 265
       )
       
     }
@@ -276,13 +326,13 @@ invisible(
       
       if (country == "Malta") {
         omit.cats <- c("Category", "Age Group")
-        w <- 14
-        h <- 9
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 12
+        w <- 280
+        h <- 300
         
       }
       
@@ -291,7 +341,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -307,8 +359,8 @@ invisible(
       gen_horizontal_bars(
         name = "contacted_mechanisms",
         country = country,
-        w = 12,
-        h = 6
+        w = 280,
+        h = 120
       )
       
     }
@@ -324,8 +376,8 @@ invisible(
       gen_horizontal_bars(
         name = "access2DRM_barriers",
         country = country,
-        w = 12,
-        h = 6
+        w = 280,
+        h = 100
       )
       
     }
@@ -350,14 +402,14 @@ invisible(
     function(country){
       
       if (country == "Malta") {
-        omit.cats <- c("Category", "Age Group", "Co-occurence Group")
-        w <- 14
-        h <- 6
+        omit.cats <- c("Category", "Age Group")
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 10
+        w <- 280
+        h <- 375
         
       }
       
@@ -366,7 +418,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -380,14 +434,14 @@ invisible(
     function(country){
       
       if (country == "Malta") {
-        omit.cats <- c("Category", "Age Group", "Co-occurence Group")
-        w <- 14
-        h <- 6
+        omit.cats <- c("Category", "Age Group")
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 10
+        w <- 280
+        h <- 375
         
       }
       
@@ -410,14 +464,14 @@ invisible(
     function(country){
       
       if (country == "Malta") {
-        omit.cats <- c("Category", "Age Group", "Co-occurence Group")
-        w <- 14
-        h <- 6
+        omit.cats <- c("Category", "Age Group")
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 10
+        w <- 280
+        h <- 375
         
       }
       
@@ -426,7 +480,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -440,14 +496,14 @@ invisible(
     function(country){
       
       if (country == "Malta") {
-        omit.cats <- c("Category", "Age Group", "Co-occurence Group")
-        w <- 14
-        h <- 6
+        omit.cats <- c("Category", "Age Group")
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 10
+        w <- 280
+        h <- 375
         
       }
       
@@ -456,7 +512,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -470,14 +528,14 @@ invisible(
     function(country){
       
       if (country == "Malta") {
-        omit.cats <- c("Category", "Age Group", "Co-occurence Group")
-        w <- 14
-        h <- 6
+        omit.cats <- c("Category", "Age Group")
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 10
+        w <- 280
+        h <- 375
         
       }
       
@@ -511,14 +569,14 @@ invisible(
     function(country){
       
       if (country == "Malta") {
-        omit.cats <- c("Category", "Age Group", "Co-occurence Group")
-        w <- 14
-        h <- 6
+        omit.cats <- c("Category", "Age Group")
+        w <- 280
+        h <- 220
         
       } else {
         omit.cats = c("Category")
-        w <- 14
-        h <- 10
+        w <- 280
+        h <- 375
         
       }
       
@@ -527,7 +585,9 @@ invisible(
         country = country,
         w = w,
         h = h,
-        omit.cats = omit.cats
+        omit.cats = omit.cats,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -540,12 +600,25 @@ invisible(
     c("Malta", "Italy"),
     function(country){
       
+      if (country == "Malta") {
+        omit.cats <- c("Category", "Age Group", "Problem Status")
+        w <- 280
+        h <- 220
+        
+      } else {
+        omit.cats = c("Category")
+        w <- 280
+        h <- 375
+        
+      }
+      
       gen_grouped_bars(
         name = "satisfaction_rp",
         country = country,
-        w = 14,
-        h = 12,
-        omit.cats = NULL
+        w = w,
+        h = h,
+        omit.cats = omit.cats,
+        margin_set = margin(-20,-60,0,35)
       )
       
     }
@@ -561,8 +634,8 @@ invisible(
       gen_horizontal_bars(
         name = "status_rp",
         country = country,
-        w = 12,
-        h = 6
+        w = 280,
+        h = 100
       )
       
     }
@@ -589,13 +662,25 @@ invisible(
       gen_grouped_bars(
         name = "justice_gap_keepdk",
         country = country,
-        w = 14,
-        h = 12,
-        omit.cats = NULL
+        w = 280,
+        h = 265,
+        omit.cats = NULL,
+        margin_set = margin(-20,-25,0,0)
       )
       
     }
   )
+)
+
+#### Justice Gap (Co-Occurrence)  ----
+invisible(
+  gen_jg_upset(
+    master, w = 280, h = 180,
+    ylim = c(
+      "Italy" = 20.5,
+      "Malta" = 18.5
+    )
+  ) 
 )
 
 #### Hardships ----
@@ -607,8 +692,8 @@ invisible(
       gen_horizontal_bars(
         name = "hardships",
         country = country,
-        w = 14,
-        h = 4
+        w = 280,
+        h = 75
       )
       
     }
@@ -635,8 +720,8 @@ invisible(
       gen_grouped_bars(
         name = "knowledge_rights",
         country = country,
-        w = 14,
-        h = 12,
+        w = 280,
+        h = 265,
         omit.cats = NULL
       )
       
@@ -653,8 +738,8 @@ invisible(
       gen_grouped_bars(
         name = "expert_support",
         country = country,
-        w = 14,
-        h = 12,
+        w = 280,
+        h = 265,
         omit.cats = NULL
       )
       
@@ -671,8 +756,8 @@ invisible(
       gen_horizontal_bars(
         name = "perceived_causes",
         country = country,
-        w = 14,
-        h = 6
+        w = 280,
+        h = 145
       )
       
     }
@@ -688,8 +773,8 @@ invisible(
       gen_horizontal_bars(
         name = "legal_empowerment",
         country = country,
-        w = 14,
-        h = 4
+        w = 280,
+        h = 75
       )
       
     }
@@ -717,9 +802,11 @@ invisible(
       gen_grouped_bars(
         name = "trust_judges",
         country = country,
-        w = 14,
-        h = 12,
-        omit.cats = NULL
+        w = 280,
+        h = 300,
+        omit.cats = NULL,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -736,9 +823,11 @@ invisible(
       gen_grouped_bars(
         name = "trust_prosecutors",
         country = country,
-        w = 14,
-        h = 12,
-        omit.cats = NULL
+        w = 280,
+        h = 300,
+        omit.cats = NULL,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }
@@ -755,9 +844,11 @@ invisible(
       gen_grouped_bars(
         name = "trust_pda",
         country = country,
-        w = 14,
-        h = 12,
-        omit.cats = NULL
+        w = 280,
+        h = 300,
+        omit.cats = NULL,
+        eu.avg = TRUE,
+        eu.avg.data = data4web
       )
       
     }

@@ -292,4 +292,3 @@ hardships <- function(master, regions){
   )
   
 }
-  

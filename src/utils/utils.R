@@ -209,19 +209,21 @@ get_results_table <- function(
       "national", "gender", "age_group", "financial", "residence", 
       "selected_problem_category", "cooccurence_group"
     )
-    names(categories) <- c(
-      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", 
-      "Category", "Co-occurrence Group"
+    clabels <- c(
+      "National", "Gender", "Age Group", "Financial Situation", "Area of Residence", 
+      "Category", "Co-occurrent Problems"
     )
+    names(categories) <- clabels
   } 
   
   if (ctype == "short"){
     categories <- c(
       "national", "gender", "age_group", "financial", "residence"
     )
-    names(categories) <- c(
-      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res."
+    clabels <- c(
+      "National", "Gender", "Age Group", "Financial Situation", "Area of Residence"
     )
+    names(categories) <- clabels
   }
   
   if (ctype == "trust"){
@@ -229,19 +231,23 @@ get_results_table <- function(
       "national", "gender", "age_group", "financial", "residence", 
       "problem_status", "non_trivial_problem_broader"
     )
-    names(categories) <- c(
-      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", 
+    clabels <- c(
+      "National", "Gender", "Age Group", "Financial Situation", "Area of Residence", 
       "Problem Status", "Non-Trivial Problem Experienced"
     )
+    names(categories) <- clabels
   }
   
   if (ctype == "custom_1"){
     categories <- c(
-      "national", "gender", "age_group", "financial", "residence", "problem_status", "resolution_favor"
+      "national", "gender", "age_group", "financial", "residence", 
+      "problem_status", "resolution_favor"
     )
-    names(categories) <- c(
-      "National", "Gender", "Age Group", "Fin. Situation", "Area of Res.", "Problem Status", "Resolution"
+    clabels <- c(
+      "National", "Gender", "Age Group", "Financial Situation", "Area of Residence", 
+      "Problem Status", "Resolution"
     )
+    names(categories) <- clabels
   }
   
   if(!is.null(transform_var)){
@@ -304,6 +310,12 @@ get_results_table <- function(
       id_cols = c(grouping, category),
       names_from = country_name_ltn,
       values_from = proportion
+    ) %>% 
+    mutate(
+      grouping = factor(
+        grouping,
+        levels = clabels
+      )
     )
   
   if (!prop){

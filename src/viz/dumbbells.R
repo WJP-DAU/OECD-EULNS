@@ -10,13 +10,18 @@ gen_dumbbells <- function(name, country, w, h){
     mutate(
       category = if_else(
         grouping == "National",
-        country,
+        "National Average",
         category
       ),
       grouping = if_else(
         grouping == "National",
         "",
         grouping
+      ),
+      category = if_else(
+        grouping == "",
+        glue::glue("<span style='color:#575796;'><b><i>{category}</b></i></span>"),
+        category
       )
     )
   
@@ -38,25 +43,26 @@ gen_dumbbells <- function(name, country, w, h){
         x = perception,
         xend = experience
       ),
-      color = "#A0BAC7"
+      color = "#e5e8e8",
+      linewidth = 4,
     ) +
     geom_point(
       aes(
         x = perception
       ),
       size  = 3.5,
-      color = "#0A69A5"
+      color = "#575796"
     ) +
     geom_point(
       aes(
         x = experience
       ),
       size  = 3.5,
-      color = "#A0BAC7"
+      color = "#b200aa"
     ) +
     geom_text(
       aes(
-        x = perception - 5,
+        x = perception - 7,
         label = paste0(
           format(
             round(perception,1),
@@ -65,14 +71,14 @@ gen_dumbbells <- function(name, country, w, h){
         )
       ),
       family   = "inter",
-      fontface = "italic",
-      color    = "grey35",
-      size     = 4,
+      fontface = "plain",
+      color    = "#575796",
+      size     = 5,
       na.rm    = TRUE
     ) +
     geom_text(
       aes(
-        x = experience + 5,
+        x = experience + 7,
         label = paste0(
           format(
             round(experience,1),
@@ -81,9 +87,9 @@ gen_dumbbells <- function(name, country, w, h){
         )
       ),
       family   = "inter",
-      fontface = "italic",
-      color    = "grey35",
-      size     = 4,
+      fontface = "plain",
+      color    = "#b200aa",
+      size     = 5,
       na.rm    = TRUE
     ) +
     facet_grid(
@@ -94,7 +100,7 @@ gen_dumbbells <- function(name, country, w, h){
     ) +
     scale_x_continuous(
       expand = c(0,0),
-      limits = c(0,100),
+      limits = c(-5,105),
       breaks = c(0, 25, 50, 75, 100),
       labels = c("0%", "25%", "50%", "75%", "100%"),
       position = "top"
@@ -103,32 +109,42 @@ gen_dumbbells <- function(name, country, w, h){
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_blank(),
-      axis.text.x  = element_blank(), 
-      # axis.text.x  = element_text(
-      #   family = "inter",
-      #   face   = "plain",
-      #   color  = "grey35",
-      #   size   = 13
-      # ),
-      axis.text.y  = element_text(
+      axis.text.x  = element_text(
         family = "inter",
         face   = "plain",
-        color  = "grey35",
+        color  = "#1a1a1a",
         size   = 13
+      ),
+      axis.text.y = ggtext::element_markdown(
+        size   = 16,
+        hjust  = 1,
+        family = "inter",
+        face   = "plain",
+        color  = "#1a1a1a"
       ),
       panel.grid.major.y = element_blank(),
       panel.grid.major.x = element_blank(),
+      # panel.grid.major.x = element_line(
+      #   linetype = "dashed",
+      #   linewidth = 0.15,
+      #   color = "#1a1a1a"
+      # ),
+      axis.line.x.top = element_line(
+        linetype = "solid",
+        linewidth = 0.5,
+        color = "#1a1a1a"
+      ),
       panel.grid.minor.x = element_blank(),
       panel.spacing      = unit(12, "mm"),
       strip.text.y.left  = element_text(
         angle  = 0,
-        color  = "grey35",
-        hjust  = 0, 
-        vjust  = 1,
-        size   = 15,
+        size   = 16,
+        color  = "#575796",
+        hjust  = 1, 
+        vjust  = 1, 
         family = "inter",
         face   = "bold.italic",
-        margin = margin(-18,0,0,0)
+        margin = margin(-20,-55,0,0)
       ),
       strip.switch.pad.grid = unit(-25, "mm"),
       strip.placement = "outside",
@@ -140,6 +156,7 @@ gen_dumbbells <- function(name, country, w, h){
     width  = w, 
     height = h,
     dpi    = 300,
+    units  = "mm",
     scale  = 0.75 
   )
   
