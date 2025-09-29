@@ -31,7 +31,7 @@ gen_horizontal_bars <- function(name, country, w, h){
     order     = "order_no", 
     direction = "horizontal",
     colors    = "color",
-    cvec      = c("standard" = "#0A69A5")
+    cvec      = c("standard" = "#575796")
   ) +
     geom_text(
       aes(
@@ -39,7 +39,7 @@ gen_horizontal_bars <- function(name, country, w, h){
         label = labels
       ),
       size     = 5,
-      color    = "grey35",
+      color    = "#1a1a1a",
       family   = "inter",
       fontface = "bold.italic"
     ) +
@@ -49,14 +49,14 @@ gen_horizontal_bars <- function(name, country, w, h){
         # hjust  = 0,
         family = "inter",
         face   = "plain",
-        color  = "grey35"
+        color  = "#1a1a1a"
       ),
       axis.text.y = element_text(
         size   = 14,
         hjust  = 0,
         family = "inter",
         face   = "plain",
-        color  = "grey35"
+        color  = "#1a1a1a"
       ),
     )
   
@@ -65,6 +65,7 @@ gen_horizontal_bars <- function(name, country, w, h){
     width  = w, 
     height = h,
     dpi    = 300,
+    units  = "mm",
     scale  = 0.75 
   )
   

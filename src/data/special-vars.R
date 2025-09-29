@@ -271,6 +271,16 @@ add_a2j_vars <- function(data){
       ),
       
       # Quickness of the resolution process
+      # rp_quick = case_when(
+      #   is.na(non_trivial_problem) ~ NA_real_,
+      #   non_trivial_problem == 0   ~ NA_real_,
+      #   AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+      #   AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+      #   AJR_slow == 99 ~ NA_real_,
+      #   AJR_slow == 98 ~ 0,
+      #   AJR_slow == 1  ~ 0,
+      #   AJR_slow == 2  ~ 1
+      # ),
       rp_quick = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
@@ -278,8 +288,8 @@ add_a2j_vars <- function(data){
         AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
         AJR_slow == 99 ~ NA_real_,
         AJR_slow == 98 ~ 0,
-        AJR_slow == 1  ~ 0,
-        AJR_slow == 2  ~ 1
+        AJR_slow == 1  ~ 1,
+        AJR_slow == 2  ~ 0
       ),
       
       # Costliness of the resolution process
@@ -343,10 +353,12 @@ add_a2j_vars <- function(data){
       rp_satisfaction = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
+        AJR_state_resol   %in% c(1,2,98,99) ~ NA_real_,
+        AJR_state_noresol %in% c(1,2,98,99) ~ NA_real_,
         AJR_satis_outcome %in% c(1,2) ~ 1,
-        AJR_satis_ongoing %in% c(1,2) ~ 1,
+        # AJR_satis_ongoing %in% c(1,2) ~ 1,
         AJR_satis_outcome %in% c(3,4,98) ~ 0,
-        AJR_satis_ongoing %in% c(3,4,98) ~ 0,
+        # AJR_satis_ongoing %in% c(3,4,98) ~ 0,
       ),
       
       # Problem Category
