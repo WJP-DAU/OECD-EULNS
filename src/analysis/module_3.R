@@ -262,7 +262,7 @@ hardships <- function(master, regions){
             category == "hardships_health"    ~ "Health issues",
             category == "hardships_emotional" ~ "Relationship breakdown",
             category == "hardships_income"    ~ "Economic issues",
-            category == "hardships_drugs"     ~ "Alcohol/Drugs problems"
+            category == "hardships_drugs"     ~ "Alcohol/Drug problems"
           )
         ), 
       digits = 1, 
@@ -286,7 +286,7 @@ hardships <- function(master, regions){
           category == "hardships_health"    ~ "Health issues",
           category == "hardships_emotional" ~ "Relationship breakdown",
           category == "hardships_income"    ~ "Economic issues",
-          category == "hardships_drugs"     ~ "Alcohol/Drugs problems"
+          category == "hardships_drugs"     ~ "Alcohol/Drug problems"
         )
       )
   )

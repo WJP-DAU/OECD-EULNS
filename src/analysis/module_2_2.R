@@ -56,7 +56,7 @@ access2representation_logit <- function(master, regions, study_countries){
       export_results_kable(
         results_tbl, 
         title = "Access to Appropriate Assistance and Representation",
-        file  = "output/tabs/png/2_2_2_access_to_representation_logit_{country}.png",
+        file  = "output/tabs/png/2_2_2_access_to_representation_logit_{country}.html",
         ctype = "logit",
         country = country
       )
@@ -145,9 +145,9 @@ contacted_advisers <- function(master, regions, study_countries){
       df <- df_full %>% 
         select(-c(country_year_id, country_name_ltn, nuts_id))
       names(df) <- c(
-        "Relative or Friend", "Lawyer or Prof. Advisor", "Gvt. Legal Aid",
-        "Gvt. Body or Police", "Health/Welfare Prof.", "Trade Union or Employer", 
-        "Rel. or Comm. Leader", "CSO", "None"
+        "Relative or Friend", "Lawyer or Profesional Advisor", "Gvt. Legal Aid",
+        "Gvt. Body or Police", "Health/Welfare Profesional", "Trade Union or Employer", 
+        "Religious or Community Leader", "Civil Society Organization", "None"
       )
       n_rows <- nrow(df)
       
@@ -269,13 +269,13 @@ contacted_advisers <- function(master, regions, study_countries){
         mutate(
           category = case_when(
             category == "AJD_adviser_1" ~ "Friend or Family",
-            category == "AJD_adviser_2" ~ "Lawyer or Prof. Advisor",
+            category == "AJD_adviser_2" ~ "Lawyer or Professional Advisor",
             category == "AJD_adviser_3" ~ "Gvt. Legal Aid",
             category == "AJD_adviser_4" ~ "Gvt. Body or Police",
-            category == "AJD_adviser_5" ~ "Health/Welfare Prof.",
+            category == "AJD_adviser_5" ~ "Health/Welfare Professional",
             category == "AJD_adviser_6" ~ "Trade Union or Employer",
-            category == "AJD_adviser_7" ~ "Rel. or Comm. Leader",
-            category == "AJD_adviser_8" ~ "CSO"
+            category == "AJD_adviser_7" ~ "Religious or Community Leader",
+            category == "AJD_adviser_8" ~ "Civil Society Organization"
           ),
           country_name_ltn = "national_avg"
         )
@@ -318,7 +318,7 @@ access2representation_barriers <- function(master, regions, study_countries){
         target == 8 ~ "Fear",
         target == 9 ~ "Advisers were too far away",
         target == 10 ~ "Other",
-        target %in% c(98,99) ~ "DK/NA"
+        target %in% c(98,99) ~ "Don't Know / No Answer"
       )
     ) %>% 
     filter(

@@ -57,7 +57,7 @@ access2information_logit <- function(master, regions, study_countries){
       export_results_kable(
         results_tbl, 
         title = "Access to Adequate Information and Advice",
-        file  = "output/tabs/png/2_1_2_access_to_information_logit_{country}.png",
+        file  = "output/tabs/png/2_1_2_access_to_information_logit_{country}.html",
         ctype = "logit",
         country = country
       )
