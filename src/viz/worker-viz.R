@@ -48,7 +48,8 @@ data4web <- read_csv(
   ) %>% 
   select(
     country_name = country, id, value
-  )
+  ) %>% 
+  distinct(.keep_all = TRUE)
 
 eu_rankings_data <- read_csv(
   path2data4web,

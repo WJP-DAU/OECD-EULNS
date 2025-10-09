@@ -56,7 +56,7 @@ access2DRM_logit <- function(master, regions, study_countries){
       export_results_kable(
         results_tbl, 
         title = "Access to Dispute Resolution Mechanisms",
-        file  = "output/tabs/png/2_3_2_access_to_DRM_logit_{country}.png",
+        file  = "output/tabs/png/2_3_2_access_to_DRM_logit_{country}.html",
         ctype = "logit",
         country = country
       )

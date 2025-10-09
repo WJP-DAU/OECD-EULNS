@@ -118,7 +118,7 @@ gen_grouped_bars <- function(
     mutate(
       values2display = if_else(
         is.na(values2plot) & color == "primary",
-        "NA", values2display
+        "N/A", values2display
       )
     )
   

@@ -55,7 +55,7 @@ perceived_causes <- function(master, regions, study_countries){
     ) %>% 
     mutate(
       category = case_when(
-        category == "AJE_description_1" ~ "Bad luck / Part of Life",
+        category == "AJE_description_1" ~ "Bad luck / Part of life",
         category == "AJE_description_2" ~ "Bureaucratic",
         category == "AJE_description_3" ~ "Family or private matter",
         category == "AJE_description_4" ~ "Legal",
