@@ -372,7 +372,7 @@ access2representation_barriers <- function(master, regions, study_countries){
             font_size = 18,
             latex_options = "striped"
           ) %>%
-          kableExtra::save_kable(
+          safe_save_kable(
             glue::glue("output/tabs/png/2_2_5_access2representation_barriers_{country}.png")
           )
       )

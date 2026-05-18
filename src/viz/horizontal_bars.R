@@ -9,12 +9,7 @@ gen_horizontal_bars <- function(name, country, w, h){
     ) %>%
     arrange(desc(values2plot)) %>%
     mutate(
-      labels = paste0(
-        format(
-          round(values2plot, 1),
-          nsmall = 1
-        ), "%"
-      ),
+      labels = paste0(round(values2plot, 0), "%"),
       added_NA = if_else(
         is.na(values2plot),
         "NA", ""

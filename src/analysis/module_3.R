@@ -68,7 +68,7 @@ unmet_legal_needs <- function(jg_data, study_countries){
     study_countries,
     function(country){
       
-      if (country == "Italy"){ # Malta doesn't have the sample for this chart
+      if (country %in% c("Italy", "Poland")){ # Malta doesn't have the sample for this chart
       
         df <- jg_data %>%
           filter(
@@ -267,7 +267,7 @@ hardships <- function(master, regions){
         ), 
       digits = 1, 
       caption = "Hardships experienced by people in their justice pathway",
-      col.names = c("Hardship", "Italy", "Malta")
+      col.names = c("Hardship", study_countries)
     ) %>%
       kableExtra::kable_classic(
         html_font = "Cambria"
@@ -276,7 +276,7 @@ hardships <- function(master, regions){
         font_size = 18,
         latex_options = "striped"
       ) %>%
-      kableExtra::save_kable("output/tabs/PNG/3_4_hardships.png")
+      safe_save_kable("output/tabs/PNG/3_4_hardships.png")
   )
   
   return(

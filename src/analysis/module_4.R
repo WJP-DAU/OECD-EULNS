@@ -120,7 +120,7 @@ perceived_causes <- function(master, regions, study_countries){
             font_size = 18,
             latex_options = "striped"
           ) %>%
-          kableExtra::save_kable(
+          safe_save_kable(
             glue::glue("output/tabs/png/4_2_perceived_causes_{country}.png")
           )
       )

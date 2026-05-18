@@ -27,6 +27,16 @@ sysfonts::font_add(
   italic     = glue::glue("{path2fonts}/InterTight-Italic.ttf"),
   bolditalic = glue::glue("{path2fonts}/InterTight-SemiBoldItalic.ttf")
 )
+
+# Also register with systemfonts for use when showtext is disabled (for ggtext compatibility)
+systemfonts::register_font(
+  name = "inter",
+  plain = glue::glue("{path2fonts}/InterTight-Regular.ttf"),
+  bold = glue::glue("{path2fonts}/InterTight-Bold.ttf"),
+  italic = glue::glue("{path2fonts}/InterTight-Italic.ttf"),
+  bolditalic = glue::glue("{path2fonts}/InterTight-SemiBoldItalic.ttf")
+)
+
 showtext::showtext_auto()
 
 path2data4web <- glue::glue(
@@ -83,7 +93,7 @@ if(!interactive()){
 #### Prevalence of Non-Trivial Legal Problems ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -102,7 +112,7 @@ invisible(
 #### Prevalence of Non-Trivial Legal Problems by Category ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -119,7 +129,7 @@ invisible(
 #### Co-occurrence of Non-Trivial Legal Problems ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -148,10 +158,11 @@ if(!interactive()){
 #### Access to Adequate Information and Advice ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category")
         w <- 280
         h <- 300
@@ -180,7 +191,7 @@ invisible(
 #### Access to Adequate Information and Advice: Experience vs Perception ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_dumbbells(
@@ -208,7 +219,7 @@ if(!interactive()){
 #### Access to Adequate Assistance and Representation (Sankey) ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       gen_sankey_advice(master, country)
     }
@@ -218,10 +229,11 @@ invisible(
 #### Access to Adequate Assistance and Representation ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category")
         w <- 280
         h <- 300
@@ -250,7 +262,7 @@ invisible(
 #### Contacted Advisers ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -267,7 +279,7 @@ invisible(
 #### Mechanisms Preventing Access to Assistance and Representation ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -284,7 +296,7 @@ invisible(
 #### Access to Adequate Assistance and Representation: Experience vs Perception ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_dumbbells(
@@ -312,7 +324,7 @@ if(!interactive()){
 #### Access to Dispute Resolution Mechanisms (Sankey) ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       gen_sankey_rdm(master, country)
     }
@@ -322,10 +334,11 @@ invisible(
 #### Access to Dispute Resolution Mechanisms ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -354,7 +367,7 @@ invisible(
 #### Contacted Mechanisms ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -371,7 +384,7 @@ invisible(
 #### Mechanisms Preventing Access to Assistance and Representation ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -399,10 +412,11 @@ if(!interactive()){
 #### Dispute Resolution Processes that Finalized in Less than One Year ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -431,10 +445,11 @@ invisible(
 #### Perceived Quickness of the Dispute Resolution Process ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -461,10 +476,11 @@ invisible(
 #### Perceived Fairness of the Dispute Resolution Process ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -493,10 +509,11 @@ invisible(
 #### Costliness of Dispute Resolution Processes ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -525,10 +542,11 @@ invisible(
 #### Perceived Costliness of the Dispute Resolution Process ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -566,10 +584,11 @@ if(!interactive()){
 #### Outcome of People’s Legal Problems ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
@@ -598,10 +617,11 @@ invisible(
 #### Satisfaction with the Resolution Outcome  ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       if (country == "Malta") {
+        # Malta has smaller sample, omit some categories
         omit.cats <- c("Category", "Age Group", "Problem Status")
         w <- 280
         h <- 220
@@ -629,7 +649,7 @@ invisible(
 #### Status of the Resolution Problem ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -657,7 +677,7 @@ if(!interactive()){
 #### Justice Gap  ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -679,15 +699,16 @@ invisible(
     master, w = 280, h = 180,
     ylim = c(
       "Italy" = 20.5,
-      "Malta" = 18.5
+      "Malta" = 18.5,
+      "Poland" = 20.5
     )
-  ) 
+  )
 )
 
 #### Hardships ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -715,7 +736,7 @@ if(!interactive()){
 #### Knowledge of Legal Rights and Responsibilities ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -733,7 +754,7 @@ invisible(
 #### Fully Satisfied Expert Needs ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -751,7 +772,7 @@ invisible(
 #### Perceived Causes of the Problem ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -768,7 +789,7 @@ invisible(
 #### Legal Empowerment ----
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_horizontal_bars(
@@ -797,7 +818,7 @@ if(!interactive()){
 trust_judges <- trust[["judges"]]
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -818,7 +839,7 @@ invisible(
 trust_prosecutors <- trust[["prosecutors"]]
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
@@ -839,7 +860,7 @@ invisible(
 trust_pda <- trust[["pda"]]
 invisible(
   lapply(
-    c("Malta", "Italy"),
+    study_countries,
     function(country){
       
       gen_grouped_bars(
