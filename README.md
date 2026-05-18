@@ -56,20 +56,16 @@ git clone https://github.com/WJP-DAU/OECD-EULNS.git
 cd OECD-EULNS
 ```
 
-2. Restore R environment:
+2. Set up the project environment with `renv`:
 
 ```bash
 Rscript --vanilla -e "
-os_dir <- switch(Sys.info()[['sysname']], Darwin = 'macos', Linux = 'linux', Windows = 'windows', tolower(Sys.info()[['sysname']]))
-r_version <- paste(R.version[['major']], strsplit(R.version[['minor']], '[.]')[[1]][1], sep = '.')
-project_library <- file.path(getwd(), 'renv', 'library', os_dir, paste0('R-', r_version), R.version[['platform']])
-.libPaths(unique(c(project_library, .libPaths())))
 if (!requireNamespace('renv', quietly = TRUE)) install.packages('renv', repos = 'https://cloud.r-project.org')
-renv::restore(project = '.', library = project_library, prompt = FALSE)
+renv::restore(prompt = FALSE)
 "
 ```
 
-  - This will install the correct version of the dependencies needed to run this project in the `renv/library/` directory.
+  - This will restore the project dependencies recorded in `renv.lock` into the project-local `renv` library.
 
 > **Note:** This project depends on local paths defined in `src/utils/config.R` (`path2EU` and `path2DA`). If you are running the repo on a different machine or with a different username, update those paths first.
 
@@ -169,4 +165,4 @@ Responses from individuals who reported more than 25 non-trivial legal problems 
 
 ## Contact
 
-For inqueries about this project and its associated code, please contact Carlos Toruño (ctoruno@worldjusticeproject.org).
+For inqueries about this project and its associated code, please contact Santiago Pardo (spardo@worldjusticeproject.org).
