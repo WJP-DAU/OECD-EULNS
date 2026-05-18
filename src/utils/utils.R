@@ -173,20 +173,26 @@ estimate_logit <- function(data, f){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-study_countries <- c("Italy", "Malta")
+study_countries <- c("Italy", "Malta", "Poland")
 names(study_countries) <- study_countries
 
 independent_vars <- list(
   "Italy" = c(
     "gender", "financial", "residence",
-    "age_group", "edu_level", "marital_status", 
-    "nationality", "emp_status", "selected_problem_category", "nproblems", 
+    "age_group", "edu_level", "marital_status",
+    "nationality", "emp_status", "selected_problem_category", "nproblems",
     "nuts_id"
   ),
   "Malta" = c(
     "gender", "financial",
-    "age_group", "edu_level", "marital_status", 
+    "age_group", "edu_level", "marital_status",
     "emp_status", "nproblems"
+  ),
+  "Poland" = c(
+    "gender", "financial", "residence",
+    "age_group", "edu_level", "marital_status",
+    "nationality", "emp_status", "selected_problem_category", "nproblems",
+    "nuts_id"
   )
 )
 
@@ -322,7 +328,7 @@ get_results_table <- function(
     results_tbl <- results_tbl %>%
       mutate(
         across(
-          c("Italy", "Malta"),
+          any_of(study_countries),
           \(x) x/100
         )
       )
@@ -338,11 +344,12 @@ export_results_kable <- function(
   
   if (ctype == "full"){
     suppressMessages(
-      kableExtra::kbl(
+      safe_save_kable(
+        kableExtra::kbl(
         results_tbl %>% select(-grouping), 
         digits = 1, 
         caption = title,
-        col.names = c("Category", "Italy", "Malta")
+        col.names = c("Category", study_countries)
       ) %>%
         kableExtra::pack_rows("National", 1, 1) %>%
         kableExtra::pack_rows("Gender", 2, 3) %>%
@@ -358,18 +365,20 @@ export_results_kable <- function(
         kableExtra::kable_styling(
           font_size = 18,
           latex_options = "striped"
-        ) %>%
-        kableExtra::save_kable(file)
+        ),
+        file
+      )
     )
   }
   
   if (ctype == "short"){
     suppressMessages(
-      kableExtra::kbl(
+      safe_save_kable(
+        kableExtra::kbl(
         results_tbl %>% select(-grouping), 
         digits = 1, 
         caption = title,
-        col.names = c("Category", "Italy", "Malta")
+        col.names = c("Category", study_countries)
       ) %>%
         kableExtra::pack_rows("National", 1, 1) %>%
         kableExtra::pack_rows("Gender", 2, 3) %>%
@@ -383,18 +392,20 @@ export_results_kable <- function(
         kableExtra::kable_styling(
           font_size = 18,
           latex_options = "striped"
-        ) %>%
-        kableExtra::save_kable(file)
+        ),
+        file
+      )
     )
   }
   
   if (ctype == "trust"){
     suppressMessages(
-      kableExtra::kbl(
+      safe_save_kable(
+        kableExtra::kbl(
         results_tbl %>% select(-grouping), 
         digits = 1, 
         caption = title,
-        col.names = c("Category", "Italy", "Malta")
+        col.names = c("Category", study_countries)
       ) %>%
         kableExtra::pack_rows("National", 1, 1) %>%
         kableExtra::pack_rows("Gender", 2, 3) %>%
@@ -410,18 +421,20 @@ export_results_kable <- function(
         kableExtra::kable_styling(
           font_size = 18,
           latex_options = "striped"
-        ) %>%
-        kableExtra::save_kable(file)
+        ),
+        file
+      )
     )
   }
   
   if (ctype == "custom_1"){
     suppressMessages(
-      kableExtra::kbl(
+      safe_save_kable(
+        kableExtra::kbl(
         results_tbl %>% select(-grouping), 
         digits = 1, 
         caption = title,
-        col.names = c("Category", "Italy", "Malta")
+        col.names = c("Category", study_countries)
       ) %>%
         kableExtra::pack_rows("National", 1, 1) %>%
         kableExtra::pack_rows("Gender", 2, 3) %>%
@@ -437,8 +450,9 @@ export_results_kable <- function(
         kableExtra::kable_styling(
           font_size = 18,
           latex_options = "striped"
-        ) %>%
-        kableExtra::save_kable(file)
+        ),
+        file
+      )
     )
   }
   
@@ -485,16 +499,27 @@ export_results_kable <- function(
     } 
     
     if (country == "Malta") {
-      
+
       kable <- kable %>%
         kableExtra::pack_rows("Sociodemographics", 1, 5) %>%
         kableExtra::pack_rows("Age Group", 6, 10) %>%
         kableExtra::pack_rows("Co-Occurrence", 11, 11)
-      
+
+    }
+
+    if (country == "Poland") {
+
+      kable <- kable %>%
+        kableExtra::pack_rows("Sociodemographics", 1, 6) %>%
+        kableExtra::pack_rows("Age Group", 7, 11) %>%
+        kableExtra::pack_rows("Geographic Location", 12, 18) %>%
+        kableExtra::pack_rows("Co-Occurrence & Problem Category", 19, 30)
+
     }
     
     suppressMessages(
-      kable <- kable %>%
+      safe_save_kable(
+        kable %>%
         kableExtra::kable_classic(
           # full_width = F, 
           html_font = "Cambria"
@@ -502,12 +527,69 @@ export_results_kable <- function(
         kableExtra::kable_styling(
           font_size = 18,
           latex_options = "striped"
-        ) %>%
-        kableExtra::save_kable(
-          glue::glue(file)
-        )
+        ),
+        glue::glue(file)
+      )
     )
     
   }
   
+}
+
+
+safe_save_kable <- function(kable_obj, file) {
+  ext <- tolower(tools::file_ext(file))
+
+  if (ext %in% c("png", "jpg", "jpeg", "pdf") && !chromote_is_available()) {
+    warning(
+      glue::glue(
+        "Skipping kable export to '{file}': Chrome / Chromote is not available in this environment."
+      ),
+      call. = FALSE
+    )
+    return(invisible(kable_obj))
+  }
+
+  tryCatch(
+    kableExtra::save_kable(kable_obj, file),
+    error = function(e) {
+      if (file.exists(file)) {
+        file_info <- file.info(file)
+        if (!is.na(file_info$size) && file_info$size == 0) {
+          unlink(file)
+        }
+      }
+      warning(
+        glue::glue(
+          "Skipping kable export to '{file}': {conditionMessage(e)}"
+        ),
+        call. = FALSE
+      )
+      invisible(kable_obj)
+    }
+  )
+}
+
+
+chromote_is_available <- function() {
+  cached <- getOption("oecd_eulns.chromote_available")
+  if (!is.null(cached)) {
+    return(isTRUE(cached))
+  }
+
+  available <- FALSE
+
+  if (requireNamespace("chromote", quietly = TRUE)) {
+    info <- tryCatch(
+      chromote::chromote_info(),
+      error = function(e) NULL
+    )
+
+    available <- is.list(info) &&
+      is.list(info$.check) &&
+      identical(info$.check$status, 0L)
+  }
+
+  options(oecd_eulns.chromote_available = available)
+  available
 }

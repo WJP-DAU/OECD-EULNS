@@ -74,6 +74,82 @@ add_special_demographics <- function(data){
   
 }
 
+## Quality checks ----
+QUALITY_CHECK_NONTRIVIAL_THRESHOLD <- 25
+QUALITY_CHECK_SEVERITY_THRESHOLD <- 4
+QUALITY_FLAG_COLUMN <- "quality_flag_nontrivial_25"
+
+
+build_quality_check <- function(data, legprob_bin, legprob_sev){
+  
+  quality_tbl <- reduce(
+    list(
+      data %>%
+        select(
+          country_year_id,
+          all_of(legprob_bin)
+        ) %>%
+        pivot_longer(
+          !country_year_id,
+          names_to  = "problem",
+          values_to = "answer"
+        ) %>%
+        mutate(
+          problem = str_remove_all(problem, "AJP|_|bin"),
+          answer  = as.numeric(haven::zap_labels(answer))
+        ),
+      
+      data %>%
+        select(
+          country_year_id,
+          all_of(legprob_sev)
+        ) %>%
+        pivot_longer(
+          !country_year_id,
+          names_to  = "problem",
+          values_to = "severity"
+        ) %>%
+        mutate(
+          problem  = str_remove_all(problem, "AJP|_|sev"),
+          severity = as.numeric(haven::zap_labels(severity))
+        )
+    ),
+    left_join,
+    by = c("country_year_id", "problem")
+  ) %>%
+    mutate(
+      non_trivial_problem_item = case_when(
+        answer == 1 & severity >= QUALITY_CHECK_SEVERITY_THRESHOLD & severity < 98 ~ 1,
+        TRUE ~ 0
+      )
+    ) %>%
+    group_by(country_year_id) %>%
+    summarise(
+      total_nontrivial_problems = sum(non_trivial_problem_item, na.rm = T),
+      quality_flag_nontrivial_25 = total_nontrivial_problems > QUALITY_CHECK_NONTRIVIAL_THRESHOLD
+    )
+  
+  return(quality_tbl)
+  
+}
+
+
+apply_quality_check_to_experience_vars <- function(data, experience_vars){
+  
+  data %>%
+    mutate(
+      across(
+        all_of(experience_vars),
+        \(x) if_else(
+          quality_flag_nontrivial_25,
+          NA,
+          x
+        )
+      )
+    )
+  
+}
+
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ##
 ## 2.  Special A2J variables ----
@@ -90,6 +166,35 @@ add_a2j_vars <- function(data){
   )
   legprob_bin <- paste0("AJP_", legalProblems, "_bin")
   legprob_sev <- paste0("AJP_", legalProblems, "_sev")
+  
+  experience_vars <- c(
+    "AJP_problem",
+    legprob_bin,
+    legprob_sev,
+    "AJE_infosource",
+    "AJD_inst_advice", "AJD_expert_adviser", "AJD_noadvice_reason",
+    paste0("AJD_adviser_", c(1:9, 98)),
+    "AJR_resolution", "AJR_noresol_reason", "AJR_court_bin",
+    "AJR_solvingtime", "AJR_slow", "AJR_solvingcosts", "AJR_costdiff",
+    "AJR_expensive", "AJR_fair", "AJR_state_resol", "AJR_state_noresol",
+    "AJR_outcome", "AJR_satis_outcome",
+    "AJE_health", "AJE_emotional", "AJE_income", "AJE_drugs"
+  )
+  
+  quality_check <- build_quality_check(
+    data = data,
+    legprob_bin = legprob_bin,
+    legprob_sev = legprob_sev
+  )
+  
+  data <- data %>%
+    left_join(
+      quality_check,
+      by = "country_year_id"
+    ) %>%
+    apply_quality_check_to_experience_vars(
+      experience_vars = experience_vars
+    )
   
   # Extracting severity of problem selected
   selec_sev <- data %>%
@@ -158,16 +263,26 @@ add_a2j_vars <- function(data){
         answer == 2 ~ 0
       )
     ) %>%
+    left_join(
+      quality_check,
+      by = "country_year_id"
+    ) %>%
     group_by(country_year_id) %>%
     summarise(
+      quality_flag_nontrivial_25 = first(quality_flag_nontrivial_25),
       across(
         starts_with("prevalence"),
         \(x) sum(x, na.rm = T)
       )
     ) %>%
     mutate(
+      across(
+        starts_with("prevalence"),
+        \(x) if_else(quality_flag_nontrivial_25, NA_real_, x)
+      ),
       nproblems = prevalence2,
       cooccurence_group = case_when(
+        quality_flag_nontrivial_25 ~ NA_character_,
         nproblems == 0 ~ NA_character_,
         nproblems == 1 ~ "1 problem",
         nproblems <= 3 ~ "2-3 problems",
@@ -178,6 +293,9 @@ add_a2j_vars <- function(data){
         starts_with("prevalence"),
         \(x) if_else(x > 0, 1, 0)
       )
+    ) %>%
+    select(
+      -quality_flag_nontrivial_25
     )
   
   ### A2J special wranglings ----
@@ -226,6 +344,22 @@ add_a2j_vars <- function(data){
       ),
       
       # Access to appropriate assistance and representation
+      # access2rep = case_when(
+      #   is.na(non_trivial_problem) ~ NA_real_,
+      #   non_trivial_problem == 0   ~ NA_real_,
+      #   AJD_inst_advice == 1 & (
+      #     AJD_adviser_2 == 1 | AJD_adviser_3 == 1 | AJD_adviser_4 == 1 | 
+      #       AJD_adviser_5 == 1 | AJD_adviser_6 == 1 | AJD_adviser_7 == 1 |
+      #       AJD_adviser_8 == 1
+      #   ) ~ 1,
+      #   AJD_inst_advice == 1 & AJD_adviser_1 == 1 & AJD_expert_adviser == 1 ~ 1, # Friend/Family with legal background
+      #   AJD_inst_advice == 1 & (
+      #     AJD_adviser_1 == 1 | AJD_adviser_9 == 1 | AJD_adviser_98 == 1
+      #   ) ~ 0,
+      #   AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(1,2,3)) ~ 1,
+      #   AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(4,5,6,7,8,9,10,98)) ~ 0,
+      #   AJD_inst_advice == 98 ~ 0
+      # ),
       access2rep = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
@@ -238,18 +372,27 @@ add_a2j_vars <- function(data){
         AJD_inst_advice == 1 & (
           AJD_adviser_1 == 1 | AJD_adviser_9 == 1 | AJD_adviser_98 == 1
         ) ~ 0,
-        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(1,2,3)) ~ 1,
+        AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(1,2,3)) ~ NA_real_,
         AJD_inst_advice == 2 & (AJD_noadvice_reason %in% c(4,5,6,7,8,9,10,98)) ~ 0,
-        AJD_inst_advice == 98 ~ 0
+        AJD_inst_advice == 98 ~ NA_real_
       ),
+
+      # Access to a dispute resolution mechanism
+      # access2drm = case_when(
+      #   is.na(non_trivial_problem) ~ NA_real_,
+      #   non_trivial_problem == 0   ~ NA_real_,
+      #   AJR_resolution == 1        ~ 1,
+      #   AJR_resolution == 2 & (AJR_noresol_reason %in% c(3,5,6,7,8)) ~ 0
+      #   # AJR_resolution == 98 (We don't know if they really needed the DRM, so we exclude 98s)
+      # ),
       
       # Access to a dispute resolution mechanism
       access2drm = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
         AJR_resolution == 1        ~ 1,
-        AJR_resolution == 2 & (AJR_noresol_reason %in% c(3,5,6,7,8)) ~ 0
-        # AJR_resolution == 98 (We don't know if they really needed the DRM, so we exclude 98s)
+        AJR_resolution == 2 & (AJR_noresol_reason %in% c(3,5,6,7,8)) ~ 0,
+        AJR_resolution == 98 ~ NA_real_ 
       ),
       
       # Court mentioned as drm
@@ -259,6 +402,18 @@ add_a2j_vars <- function(data){
       ),
       
       # Timeliness of the resolution process
+      # rp_time = case_when(
+      #   is.na(non_trivial_problem) ~ NA_real_,
+      #   non_trivial_problem == 0   ~ NA_real_,
+      #   AJR_state_resol    %in% c(1,2,98,99) ~ NA_real_,
+      #   AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
+      #   AJR_solvingtime == -9999    ~ NA_real_,
+      #   AJR_solvingtime == -8888    ~ 0,
+      #   AJR_solvingtime >  12  ~ 0,
+      #   AJR_solvingtime <= 12  ~ 1
+      # ),
+
+      # Timeliness of the resolution process
       rp_time = case_when(
         is.na(non_trivial_problem) ~ NA_real_,
         non_trivial_problem == 0   ~ NA_real_,
@@ -266,8 +421,8 @@ add_a2j_vars <- function(data){
         AJR_state_noresol  %in% c(1,2,98,99) ~ NA_real_,
         AJR_solvingtime == -9999    ~ NA_real_,
         AJR_solvingtime == -8888    ~ 0,
-        AJR_solvingtime >  12       ~ 0,
-        AJR_solvingtime <= 12       ~ 1
+        AJR_solvingtime >  12 & AJR_solvingtime < 121 ~ 0,
+        AJR_solvingtime >= 0 & AJR_solvingtime <= 12  ~ 1
       ),
       
       # Quickness of the resolution process

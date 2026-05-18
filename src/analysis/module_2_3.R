@@ -118,7 +118,7 @@ contacted_mechanisms <- function(master, regions, study_countries){
       )
       n_rows <- nrow(df)
       
-      if (country == "Italy"){
+      if (country %in% c("Italy", "Poland")){
         upset <- ComplexUpset::upset(
           df, names(df), 
           name = "Contacted Institutions", 
@@ -370,7 +370,7 @@ access2DRM_barriers <- function(master, regions, study_countries){
             font_size = 18,
             latex_options = "striped"
           ) %>%
-          kableExtra::save_kable(
+          safe_save_kable(
             glue::glue("output/tabs/png/2_3_5_access2DRM_barriers_{country}.png")
           )
       )

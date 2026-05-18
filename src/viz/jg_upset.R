@@ -60,7 +60,7 @@ gen_jg_upset <- function(master, w, h, ylim){
     )
   
   lapply(
-    c("Italy", "Malta"),
+    study_countries,
     function(country){
       
       upset_data <- data %>%

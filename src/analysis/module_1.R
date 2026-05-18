@@ -96,19 +96,21 @@ freq_probs_by_severity <- function(master, regions){
           proportion = proportion*100
         )
       
+      country_cols <- lapply(study_countries, function(cntry) {
+        results_by_country %>% ungroup() %>%
+          filter(country_name_ltn == cntry) %>%
+          select(-country_name_ltn) %>%
+          setNames(c(paste0("problem_", tolower(cntry)), paste0("proportion_", tolower(cntry))))
+      })
+
       country_table <- bind_cols(
         as.data.frame(
           list(
             "level" = rep(level, 10),
-            "rank"  = seq(1,10,1) 
+            "rank"  = seq(1,10,1)
           )
         ),
-        results_by_country %>% ungroup() %>%
-          filter(country_name_ltn == "Italy") %>%
-          select(-country_name_ltn, problem_italy=category, proportion_italy = proportion),
-        results_by_country %>% ungroup() %>%
-          filter(country_name_ltn == "Malta") %>%
-          select(-country_name_ltn, problem_malta=category, proportion_malta = proportion)
+        country_cols
       )
       
       return(country_table)
@@ -119,17 +121,18 @@ freq_probs_by_severity <- function(master, regions){
   
   write_csv(results_tbl, "output/tabs/csv/1_1_freq_probs_by_severity.csv")
   
+  header_spec <- c(" " = 1, setNames(rep(2, length(study_countries)), study_countries))
+  col_names_spec <- c("Rank", rep(c("Problem", "%"), length(study_countries)))
+
   suppressMessages(
     kableExtra::kbl(
-      results_tbl %>% select(-level), 
-      digits = 1, 
+      results_tbl %>% select(-level),
+      digits = 1,
       align = "c",
       caption = "Most Frequent Problems By Severity Level",
-      col.names = c("Rank", "Problem", "%", "Problem", "%")
+      col.names = col_names_spec
     ) %>%
-      kableExtra::add_header_above(
-        c(" " = 1, "Italy" = 2, "Malta" = 2)
-      ) %>%
+      kableExtra::add_header_above(header_spec) %>%
       kableExtra::pack_rows("National", 1, 10) %>%
       kableExtra::pack_rows("Severity: High", 11, 20) %>%
       kableExtra::pack_rows("Severity: Medium", 21, 30) %>%
@@ -142,7 +145,7 @@ freq_probs_by_severity <- function(master, regions){
         font_size = 18,
         latex_options = "striped"
       ) %>%
-      kableExtra::save_kable("output/tabs/png/1_1_freq_probs_by_severity.png")
+      safe_save_kable("output/tabs/png/1_1_freq_probs_by_severity.png")
   )
     
   return(results_tbl)
@@ -254,7 +257,7 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
       ),
       .groups = "drop"
     ) %>%
-    filter(country_name_ltn != "Ireland") %>%
+    filter(country_name_ltn %in% study_countries) %>%
     mutate(across(starts_with("problem_cat_"), ~ . * 100))
   
   legal_problem_summary <- cat_by_country %>%
@@ -295,10 +298,10 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
   
   suppressMessages(
     kableExtra::kbl(
-      results_tbl, 
-      digits = 1, 
+      results_tbl,
+      digits = 1,
       caption = "Prevalence Of Non-Trivial Problems By Category",
-      col.names = c("Category", "Italy", "Malta")
+      col.names = c("Category", study_countries)
     ) %>%
       kableExtra::kable_classic(
         # full_width = F, 
@@ -308,7 +311,7 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
         font_size = 18,
         latex_options = "striped"
       ) %>%
-      kableExtra::save_kable("output/tabs/png/1_3_prevalence_nontrivial_problems_by_category.png")
+      safe_save_kable("output/tabs/png/1_3_prevalence_nontrivial_problems_by_category.png")
   )
   
   return(results_tbl)
