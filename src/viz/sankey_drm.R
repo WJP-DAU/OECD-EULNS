@@ -116,7 +116,7 @@ gen_sankey_rdm <- function(master, country){
     sankey_data_stage_2 %>% ungroup() %>% mutate(x = "sankey_drm_stage_2") %>% select(x, node = sankey_drm_stage_2, perc = national_avg)
   ) %>% 
     mutate(
-      perc = scales::percent(perc, accuracy = 0.1)
+      perc = scales::percent(perc, accuracy = 1)
     )
   
   # Final Data

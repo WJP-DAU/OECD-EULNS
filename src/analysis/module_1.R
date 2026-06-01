@@ -12,46 +12,94 @@
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 freq_probs_by_severity <- function(master, regions){
-  
+
+  # Build quality check flag (exclude people with >25 non-trivial problems)
+  legalProblems_qc <- c(
+    "A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4",
+    "D1", "D2", "D3", "D4", "D5", "D6", "E1", "E2", "E3", "F1", "F2",
+    "G1", "G2", "G3", "H1", "H2", "H3", "I1", "J1", "J2", "J3", "J4",
+    "K1", "K2", "K3", "L1", "L2"
+  )
+  legprob_bin_qc <- paste0("AJP_", legalProblems_qc, "_bin")
+  legprob_sev_qc <- paste0("AJP_", legalProblems_qc, "_sev")
+
+  quality_check <- master %>%
+    select(country_year_id, all_of(legprob_bin_qc), all_of(legprob_sev_qc)) %>%
+    pivot_longer(
+      cols = all_of(legprob_bin_qc),
+      names_to = "problem",
+      values_to = "answer"
+    ) %>%
+    mutate(problem = str_remove_all(problem, "AJP_|_bin")) %>%
+    left_join(
+      master %>%
+        select(country_year_id, all_of(legprob_sev_qc)) %>%
+        pivot_longer(
+          cols = all_of(legprob_sev_qc),
+          names_to = "problem",
+          values_to = "severity"
+        ) %>%
+        mutate(problem = str_remove_all(problem, "AJP_|_sev")),
+      by = c("country_year_id", "problem")
+    ) %>%
+    mutate(
+      non_trivial = case_when(
+        answer == 1 & severity >= 4 & severity < 98 ~ 1,
+        TRUE ~ 0
+      )
+    ) %>%
+    group_by(country_year_id) %>%
+    summarise(
+      total_nontrivial = sum(non_trivial, na.rm = TRUE),
+      quality_flag_nontrivial_25 = total_nontrivial > 25,
+      .groups = "drop"
+    ) %>%
+    select(country_year_id, quality_flag_nontrivial_25)
+
   total_sample_df <- master %>%
     group_by(country_name_ltn, nuts_id) %>%
     summarise(
       total_sample = n(),
       .groups = "keep"
     )
-  
+
   base_df <- master %>%
+    left_join(quality_check, by = "country_year_id") %>%
     select(
-      country_year_id, country_name_ltn, nuts_id,
+      country_year_id, country_name_ltn, nuts_id, quality_flag_nontrivial_25,
       ends_with(c("_bin", "_sev"))
     ) %>%
     select(
       -starts_with("AJR")
     ) %>%
     pivot_longer(
-      !c(country_year_id, country_name_ltn, nuts_id),
+      !c(country_year_id, country_name_ltn, nuts_id, quality_flag_nontrivial_25),
       names_to = c("problem", "variable"),
       names_pattern = "AJP_(.*)_(.*)",
       values_to = "value"
     ) %>%
     pivot_wider(
-      id_cols = c(country_year_id, country_name_ltn, nuts_id, problem),
+      id_cols = c(country_year_id, country_name_ltn, nuts_id, quality_flag_nontrivial_25, problem),
       names_from = variable,
       values_from = value
     ) %>%
     mutate(
+      # Apply quality check: set bin to NA for flagged people
       bin = case_when(
+        quality_flag_nontrivial_25 ~ NA_real_,
         bin == 1 ~ 1,
         bin == 2 ~ 0
       ),
       severity_group = case_when(
+        quality_flag_nontrivial_25 ~ NA_character_,
         sev %in% c(0,1,2,3)  ~ "Low",
         sev %in% c(4,5,6)    ~ "Medium",
         sev %in% c(7,8,9,10) ~ "High",
         sev %in% c(98,99)    ~ "Unknown",
         is.na(sev) ~ "Unknown"
       )
-    )
+    ) %>%
+    select(-quality_flag_nontrivial_25)
   
   levels <- c("National", "High", "Medium", "Low")
   names(levels) <- levels
@@ -82,15 +130,16 @@ freq_probs_by_severity <- function(master, regions){
         )
       
       results_by_country <- get_wgt_national_avg(
-        results_by_region, 
-        regions, 
-        target_col  = "proportion", 
+        results_by_region,
+        regions,
+        target_col  = "proportion",
         group_col   = "problem"
       ) %>%
         group_by(country_name_ltn) %>%
         slice_max(
           order_by = proportion,
-          n = 10
+          n = 10,
+          with_ties = FALSE
         ) %>%
         mutate(
           proportion = proportion*100
@@ -186,7 +235,7 @@ prevalence_nontrivial_problems <- function(master, regions){
 
 prevalence_nontrivial_problems_by_category <- function(master, regions){
   legalProblems <- c(
-    "F1", "F2", "J1", "J2", "J3", "E3", "C3", "A1", "A2", 
+    "F1", "F2", "J1", "J2", "J3", "E3", "C3", "A1", "A2",
     "A3", "G1", "G2", "G3", "E1", "E2", "D1", "D2", "D3",
     "D4", "D5", "D6", "C1", "C2", "C4", "B1", "B2", "B3",
     "B4", "I1", "L1", "L2", "K1", "K2", "K3", "H1", "H2",
@@ -194,16 +243,53 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
   )
   legprob_bin <- paste0("AJP_", legalProblems, "_bin")
   legprob_sev <- paste0("AJP_", legalProblems, "_sev")
-  
-  # convert severity to 0/1
+
+  # Build quality check flag (exclude people with >25 non-trivial problems)
+  quality_check <- master %>%
+    select(country_year_id, all_of(legprob_bin), all_of(legprob_sev)) %>%
+    pivot_longer(
+      cols = all_of(legprob_bin),
+      names_to = "problem",
+      values_to = "answer"
+    ) %>%
+    mutate(problem = str_remove_all(problem, "AJP_|_bin")) %>%
+    left_join(
+      master %>%
+        select(country_year_id, all_of(legprob_sev)) %>%
+        pivot_longer(
+          cols = all_of(legprob_sev),
+          names_to = "problem",
+          values_to = "severity"
+        ) %>%
+        mutate(problem = str_remove_all(problem, "AJP_|_sev")),
+      by = c("country_year_id", "problem")
+    ) %>%
+    mutate(
+      non_trivial = case_when(
+        answer == 1 & severity >= 4 & severity < 98 ~ 1,
+        TRUE ~ 0
+      )
+    ) %>%
+    group_by(country_year_id) %>%
+    summarise(
+      total_nontrivial = sum(non_trivial, na.rm = TRUE),
+      quality_flag_nontrivial_25 = total_nontrivial > 25,
+      .groups = "drop"
+    ) %>%
+    select(country_year_id, quality_flag_nontrivial_25)
+
+  # convert severity to 0/1, applying quality check (NA for flagged people)
   master_sev <- master %>%
+    left_join(quality_check, by = "country_year_id") %>%
     mutate(
       across(
         all_of(legprob_sev),
-        ~ ifelse(. > 3 & . < 98, 1,
-                 ifelse(. < 4, 0, NA_real_))
+        ~ ifelse(quality_flag_nontrivial_25, NA_real_,
+                 ifelse(. > 3 & . < 98, 1,
+                        ifelse(. < 4, 0, NA_real_)))
       )
-    )
+    ) %>%
+    select(-quality_flag_nontrivial_25)
   
   master_sev <- master_sev %>%
     mutate(
@@ -350,15 +436,15 @@ cooccurence_nproblems <- function(master, regions){
 
 
 cooccurence_network <- function(master, regions){
-  
+
   lapply(
     study_countries,
     function(country){
-      
-      master <- master %>% filter(country_name_ltn == country)
-      
+
+      master_country <- master %>% filter(country_name_ltn == country)
+
       legalProblems <- c(
-        "F1", "F2", "J1", "J2", "J3", "E3", "C3", "A1", "A2", 
+        "F1", "F2", "J1", "J2", "J3", "E3", "C3", "A1", "A2",
         "A3", "G1", "G2", "G3", "E1", "E2", "D1", "D2", "D3",
         "D4", "D5", "D6", "C1", "C2", "C4", "B1", "B2", "B3",
         "B4", "I1", "L1", "L2", "K1", "K2", "K3", "H1", "H2",
@@ -366,22 +452,59 @@ cooccurence_network <- function(master, regions){
       )
       legprob_bin <- paste0("AJP_", legalProblems, "_bin")
       legprob_sev <- paste0("AJP_", legalProblems, "_sev")
-      
-      # Binary data
-      data <- master %>%
+
+      # Build quality check flag (exclude people with >25 non-trivial problems)
+      quality_check <- master_country %>%
+        select(country_year_id, all_of(legprob_bin), all_of(legprob_sev)) %>%
+        pivot_longer(
+          cols = all_of(legprob_bin),
+          names_to = "problem",
+          values_to = "answer"
+        ) %>%
+        mutate(problem = str_remove_all(problem, "AJP_|_bin")) %>%
+        left_join(
+          master_country %>%
+            select(country_year_id, all_of(legprob_sev)) %>%
+            pivot_longer(
+              cols = all_of(legprob_sev),
+              names_to = "problem",
+              values_to = "severity"
+            ) %>%
+            mutate(problem = str_remove_all(problem, "AJP_|_sev")),
+          by = c("country_year_id", "problem")
+        ) %>%
+        mutate(
+          non_trivial = case_when(
+            answer == 1 & severity >= 4 & severity < 98 ~ 1,
+            TRUE ~ 0
+          )
+        ) %>%
+        group_by(country_year_id) %>%
+        summarise(
+          total_nontrivial = sum(non_trivial, na.rm = TRUE),
+          quality_flag_nontrivial_25 = total_nontrivial > 25,
+          .groups = "drop"
+        ) %>%
+        select(country_year_id, quality_flag_nontrivial_25)
+
+      # Binary data with quality check applied
+      data <- master_country %>%
+        left_join(quality_check, by = "country_year_id") %>%
         select(
-          country_year_id,
+          country_year_id, quality_flag_nontrivial_25,
           all_of(legprob_bin)
         ) %>%
         mutate(
           across(
             starts_with("AJP_"),
             \(x) case_when(
+              quality_flag_nontrivial_25 ~ NA_real_,
               x == 1 ~ 1,
               x == 2 ~ 0
             )
           )
-        )
+        ) %>%
+        select(-quality_flag_nontrivial_25)
       
       # Map: Problems -> Categories
       macro_categories <- data.frame(
@@ -401,12 +524,17 @@ cooccurence_network <- function(master, regions){
         )
       )
       
+      # Replace NA with 0 for frequency and co-occurrence calculations
+      # (NA means person is excluded from quality check, so should not contribute)
+      data_matrix <- data[, legprob_bin]
+      data_matrix[is.na(data_matrix)] <- 0
+
       # Total frequencies
-      frequencies <- colSums(data[, legprob_bin])
-      
+      frequencies <- colSums(data_matrix)
+
       # Co-occurence Matrix
-      cooccur_matrix <- t(as.matrix(data[, legprob_bin])) %*% 
-        as.matrix(data[, legprob_bin])
+      cooccur_matrix <- t(as.matrix(data_matrix)) %*%
+        as.matrix(data_matrix)
       diag(cooccur_matrix) <- 0
       
       min_cooccurrence = 1

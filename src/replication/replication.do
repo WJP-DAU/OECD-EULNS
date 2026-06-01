@@ -78,6 +78,9 @@ egen prevalence1=rowtotal(AJP_A1_bin_4 AJP_A2_bin_4 AJP_A3_bin_4 AJP_B1_bin_4 AJ
 
 gen prevalence2=(prevalence1>0)
 
+*5/31/26: Adding condition to remove respodents reporting more than 25 non-trivial legal problems
+replace prevalence2=0 if prevalence1>25 & prevalence1!=.  
+
 
 *** Types of problems
 
@@ -181,17 +184,18 @@ gen sev_selected_4=sev_selected if sev_selected>=4 & sev_selected<98 & sev_selec
 gen non_trivial=.
 replace non_trivial=1 if sev_selected>=4 & sev_selected<98 & sev_selected!=.
 replace non_trivial=0 if sev_selected<=3 & sev_selected!=. 
+
+*5/31/26: Adding condition to remove respodents reporting more than 25 non-trivial legal problems
+replace non_trivial = 0 if prevalence1>25 & prevalence1!=.
  
 
 *** Services
 
 *- Adequate assistance and representation: Run from end to beginning for R validation (case_when replication).
 gen access2rep=.
-replace access2rep=0 if AJD_inst_advice==98 
+replace access2rep=. if AJD_inst_advice==98 
 
 replace access2rep=0 if AJD_inst_advice==2  & (AJD_noadvice_reason==4 | AJD_noadvice_reason==5 | AJD_noadvice_reason==6 | AJD_noadvice_reason==7 | AJD_noadvice_reason==8 | AJD_noadvice_reason==9 | AJD_noadvice_reason==10 | AJD_noadvice_reason==98) 
-
-replace access2rep=1 if AJD_inst_advice == 2 & (AJD_noadvice_reason==1 | AJD_noadvice_reason==2 | AJD_noadvice_reason==3)
 
 replace access2rep=0 if AJD_inst_advice==1 & (AJD_adviser_1==1 | AJD_adviser_9==1 | AJD_adviser_98==1)
 
@@ -276,13 +280,13 @@ replace access2info=. if non_trivial==0
 
 *- DRM
 gen access2drm=.
-replace access2drm=1 if AJR_resolution==1
-replace access2drm=0 if AJR_resolution==2
 replace access2drm=. if AJR_resolution==98
-replace access2drm=. if AJR_resolution==99
+replace access2drm=0 if AJR_resolution==2 & (AJR_noresol_reason==3 | AJR_noresol_reason==5 | AJR_noresol_reason==6 | AJR_noresol_reason==7 | AJR_noresol_reason==8)
+replace access2drm=1 if AJR_resolution==1
 replace access2drm=. if non_trivial==.
 replace access2drm=. if non_trivial==0
 
+*replace access2drm=. if AJR_resolution==99
 
 *- No access needed
 gen no_access=.
@@ -409,7 +413,7 @@ replace satifaction=. if non_trivial==0
 *- Solving time
 gen rp_time=.
 replace rp_time=1 if AJR_solvingtime>=0 & AJR_solvingtime<=12 & AJR_solvingtime!=.
-replace rp_time=0 if AJR_solvingtime>12 & AJR_solvingtime!=.
+replace rp_time=0 if AJR_solvingtime>12 & AJR_solvingtime< 121 & AJR_solvingtime!=.
 replace rp_time=0 if AJR_solvingtime==-8888
 replace rp_time=. if AJR_solvingtime==-9999
 replace rp_time=. if AJR_state_noresol<3 & AJR_state_noresol>=98 &  AJR_state_noresol!=. 
@@ -509,12 +513,14 @@ recode gend2 (3 4 =.)
 					2. Export data
 =====================================================================================================================================*/
 
+
+
 *----- Country level 
 
 #delimit ;
 global a2j "prevalence2 
 Consumer Family Employment law_enf MoneyDebt Community 
-Land Housing Education Govt_payment Govt_other Injury prevalence1
+Land Housing Education Govt_payment Govt_other Injury
 access2info JSE_access2info
 access2rep 
 friendfamily lawyer courtgovbody tradeunion healthprof civilsoc govlegalaid religious 
@@ -563,9 +569,8 @@ drop _merge
 
 export excel using "$exp\reports_replication.xlsx", replace firstrow(var) sheet("Overall")
 putexcel set "$exp\reports_replication.xlsx", sheet("Overall") modify
-putexcel B2:X28, overwri nformat("0.0%") 
-*putexcel Q2:Q28, overwri nformat(number) 
-putexcel A1:Y1, overwri bold hcenter txtwrap
+putexcel B2:BI28, overwri nformat("0.0%") 
+putexcel A1:BJ1, overwri bold hcenter txtwrap
 
 restore
 
@@ -586,16 +591,15 @@ drop _merge
 
 collapse (mean) $a2j [pw=regionpoppct], by(country_name_ltn age_g)
 
-keep country age_g prevalence2 prevalence1 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
+*keep country age_g prevalence2 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
 
 label define age 1 "18-24" 2 "25-34" 3 "35-44" 4 "45-54" 5 "55-64" 6 "+65"
 label values age_g age	
 
 export excel using "$exp\reports_replication.xlsx", firstrow(var) sheet("Age") 
 putexcel set "$exp\reports_replication.xlsx", sheet("Age") modify
-putexcel B2:X28, overwri nformat("0.0%") 
-*putexcel Q2:Q28, overwri nformat(number) 
-putexcel A1:Y1, overwri bold hcenter txtwrap
+putexcel B2:BJ28, overwri nformat("0.0%") 
+putexcel A1:BK1, overwri bold hcenter txtwrap
 
 restore
 
@@ -615,13 +619,12 @@ drop _merge
 
 collapse (mean) $a2j [pw=regionpoppct], by(country_name_ltn urban)
 
-keep country urban prevalence2 prevalence1 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
+*keep country urban prevalence2 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
 
 export excel using "$exp\reports_replication.xlsx", firstrow(var) sheet("Urban") 
 putexcel set "$exp\reports_replication.xlsx", sheet("Urban") modify
-putexcel B2:X28, overwri nformat("0.0%") 
-*putexcel Q2:Q28, overwri nformat(number) 
-putexcel A1:Y1, overwri bold hcenter txtwrap
+putexcel B2:BJ28, overwri nformat("0.0%") 
+putexcel A1:BK1, overwri bold hcenter txtwrap
 
 restore
 
@@ -643,16 +646,15 @@ collapse (mean) $a2j [pw=regionpoppct], by(country_name_ltn fin2)
 
 drop if fin2==.
 
-keep country fin2 prevalence2 prevalence1 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
+*keep country fin2 prevalence2 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
  
 label define fin2 1 "Constrained" 2 "Unconstrained"
 label values fin2 fin2
 
 export excel using "$exp\reports_replication.xlsx", firstrow(var) sheet("Fin situation") 
 putexcel set "$exp\reports_replication.xlsx", sheet("Fin situation") modify
-putexcel B2:X28, overwri nformat("0.0%") 
-*putexcel Q2:Q28, overwri nformat(number) 
-putexcel A1:Y1, overwri bold hcenter txtwrap
+putexcel B2:BJ28, overwri nformat("0.0%") 
+putexcel A1:BK1, overwri bold hcenter txtwrap
 
 restore
 
@@ -675,16 +677,15 @@ collapse (mean) $a2j [pw=regionpoppct], by(country_name_ltn gend2)
 
 drop if gend2==.
 
-keep country gend2 prevalence2 prevalence1 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
+*keep country gend2 prevalence2 access2info JSE_access2info access2rep JSE_access2assis access2drm rp_time slow rp_fair rp_cost expensive rp_outcome satifaction hardship AJE_legalrights AJE_description_1 AJE_description_2 AJE_description_3 AJE_description_4 AJE_description_5 AJE_description_6 AJE_description_7 AJE_advice legal_emp TRT_judges TRT_prosecutors TRT_pda
 
 label define gend2 1 "Male" 2 "Female"
 label values gend2 gend2
 
 export excel using "$exp\reports_replication.xlsx", firstrow(var) sheet("Gender") 
 putexcel set "$exp\reports_replication.xlsx", sheet("Gender") modify
-putexcel B2:X28, overwri nformat("0.0%") 
-*putexcel Q2:Q28, overwri nformat(number) 
-putexcel A1:Y1, overwri bold hcenter txtwrap
+putexcel B2:BJ28, overwri nformat("0.0%") 
+putexcel A1:BK1, overwri bold hcenter txtwrap
 
 restore
 
