@@ -401,12 +401,12 @@ access2DRM_barriers <- function(master, regions, study_countries){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-access2representation_perceptions <- function(master, regions){
+access2DRM_perceptions <- function(master, regions){
   
   results_tbl <- get_results_table(
     master, 
     regions, 
-    target = "JSE_access2assis",
+    target = "JSE_mediation",
     ctype = "short",
     transform_var = function(x) case_when(
       x %in% c(1,2) ~ 1,
