@@ -88,6 +88,7 @@ access2DRM_logit <- access2DRM_logit(master, regions, study_countries)
 contacted_mechanisms <- contacted_mechanisms(master, regions, study_countries)
 access_to_alternative_DRM <- access_to_alternative_DRM(master, regions)
 access2DRM_barriers <- access2DRM_barriers(master, regions, study_countries)
+access2DRM_perceptions <- access2DRM_perceptions(master, regions)
   
 
 if(!interactive()){
@@ -154,7 +155,4 @@ if(!interactive()){
 }
 source("src/analysis/module_5.R")
 trust <- trust(master, regions)
-
-
-access2representation_perceptions <- access2representation_perceptions(master, regions)
   

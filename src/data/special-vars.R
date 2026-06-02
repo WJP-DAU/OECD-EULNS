@@ -150,6 +150,81 @@ apply_quality_check_to_experience_vars <- function(data, experience_vars){
   
 }
 
+apply_quality_check_to_problem_vars <- function(data, problem_vars){
+  
+  data %>%
+    mutate(
+      across(
+        all_of(problem_vars),
+        \(x) if_else(
+          quality_flag_nontrivial_25,
+          2,
+          as.numeric(haven::zap_labels(x))
+        )
+      )
+    )
+  
+}
+
+get_a2j_quality_check_spec <- function(){
+  
+  legalProblems <- c(
+    "A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4", "D5", "D6", "E1", 
+    "E2", "E3", "F1", "F2", "G1", "G2", "G3", "H1", "H2", "H3", "I1", "J1", "J2", "J3", "J4", "K1", "K2", "K3", 
+    "L1", "L2"
+  )
+  legprob_bin <- paste0("AJP_", legalProblems, "_bin")
+  legprob_sev <- paste0("AJP_", legalProblems, "_sev")
+  
+  list(
+    legalProblems = legalProblems,
+    legprob_bin = legprob_bin,
+    legprob_sev = legprob_sev,
+    problem_vars = legprob_bin,
+    experience_vars = c(
+      "AJP_problem",
+      legprob_sev,
+      "AJE_infosource",
+      "AJD_inst_advice", "AJD_expert_adviser", "AJD_noadvice_reason",
+      paste0("AJD_adviser_", c(1:9, 98)),
+      "AJR_resolution", "AJR_noresol_reason", "AJR_court_bin",
+      "AJR_solvingtime", "AJR_slow", "AJR_solvingcosts", "AJR_costdiff",
+      "AJR_expensive", "AJR_fair", "AJR_state_resol", "AJR_state_noresol",
+      "AJR_outcome", "AJR_satis_outcome",
+      "AJE_health", "AJE_emotional", "AJE_income", "AJE_drugs"
+    )
+  )
+  
+}
+
+apply_a2j_quality_check <- function(data){
+  
+  spec <- get_a2j_quality_check_spec()
+  
+  quality_check <- build_quality_check(
+    data = data,
+    legprob_bin = spec$legprob_bin,
+    legprob_sev = spec$legprob_sev
+  )
+  
+  data %>%
+    left_join(
+      quality_check,
+      by = "country_year_id"
+    ) %>%
+    apply_quality_check_to_problem_vars(
+      problem_vars = spec$problem_vars
+    ) %>%
+    apply_quality_check_to_experience_vars(
+      experience_vars = spec$experience_vars
+    ) %>%
+    select(
+      -total_nontrivial_problems,
+      -quality_flag_nontrivial_25
+    )
+  
+}
+
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ##
 ## 2.  Special A2J variables ----
@@ -159,27 +234,10 @@ apply_quality_check_to_experience_vars <- function(data, experience_vars){
 add_a2j_vars <- function(data){
 
   ### Legal Problem prevalence ----
-  legalProblems <- c(
-    "A1", "A2", "A3", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4", "D5", "D6", "E1", 
-    "E2", "E3", "F1", "F2", "G1", "G2", "G3", "H1", "H2", "H3", "I1", "J1", "J2", "J3", "J4", "K1", "K2", "K3", 
-    "L1", "L2"
-  )
-  legprob_bin <- paste0("AJP_", legalProblems, "_bin")
-  legprob_sev <- paste0("AJP_", legalProblems, "_sev")
-  
-  experience_vars <- c(
-    "AJP_problem",
-    legprob_bin,
-    legprob_sev,
-    "AJE_infosource",
-    "AJD_inst_advice", "AJD_expert_adviser", "AJD_noadvice_reason",
-    paste0("AJD_adviser_", c(1:9, 98)),
-    "AJR_resolution", "AJR_noresol_reason", "AJR_court_bin",
-    "AJR_solvingtime", "AJR_slow", "AJR_solvingcosts", "AJR_costdiff",
-    "AJR_expensive", "AJR_fair", "AJR_state_resol", "AJR_state_noresol",
-    "AJR_outcome", "AJR_satis_outcome",
-    "AJE_health", "AJE_emotional", "AJE_income", "AJE_drugs"
-  )
+  quality_spec <- get_a2j_quality_check_spec()
+  legalProblems <- quality_spec$legalProblems
+  legprob_bin <- quality_spec$legprob_bin
+  legprob_sev <- quality_spec$legprob_sev
   
   quality_check <- build_quality_check(
     data = data,
@@ -192,8 +250,11 @@ add_a2j_vars <- function(data){
       quality_check,
       by = "country_year_id"
     ) %>%
+    apply_quality_check_to_problem_vars(
+      problem_vars = quality_spec$problem_vars
+    ) %>%
     apply_quality_check_to_experience_vars(
-      experience_vars = experience_vars
+      experience_vars = quality_spec$experience_vars
     )
   
   # Extracting severity of problem selected

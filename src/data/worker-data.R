@@ -60,7 +60,8 @@ eugpp_subset <- load_data(
 ) %>% 
   filter(
     country_name_ltn %in% study_countries
-  )
+  ) %>%
+  apply_a2j_quality_check()
 
 # Processing data
 if(!interactive()){
@@ -85,4 +86,3 @@ if(!interactive()){
   verbose_message("--- Saving master data...")
 }
 write_csv(master, "data/master.csv")
-
