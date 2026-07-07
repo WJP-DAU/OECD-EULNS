@@ -16,6 +16,7 @@ source("src/viz/dumbbells.R")
 source("src/viz/sankey_advice&rep.R")
 source("src/viz/sankey_drm.R")
 source("src/viz/jg_upset.R")
+source("src/viz/network_graph.R")
 
 path2fonts <- glue::glue(
   "{path2DA}/6. Country Reports/0. Fonts"
@@ -161,19 +162,18 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category")
         w <- 280
         h <- 300
-        
+
       } else {
         omit.cats = NULL
         w <- 280
         h <- 375
-        
+
       }
-      
+
       gen_grouped_bars(
         name = "access2information",
         country = country,
@@ -232,19 +232,18 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category")
         w <- 280
         h <- 300
-        
+
       } else {
         omit.cats = NULL
         w <- 280
         h <- 375
-        
+
       }
-      
+
       gen_grouped_bars(
         name = "access2representation",
         country = country,
@@ -337,19 +336,18 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 300
-        
+
       }
-      
+
       gen_grouped_bars(
         name = "access2DRM",
         country = country,
@@ -415,17 +413,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -448,17 +445,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -479,17 +475,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -512,17 +507,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -545,17 +539,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -587,17 +580,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -620,17 +612,16 @@ invisible(
     study_countries,
     function(country){
       
-      if (country == "Malta") {
-        # Malta has smaller sample, omit some categories
+      if (country_config[[country]]$small_sample) {
         omit.cats <- c("Category", "Age Group", "Problem Status")
         w <- 280
         h <- 220
-        
+
       } else {
         omit.cats = c("Category")
         w <- 280
         h <- 375
-        
+
       }
       
       gen_grouped_bars(
@@ -697,11 +688,7 @@ invisible(
 invisible(
   gen_jg_upset(
     master, w = 280, h = 180,
-    ylim = c(
-      "Italy" = 20.5,
-      "Malta" = 18.5,
-      "Poland" = 20.5
-    )
+    ylim = sapply(country_config, function(x) x$ylim_upset)
   )
 )
 
@@ -862,7 +849,7 @@ invisible(
   lapply(
     study_countries,
     function(country){
-      
+
       gen_grouped_bars(
         name = "trust_pda",
         country = country,
@@ -872,7 +859,21 @@ invisible(
         eu.avg = TRUE,
         eu.avg.data = data4web
       )
-      
+
     }
   )
 )
+
+
+## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+##
+## Hungary-specific ----
+##
+## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+if(!interactive()){
+  verbose_message("--- Drawing Hungary-specific figures")
+}
+
+#### Co-occurrence Network of Justice Problems ----
+invisible(gen_network_graph(master, country = "Hungary", w = 280, h = 280))
