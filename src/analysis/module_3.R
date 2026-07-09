@@ -151,13 +151,13 @@ unmet_legal_needs <- function(jg_data, study_countries){
                 label = paste0(
                   format(
                     round(
-                      (after_stat(count)/n_rows)*100, 0
+                      (after_stat(count)/n_rows)*100, 1
                     ),
-                    nsmall = 0
+                    nsmall = 1
                   ), "%"
                 )
-              ), 
-              hjust = 1.1, 
+              ),
+              hjust = 1.1,
               stat  = "count"
             ) +
             ylab("No. of respondents") + 

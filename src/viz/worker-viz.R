@@ -131,15 +131,16 @@ invisible(
   lapply(
     study_countries,
     function(country){
-      
+
       gen_grouped_bars(
         name = "cooccurence_nproblems",
         country = country,
         w = 280,
         h = 225,
-        perc = FALSE
+        perc = FALSE,
+        decimals = 1
       )
-      
+
     }
   )
 )
@@ -698,9 +699,10 @@ invisible(
   gen_jg_upset(
     master, w = 280, h = 180,
     ylim = c(
-      "Italy" = 20.5,
-      "Malta" = 18.5,
-      "Poland" = 20.5
+      "Hungary" = 205,
+      "Italy" = 205,
+      "Malta" = 185,
+      "Poland" = 205
     )
   )
 )

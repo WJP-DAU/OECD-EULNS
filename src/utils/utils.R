@@ -173,10 +173,16 @@ estimate_logit <- function(data, f){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-study_countries <- c("Italy", "Malta", "Poland")
+study_countries <- c("Hungary", "Italy", "Malta", "Poland")
 names(study_countries) <- study_countries
 
 independent_vars <- list(
+  "Hungary" = c(
+    "gender", "financial", "residence",
+    "age_group", "edu_level", "marital_status",
+    "nationality", "emp_status", "selected_problem_category", "nproblems",
+    "nuts_id"
+  ),
   "Italy" = c(
     "gender", "financial", "residence",
     "age_group", "edu_level", "marital_status",
