@@ -5,7 +5,7 @@
 ## Creation date:     July 2026
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-gen_network_graph <- function(master, country, w = 280, h = 280) {
+gen_network_graph <- function(master, country, w = 320, h = 320) {
 
   # ============================================================
   # 1. DATA PREPARATION
@@ -158,12 +158,44 @@ gen_network_graph <- function(master, country, w = 280, h = 280) {
   nodes <- nodes %>% left_join(layout_df, by = "name")
 
   # Rescale layout to [0, 1] then add padding so nodes don't clip at edges
-  pad <- 0.18
+  pad <- 0.16
   nodes <- nodes %>%
     mutate(
       x = (x - min(x)) / (max(x) - min(x)) * (1 - 2 * pad) + pad,
       y = (y - min(y)) / (max(y) - min(y)) * (1 - 2 * pad) + pad
     )
+
+  # Overlap resolution: FR layout can place extremely high-lift pairs almost
+  # on top of each other (e.g. two rare, tightly-correlated categories); nudge
+  # apart any nodes closer than min_dist so labels stay readable
+  min_dist <- 0.28
+  for (iter in seq_len(100)) {
+    moved <- FALSE
+    for (i in seq_len(nrow(nodes) - 1)) {
+      for (j in seq(i + 1, nrow(nodes))) {
+        dx   <- nodes$x[j] - nodes$x[i]
+        dy   <- nodes$y[j] - nodes$y[i]
+        dist <- sqrt(dx^2 + dy^2)
+        if (dist < min_dist) {
+          if (dist < 1e-6) { dx <- 1e-3; dy <- 0; dist <- 1e-3 }
+          overlap <- (min_dist - dist) / 2
+          ux <- dx / dist; uy <- dy / dist
+          nodes$x[j] <- nodes$x[j] + ux * overlap
+          nodes$y[j] <- nodes$y[j] + uy * overlap
+          nodes$x[i] <- nodes$x[i] - ux * overlap
+          nodes$y[i] <- nodes$y[i] - uy * overlap
+          moved <- TRUE
+        }
+      }
+    }
+    if (!moved) break
+  }
+
+  # Horizontal stretch: widen spacing along x only; panel width is scaled by
+  # the same factor below so node size (mm) and aspect stay circular
+  hstretch <- 1.15
+  nodes <- nodes %>% mutate(x = 0.5 + (x - 0.5) * hstretch)
+  x_half_range <- 0.5 * hstretch
 
   # ============================================================
   # 6. PLOT
@@ -182,7 +214,7 @@ gen_network_graph <- function(master, country, w = 280, h = 280) {
     )
 
   nodes <- nodes %>%
-    mutate(node_size = 45)
+    mutate(node_size = 42)
 
   label_df <- nodes %>%
     mutate(
@@ -237,7 +269,11 @@ gen_network_graph <- function(master, country, w = 280, h = 280) {
       plot.margin     = ggplot2::margin(20, 20, 20, 20),
       plot.background = ggplot2::element_rect(fill = "white", color = NA)
     ) +
-    ggplot2::coord_fixed(xlim = c(0, 1), ylim = c(0, 1), clip = "off")
+    ggplot2::coord_fixed(
+      xlim = c(0.5 - x_half_range, 0.5 + x_half_range), ylim = c(0, 1), clip = "off"
+    )
+
+  w <- w * hstretch
 
   output_dir <- glue::glue("output/viz/{country}")
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
@@ -250,6 +286,17 @@ gen_network_graph <- function(master, country, w = 280, h = 280) {
     units    = "mm",
     dpi      = 300,
     bg       = "white"
+  )
+
+  ggplot2::ggsave(
+    filename = glue::glue("{output_dir}/cooccurrence_network.svg"),
+    plot     = p,
+    device   = svglite::svglite,
+    width    = w,
+    height   = h,
+    dpi      = 300,
+    units    = "mm",
+    scale    = 0.75
   )
 
   invisible(p)

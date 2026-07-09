@@ -876,4 +876,4 @@ if(!interactive()){
 }
 
 #### Co-occurrence Network of Justice Problems ----
-invisible(gen_network_graph(master, country = "Hungary", w = 280, h = 280))
+invisible(gen_network_graph(master, country = "Hungary", w = 320, h = 320))
