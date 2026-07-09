@@ -49,13 +49,14 @@ gen_jg_upset <- function(master, w, h, ylim){
     ) %>% 
     mutate(
       weighted_proportion = (count_size/total)*wgt
-    ) %>% 
+    ) %>%
     group_by(
       country_name_ltn,
       jg_inverse_access2info, jg_inverse_access2rep, jg_inverse_rp, jg_inverse_outcome
-    ) %>% 
+    ) %>%
     summarise(
-      national_weighted_proportion = round(sum(weighted_proportion*100),0),
+      # Multiply by 10 to preserve 1 decimal place when expanding rows
+      national_weighted_proportion = round(sum(weighted_proportion*100)*10, 0),
       .groups = "keep"
     )
   
@@ -98,7 +99,7 @@ gen_jg_upset <- function(master, w, h, ylim){
             ),
             text_mapping = aes(
               label = paste0(
-                !!ComplexUpset::get_size_mode("exclusive_intersection"),
+                format(!!ComplexUpset::get_size_mode("exclusive_intersection")/10, nsmall = 1),
                 "%"
               )
             )
@@ -125,13 +126,13 @@ gen_jg_upset <- function(master, w, h, ylim){
           geom_text(
             aes(
               label = paste0(
-                after_stat(count), "%"
+                format(after_stat(count)/10, nsmall = 1), "%"
               )
             ),
             hjust = 1.1,
             stat  = "count"
           ) +
-          expand_limits(y = 100) +
+          expand_limits(y = 1000) +
           theme (
             axis.text.x  = element_blank(),
             axis.text.y  = element_blank(),

@@ -278,13 +278,13 @@ prevalence_nontrivial_problems_by_category <- function(master, regions){
     ) %>%
     select(country_year_id, quality_flag_nontrivial_25)
 
-  # convert severity to 0/1, applying quality check (NA for flagged people)
+  # convert severity to 0/1, applying quality check (0 for flagged people in categories)
   master_sev <- master %>%
     left_join(quality_check, by = "country_year_id") %>%
     mutate(
       across(
         all_of(legprob_sev),
-        ~ ifelse(quality_flag_nontrivial_25, NA_real_,
+        ~ ifelse(quality_flag_nontrivial_25, 0,
                  ifelse(. > 3 & . < 98, 1,
                         ifelse(. < 4, 0, NA_real_)))
       )
@@ -616,11 +616,264 @@ cooccurence_network <- function(master, regions){
         )
       
       ggsave(
-        glue::glue("output/tabs/png/1_4_cooccurence_network_{country}.png"), 
-        width = 8, 
+        glue::glue("output/tabs/png/1_4_cooccurence_network_{country}.png"),
+        width = 8,
         height = 6
       )
-      
+
     }
   )
+}
+
+
+## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+##
+## 5.  Lift Analysis - Co-occurrence strength between problem CATEGORIES ----
+##
+## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+lift_analysis <- function(master, regions) {
+
+  legalProblems <- c(
+    "F1", "F2", "J1", "J2", "J3", "E3", "C3", "A1", "A2",
+    "A3", "G1", "G2", "G3", "E1", "E2", "D1", "D2", "D3",
+    "D4", "D5", "D6", "C1", "C2", "C4", "B1", "B2", "B3",
+    "B4", "I1", "L1", "L2", "K1", "K2", "K3", "H1", "H2",
+    "H3", "J4"
+  )
+  legprob_bin <- paste0("AJP_", legalProblems, "_bin")
+  legprob_sev <- paste0("AJP_", legalProblems, "_sev")
+
+  # Category names for output
+  category_names <- c(
+    "Accidental", "Citizenship & ID", "Community", "Consumer",
+    "Education", "Employment", "Family", "Housing",
+    "Land", "Law Enforcement", "Money & Debt", "Public Services"
+  )
+
+  # Store results for all countries
+  all_top_pairs <- list()
+
+  lapply(
+    study_countries,
+    function(country) {
+
+      master_country <- master %>% filter(country_name_ltn == country)
+
+      # Build quality check flag (exclude people with >25 non-trivial problems)
+      quality_check <- master_country %>%
+        select(country_year_id, all_of(legprob_bin), all_of(legprob_sev)) %>%
+        pivot_longer(
+          cols = all_of(legprob_bin),
+          names_to = "problem",
+          values_to = "answer"
+        ) %>%
+        mutate(problem = str_remove_all(problem, "AJP_|_bin")) %>%
+        left_join(
+          master_country %>%
+            select(country_year_id, all_of(legprob_sev)) %>%
+            pivot_longer(
+              cols = all_of(legprob_sev),
+              names_to = "problem",
+              values_to = "severity"
+            ) %>%
+            mutate(problem = str_remove_all(problem, "AJP_|_sev")),
+          by = c("country_year_id", "problem")
+        ) %>%
+        mutate(
+          non_trivial = case_when(
+            answer == 1 & severity >= 4 & severity < 98 ~ 1,
+            TRUE ~ 0
+          )
+        ) %>%
+        group_by(country_year_id) %>%
+        summarise(
+          total_nontrivial = sum(non_trivial, na.rm = TRUE),
+          quality_flag_nontrivial_25 = total_nontrivial > 25,
+          .groups = "drop"
+        ) %>%
+        select(country_year_id, quality_flag_nontrivial_25)
+
+      # Create category-level binary variables (1 if ANY problem in category, severity >= 4)
+      master_sev <- master_country %>%
+        left_join(quality_check, by = "country_year_id") %>%
+        mutate(
+          across(
+            all_of(legprob_sev),
+            ~ ifelse(quality_flag_nontrivial_25, 0,
+                     ifelse(. > 3 & . < 98, 1,
+                            ifelse(. < 4, 0, NA_real_)))
+          )
+        ) %>%
+        select(-quality_flag_nontrivial_25)
+
+      # Aggregate to category level
+      master_cat <- master_sev %>%
+        mutate(
+          cat_accidental    = if_else(AJP_F1_sev == 1 | AJP_F2_sev == 1, 1, 0),
+          cat_citizenship   = if_else(AJP_J1_sev == 1 | AJP_J2_sev == 1 | AJP_J3_sev == 1, 1, 0),
+          cat_community     = if_else(AJP_E3_sev == 1 | AJP_C3_sev == 1, 1, 0),
+          cat_consumer      = if_else(AJP_A1_sev == 1 | AJP_A2_sev == 1 | AJP_A3_sev == 1, 1, 0),
+          cat_education     = if_else(AJP_E1_sev == 1 | AJP_E2_sev == 1, 1, 0),
+          cat_employment    = if_else(AJP_G1_sev == 1 | AJP_G2_sev == 1 | AJP_G3_sev == 1, 1, 0),
+          cat_family        = if_else(AJP_D1_sev == 1 | AJP_D2_sev == 1 | AJP_D3_sev == 1 |
+                                        AJP_D4_sev == 1 | AJP_D5_sev == 1 | AJP_D6_sev == 1, 1, 0),
+          cat_housing       = if_else(AJP_C1_sev == 1 | AJP_C2_sev == 1 | AJP_C4_sev == 1, 1, 0),
+          cat_land          = if_else(AJP_B1_sev == 1 | AJP_B2_sev == 1 | AJP_B3_sev == 1 | AJP_B4_sev == 1, 1, 0),
+          cat_law_enforc    = if_else(AJP_I1_sev == 1, 1, 0),
+          cat_money_debt    = if_else(AJP_K1_sev == 1 | AJP_K2_sev == 1 | AJP_K3_sev == 1 |
+                                        AJP_L1_sev == 1 | AJP_L2_sev == 1, 1, 0),
+          cat_public_serv   = if_else(AJP_H1_sev == 1 | AJP_H2_sev == 1 | AJP_H3_sev == 1 | AJP_J4_sev == 1, 1, 0)
+        ) %>%
+        select(country_year_id, starts_with("cat_"))
+
+      # Extract category columns for matrix calculations
+      cat_cols <- c("cat_accidental", "cat_citizenship", "cat_community", "cat_consumer",
+                    "cat_education", "cat_employment", "cat_family", "cat_housing",
+                    "cat_land", "cat_law_enforc", "cat_money_debt", "cat_public_serv")
+
+      data_matrix <- master_cat[, cat_cols]
+      data_matrix[is.na(data_matrix)] <- 0
+
+      # Total sample size
+      n_total <- nrow(data_matrix)
+
+      # Marginal probabilities P(category)
+      frequencies <- colSums(data_matrix)
+      prob_marginal <- frequencies / n_total
+
+      # Co-occurrence matrix
+      cooccur_matrix <- t(as.matrix(data_matrix)) %*% as.matrix(data_matrix)
+      diag(cooccur_matrix) <- 0
+
+      # Joint probability P(A ∩ B)
+      prob_joint <- cooccur_matrix / n_total
+
+      # Expected probability under independence P(A) * P(B)
+      prob_expected <- outer(prob_marginal, prob_marginal)
+
+      # Lift matrix
+      lift_matrix <- prob_joint / prob_expected
+      lift_matrix[is.nan(lift_matrix) | is.infinite(lift_matrix)] <- NA
+      diag(lift_matrix) <- NA
+
+      # Set clean names
+      colnames(lift_matrix) <- category_names
+      rownames(lift_matrix) <- category_names
+      colnames(cooccur_matrix) <- category_names
+      rownames(cooccur_matrix) <- category_names
+      names(prob_marginal) <- category_names
+
+      # Save lift matrix as CSV
+      lift_df <- as.data.frame(lift_matrix)
+      lift_df <- cbind(category = rownames(lift_df), lift_df)
+      write_csv(lift_df, glue::glue("output/tabs/csv/1_5_lift_matrix_{country}.csv"))
+
+      # Extract all pairs (upper triangle only)
+      upper_idx <- which(upper.tri(lift_matrix), arr.ind = TRUE)
+
+      top_pairs <- data.frame(
+        country = country,
+        category_A = category_names[upper_idx[, 1]],
+        category_B = category_names[upper_idx[, 2]],
+        lift = lift_matrix[upper_idx],
+        support = prob_joint[upper_idx],
+        cooccurrence = cooccur_matrix[upper_idx],
+        P_A = prob_marginal[upper_idx[, 1]],
+        P_B = prob_marginal[upper_idx[, 2]]
+      ) %>%
+        filter(!is.na(lift) & cooccurrence >= 5) %>%
+        arrange(desc(lift))
+
+      all_top_pairs[[country]] <<- top_pairs
+
+      # Create heatmap visualization
+      lift_long <- as.data.frame(lift_matrix) %>%
+        mutate(category_A = rownames(lift_matrix)) %>%
+        pivot_longer(
+          cols = -category_A,
+          names_to = "category_B",
+          values_to = "lift"
+        ) %>%
+        filter(!is.na(lift)) %>%
+        mutate(
+          category_A = factor(category_A, levels = category_names),
+          category_B = factor(category_B, levels = category_names)
+        )
+
+      p <- ggplot(lift_long, aes(x = category_A, y = category_B, fill = lift)) +
+        geom_tile(color = "white", linewidth = 0.5) +
+        geom_text(aes(label = round(lift, 2)), size = 3, color = "black") +
+        scale_fill_gradient2(
+          low = "#2166AC",
+          mid = "white",
+          high = "#B2182B",
+          midpoint = 1,
+          name = "Lift",
+          limits = c(0, max(lift_long$lift, na.rm = TRUE)),
+          oob = scales::squish
+        ) +
+        theme_minimal() +
+        theme(
+          axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+          axis.text.y = element_text(size = 9),
+          axis.title = element_blank(),
+          legend.position = "right",
+          plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+          plot.subtitle = element_text(hjust = 0.5, size = 10),
+          panel.grid = element_blank()
+        ) +
+        labs(
+          title = glue::glue("Lift Analysis: Problem Category Co-occurrence - {country}"),
+          subtitle = "Lift > 1: positive association | Lift = 1: independence | Lift < 1: negative association"
+        ) +
+        coord_fixed()
+
+      ggsave(
+        glue::glue("output/tabs/png/1_5_lift_heatmap_{country}.png"),
+        plot = p,
+        width = 10,
+        height = 8,
+        dpi = 150
+      )
+
+    }
+  )
+
+  # Combine all pairs and save
+  results_tbl <- bind_rows(all_top_pairs) %>%
+    select(country, category_A, category_B, lift, support, cooccurrence, P_A, P_B) %>%
+    arrange(country, desc(lift))
+
+  write_csv(results_tbl, "output/tabs/csv/1_5_lift_top_pairs.csv")
+
+  # Create summary table
+  suppressMessages(
+    kableExtra::kbl(
+      results_tbl %>%
+        mutate(
+          lift = round(lift, 2),
+          support = round(support, 4),
+          P_A = round(P_A, 3),
+          P_B = round(P_B, 3)
+        ),
+      digits = 2,
+      caption = "Problem Category Pairs by Lift (Strongest Associations)",
+      col.names = c("Country", "Category A", "Category B",
+                    "Lift", "Support", "Co-occ.", "P(A)", "P(B)")
+    ) %>%
+      kableExtra::kable_classic(
+        html_font = "Cambria"
+      ) %>%
+      kableExtra::kable_styling(
+        font_size = 14,
+        latex_options = "striped"
+      ) %>%
+      kableExtra::pack_rows(
+        index = table(results_tbl$country)[unique(results_tbl$country)]
+      ) %>%
+      safe_save_kable("output/tabs/png/1_5_lift_top_pairs.png")
+  )
+
+  return(results_tbl)
 }

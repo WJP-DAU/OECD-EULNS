@@ -173,12 +173,34 @@ estimate_logit <- function(data, f){
 ##
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-source("src/utils/country_config.R")
-
-study_countries <- names(country_config)
+study_countries <- c("Hungary", "Italy", "Malta", "Poland")
 names(study_countries) <- study_countries
 
-independent_vars <- lapply(country_config, function(x) x$logit_vars)
+independent_vars <- list(
+  "Hungary" = c(
+    "gender", "financial", "residence",
+    "age_group", "edu_level", "marital_status",
+    "nationality", "emp_status", "selected_problem_category", "nproblems",
+    "nuts_id"
+  ),
+  "Italy" = c(
+    "gender", "financial", "residence",
+    "age_group", "edu_level", "marital_status",
+    "nationality", "emp_status", "selected_problem_category", "nproblems",
+    "nuts_id"
+  ),
+  "Malta" = c(
+    "gender", "financial",
+    "age_group", "edu_level", "marital_status",
+    "emp_status", "nproblems"
+  ),
+  "Poland" = c(
+    "gender", "financial", "residence",
+    "age_group", "edu_level", "marital_status",
+    "nationality", "emp_status", "selected_problem_category", "nproblems",
+    "nuts_id"
+  )
+)
 
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

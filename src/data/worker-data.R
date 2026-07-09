@@ -40,7 +40,7 @@ study_vars <- c(
   "non_trivial_problem", "selected_problem_category", 
   "problem_status", "resolution_favor", "rp_satisfaction",
   "nproblems", "cooccurence_group",
-  "hardships_health", "hardships_emotional", "hardships_income", "hardships_drugs",
+  "hardship", "hardships_health", "hardships_emotional", "hardships_income", "hardships_drugs",
   
   # Justice Gap variables
   "inside_justice_gap_nodk", "inside_justice_gap_keepdk",

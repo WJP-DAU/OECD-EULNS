@@ -59,18 +59,49 @@ gen_sankey_advice <- function(master, country){
       .groups = "keep"
     )
   
+  access2rep_stage_2 <- c(
+    "Appropriate Advisor",
+    "Non-Appropriate Advisor",
+    "Needed but did not have access to an advisor"
+  )
+
   # Stage 3 Data
-  sankey_data_stage_3 <- sankey_data_stage_2 %>% 
+  # Match access2rep denominator: "Did not need an advisor" and "Unknown Reason"
+  # are excluded rather than counted as access/no access.
+  sankey_data_stage_3 <- sankey_base_data %>%
+    ungroup() %>%
+    filter(
+      sankey_advice_stage_2 %in% access2rep_stage_2
+    ) %>%
+    select(-nuts_sample) %>%
+    group_by(nuts_id) %>%
+    mutate(
+      nuts_sample = n()
+    ) %>%
+    group_by(country_name_ltn, nuts_id, nuts_sample, sankey_advice_stage_2) %>%
+    summarise(
+      count = n(),
+      .groups = "keep"
+    ) %>%
+    left_join(
+      regions %>%
+        select(nuts_id, wgt = regionpoppct),
+      by = "nuts_id"
+    ) %>%
+    mutate(
+      national_avg = (count/nuts_sample)*wgt
+    ) %>%
+    group_by(country_name_ltn, sankey_advice_stage_2) %>%
+    summarise(
+      national_avg = sum(national_avg),
+      .groups = "keep"
+    ) %>%
     mutate(
       sankey_advice_stage_3 = case_when(
-        sankey_advice_stage_2 %in% c(
-          "Appropriate Advisor", 
-          "Did not need an advisor"
-        ) ~ "Had access",
+        sankey_advice_stage_2 == "Appropriate Advisor" ~ "Had access",
         sankey_advice_stage_2 %in% c(
           "Non-Appropriate Advisor", 
-          "Needed but did not have access to an advisor",
-          "Unknown Reason"
+          "Needed but did not have access to an advisor"
         ) ~ "Had no access"
       )
     ) %>% 
@@ -106,14 +137,10 @@ gen_sankey_advice <- function(master, country){
         ) ~ "Did not contact an advisor"
       ),
       sankey_advice_stage_3 = case_when(
-        sankey_advice_stage_2 %in% c(
-          "Appropriate Advisor", 
-          "Did not need an advisor"
-        ) ~ "Had access",
+        sankey_advice_stage_2 == "Appropriate Advisor" ~ "Had access",
         sankey_advice_stage_2 %in% c(
           "Non-Appropriate Advisor", 
-          "Needed but did not have access to an advisor",
-          "Unknown Reason"
+          "Needed but did not have access to an advisor"
         ) ~ "Had no access"
       )
     ) %>% 
@@ -124,6 +151,9 @@ gen_sankey_advice <- function(master, country){
     left_join(
       proportions,
       by = c("x", "node")
+    ) %>%
+    filter(
+      !is.na(node)
     )
   
   # Drawing ggplot
@@ -191,4 +221,3 @@ gen_sankey_advice <- function(master, country){
     dpi    = 300
   )
 }
-

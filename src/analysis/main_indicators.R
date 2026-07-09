@@ -565,7 +565,22 @@ advice_sankey_visual <- function(master, regions){
           pct
         )
       
-      sankey_data_stage_3 <- sankey_base_data %>% 
+      access2rep_stage_2 <- c(
+        "Appropriate Advisor",
+        "Non-Appropriate Advisor",
+        "Needed but did not have access to an advisor"
+      )
+
+      sankey_data_stage_3 <- sankey_base_data %>%
+        ungroup() %>%
+        filter(
+          sankey_advice_stage_2 %in% access2rep_stage_2
+        ) %>%
+        select(-nuts_sample) %>%
+        group_by(nuts_id) %>%
+        mutate(
+          nuts_sample = n()
+        ) %>%
         group_by(country_name_ltn, nuts_id, nuts_sample, sankey_advice_stage_2) %>% 
         summarise(
           count = n(),
@@ -586,14 +601,10 @@ advice_sankey_visual <- function(master, regions){
         ) %>%
         mutate(
           sankey_advice_stage_3 = case_when(
-            sankey_advice_stage_2 %in% c(
-              "Appropriate Advisor",
-              "Did not need an advisor"
-            ) ~ "Had access",
+            sankey_advice_stage_2 == "Appropriate Advisor" ~ "Had access",
             sankey_advice_stage_2 %in% c(
               "Non-Appropriate Advisor",
-              "Needed but did not have access to an advisor",
-              "Unknown Reason"
+              "Needed but did not have access to an advisor"
             ) ~ "Had no access"
           )
         ) %>% 

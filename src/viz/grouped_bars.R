@@ -1,6 +1,7 @@
 gen_grouped_bars <- function(
     name, country, w, h,
     perc = TRUE,
+    decimals = 0,
     omit.cats = NULL,
     margin_set = margin(-20,-35,0,0),
     eu.avg = FALSE,
@@ -87,7 +88,7 @@ gen_grouped_bars <- function(
       mutate(
         values2display = if_else(
           color == "primary",
-          paste0(round(values2plot, 0), "%"),
+          paste0(format(round(values2plot, decimals), nsmall = decimals), "%"),
           ""
         )
       )
@@ -97,7 +98,7 @@ gen_grouped_bars <- function(
       mutate(
         values2display = if_else(
           color == "primary",
-          as.character(round(values2plot, 0)),
+          format(round(values2plot, decimals), nsmall = decimals),
           ""
         )
       )

@@ -55,6 +55,12 @@ main <- function(){
       help    = "Produce a country-level indicators table for all study variables"
     ),
     make_option(
+      c("--eu_main_indicators"),
+      action  = "store_true",
+      default = FALSE,
+      help    = "Produce EU averages for the main indicators as average of weighted country averages"
+    ),
+    make_option(
       c("--verbose"),
       action  = "store_true",
       default = FALSE,
@@ -120,6 +126,27 @@ main <- function(){
     verbose_message("--- Building main indicators table...")
     main_indicators(master, regions)
     verbose_message("Main indicators routine successful ✅")
+  }
+  if (opt$eu_main_indicators){
+    verbose_message("Performing EU main indicators routine:")
+    suppressWarnings(
+      suppressMessages(
+        library("tidyverse", quietly = TRUE)
+      )
+    )
+    source("src/utils/utils.R")
+    source("src/data/data-loading.R")
+    source("src/data/special-vars.R")
+    source("src/analysis/main_indicators.R")
+    source("src/analysis/eu_main_indicators.R")
+    verbose_message("--- Loading region metadata...")
+    regions <- load_data(
+      path2EU = path2EU,
+      source = "regions"
+    )
+    verbose_message("--- Building EU main indicators table...")
+    eu_main_indicators(path2EU, regions)
+    verbose_message("EU main indicators routine successful ✅")
   }
   if (opt$viz){
     verbose_message("Performing data visualization routines:")

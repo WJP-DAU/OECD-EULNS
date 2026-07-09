@@ -331,11 +331,20 @@ add_a2j_vars <- function(data){
     group_by(country_year_id) %>%
     summarise(
       quality_flag_nontrivial_25 = first(quality_flag_nontrivial_25),
+      has_lns_data = any(!is.na(answer)),  # Check if respondent has LNS module data
       across(
         starts_with("prevalence"),
         \(x) sum(x, na.rm = T)
       )
     ) %>%
+    mutate(
+      # If no LNS data (all answers are NA), set prevalence to NA
+      across(
+        starts_with("prevalence"),
+        \(x) if_else(!has_lns_data, NA_real_, x)
+      )
+    ) %>%
+    select(-has_lns_data) %>%
     mutate(
       across(
         starts_with("prevalence"),
@@ -593,7 +602,7 @@ add_a2j_vars <- function(data){
         AJP_problem %in% c("E3", "C3") ~ "Community"
       ),
       
-      # Hardships
+      # Hardships (individual components)
       across(
         c(AJE_health, AJE_emotional, AJE_income, AJE_drugs),
         \(x) case_when(
@@ -603,17 +612,42 @@ add_a2j_vars <- function(data){
           x %in% c(2,98) ~ 0
         ),
         .names = "hardships_{str_remove(.col, 'AJE_')}"
+      ),
+
+      # Hardship (combined indicator)
+      # Following Stata logic: 99 (No Answer) is treated as missing
+      # 1 = at least one hardship reported
+      # 0 = no hardships (all answered 2 or 98, ignoring 99/NA)
+      # NA = non-trivial problem is NA/0, or all responses are 99/NA
+
+      # First convert 99 to NA for hardship calculation
+      h_health = if_else(AJE_health == 99, NA_real_, as.numeric(AJE_health)),
+      h_emotional = if_else(AJE_emotional == 99, NA_real_, as.numeric(AJE_emotional)),
+      h_income = if_else(AJE_income == 99, NA_real_, as.numeric(AJE_income)),
+      h_drugs = if_else(AJE_drugs == 99, NA_real_, as.numeric(AJE_drugs)),
+
+      # Combined hardship using cleaned variables
+      hardship = case_when(
+        is.na(non_trivial_problem) ~ NA_real_,
+        non_trivial_problem == 0   ~ NA_real_,
+        # At least one hardship reported
+        h_health == 1 | h_emotional == 1 | h_income == 1 | h_drugs == 1 ~ 1,
+        # No hardships: all are 2 or 98 (ignoring 99/NA)
+        (h_health %in% c(2, 98) | is.na(h_health)) &
+        (h_emotional %in% c(2, 98) | is.na(h_emotional)) &
+        (h_income %in% c(2, 98) | is.na(h_income)) &
+        (h_drugs %in% c(2, 98) | is.na(h_drugs)) ~ 0
       )
-    
+
     ) %>% 
     select(
-      country_year_id, 
+      country_year_id,
       vulnerability1, vulnerability2, vulnerability3,
       access2info, access2rep, access2drm,
       rp_time, rp_cost, rp_fair, rp_outcome, rp_quick, rp_expensive,
       problem_status, resolution_favor, rp_satisfaction,
       non_trivial_problem, selected_problem_category,
-      starts_with("hardships_")
+      hardship, starts_with("hardships_")
     )
   
   ### Justice Gap wranglings ----

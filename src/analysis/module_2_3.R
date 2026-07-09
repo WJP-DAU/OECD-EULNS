@@ -509,16 +509,88 @@ ncontacts <- function(){
     ) %>% 
     mutate(
       proportion = three_or_more/nuts_sample
-    ) %>% 
+    ) %>%
     left_join(
       regions %>% select(nuts_id, wgt = regionpoppct),
       by = "nuts_id"
     ) %>%
     mutate(
       weighted_proportion = proportion*wgt
-    ) %>% 
-    group_by(country_name_ltn) %>% 
+    ) %>%
+    group_by(country_name_ltn) %>%
     summarise(
       national_avg = sum(weighted_proportion)
     )
+}
+
+
+## 7. Number of DRM institutions contacted ----
+n_drm_institutions <- function(master, regions) {
+
+  drm_bin_vars <- c(
+    "AJR_court_bin", "AJR_police_bin", "AJR_office_bin",
+    "AJR_relig_bin", "AJR_arbitration_bin", "AJR_appeal_bin", "AJR_other_bin"
+  )
+
+  # Filter people who turned to a DRM
+  data_subset <- master %>%
+    filter(sankey_drm_stage_1 == "Turned to a DRM") %>%
+    mutate(
+      across(
+        all_of(drm_bin_vars),
+        \(x) case_when(
+          x == 1 ~ 1,
+          x %in% c(2, 98, 99) ~ 0,
+          TRUE ~ 0
+        )
+      )
+    ) %>%
+    rowwise() %>%
+    mutate(
+      n_institutions = sum(c_across(all_of(drm_bin_vars)), na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    select(country_year_id, country_name_ltn, nuts_id, n_institutions)
+
+  # Calculate weighted percentages for each category
+  calc_weighted_pct <- function(data, threshold_fn, category_name) {
+    data %>%
+      mutate(meets_threshold = if_else(threshold_fn(n_institutions), 1, 0)) %>%
+      group_by(country_name_ltn, nuts_id) %>%
+      summarise(
+        nuts_sample = n(),
+        count = sum(meets_threshold),
+        .groups = "drop"
+      ) %>%
+      mutate(proportion = count / nuts_sample) %>%
+      left_join(
+        regions %>% select(nuts_id, wgt = regionpoppct),
+        by = "nuts_id"
+      ) %>%
+      mutate(weighted_proportion = proportion * wgt) %>%
+      group_by(country_name_ltn) %>%
+      summarise(
+        national_avg = sum(weighted_proportion, na.rm = TRUE) * 100,
+        .groups = "drop"
+      ) %>%
+      mutate(category = category_name)
+  }
+
+  # Calculate for different thresholds
+  results_tbl <- bind_rows(
+    calc_weighted_pct(data_subset, \(x) x == 1, "one_institution"),
+    calc_weighted_pct(data_subset, \(x) x == 2, "two_institutions"),
+    calc_weighted_pct(data_subset, \(x) x >= 3, "three_plus_institutions")
+  ) %>%
+    pivot_wider(
+      id_cols = category,
+      names_from = country_name_ltn,
+      values_from = national_avg
+    ) %>%
+    mutate(grouping = "National")
+
+  # Export to CSV
+ write_csv(results_tbl, "output/tabs/csv/2_3_7_number_of_drm_institutions.csv")
+
+  return(results_tbl)
 }

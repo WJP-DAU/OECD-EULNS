@@ -89,6 +89,7 @@ replace prevalence2=0 if prevalence1>25 & prevalence1!=.
 		gen Injury=0
 		foreach x in F1 F2 {
 			replace Injury=1 if AJP_`x'_bin_4==1
+			replace Injury=0 if prevalence1>25 & prevalence1!=.
 			}
 
 	* Citizenship & ID *
@@ -96,6 +97,7 @@ replace prevalence2=0 if prevalence1>25 & prevalence1!=.
 		gen Govt_other=0
 		foreach x in J1 J2 J3 {
 			replace Govt_other=1 if AJP_`x'_bin_4==1
+			replace Govt_other=0 if prevalence1>25 & prevalence1!=.
 			}
 
 	* Community * 
@@ -103,60 +105,70 @@ replace prevalence2=0 if prevalence1>25 & prevalence1!=.
 		gen Community=0
 		foreach x in  E3 C3 {
 			replace Community=1 if AJP_`x'_bin_4==1
+			replace Community=0 if prevalence1>25 & prevalence1!=.
 			}
 
 	*Consumer problems, coded as 0 if A1, A2 and A3 are answered as no, 1 otherwise (at least one yes). Once again a reminder that all 37 variables in q34 are coded as 1=Yes, 0=No
 	gen Consumer=0
 	foreach x in A1 A2 A3 {
-	replace Consumer=1 if AJP_`x'_bin_4==1
+		replace Consumer=1 if AJP_`x'_bin_4==1
+		replace Consumer=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Employment problems, coded as 0 if G1, G2 and G3 are answered as no, 1 otherwise (at least one yes).
 	gen Employment=0
 	foreach x in G1 G2 G3 {
-	replace Employment=1 if AJP_`x'_bin_4==1
+		replace Employment=1 if AJP_`x'_bin_4==1
+		replace Employment=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Education problems, coded as 0 if E1 and E2  are answered as no, 1 otherwise (at least one yes).
 	gen Education=0
 	foreach x in E1 E2 {
-	replace Education=1 if AJP_`x'_bin_4==1
+		replace Education=1 if AJP_`x'_bin_4==1
+		replace Education=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Family problems, coded as 0 if D1, D2, D3, D4, D5 and D6 are answered as no, 1 otherwise (at least one yes). 
 	gen Family=0
 	foreach x in D1 D2 D3 D4 D5 D6 {
-	replace Family=1 if AJP_`x'_bin_4==1
+		replace Family=1 if AJP_`x'_bin_4==1
+		replace Family=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Housing problems, coded as 0 if C1, C2, C3 and C4 are answered as no, 1 otherwise (at least one yes).
 	/* GH Note - Updated this on 21 Feb 2023 to omit C3, mirroring Alex's updated categories. */
 	gen Housing=0
 	foreach x in C1 C2 C4 {
-	replace Housing=1 if AJP_`x'_bin_4==1
+		replace Housing=1 if AJP_`x'_bin_4==1
+		replace Housing=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Land problems, coded as 0 if B1, B2, B3 and B4 are answered as no, 1 otherwise (at least one yes). 
 	gen Land=0
 	foreach x in B1 B2 B3 B4 {
-	replace Land=1 if AJP_`x'_bin_4==1
+		replace Land=1 if AJP_`x'_bin_4==1
+		replace Land=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Law enforcement problems, for this one we only have q19_I1	 (Being beaten up or arrested without justification by a member of the police or the military.)
 	gen law_enf=0
-	replace law_enf=1 if AJP_I1_bin_4==1
+		replace law_enf=1 if AJP_I1_bin_4==1
+		replace law_enf=0 if prevalence1>25 & prevalence1!=.
 
 	*Money & Debt problems, coded as 0 if L1 and L2 are answered as no, 1 otherwise (at least one yes). /* GH Note - 21 Feb 2023 - updated the code so that the full variable name "MoneyDebt" is included in the 'replace' command. Original just said "Money".*/
 	gen MoneyDebt=0
 	foreach x in L1 L2 K1 K2 K3 {
-	replace MoneyDebt=1 if AJP_`x'_bin_4==1
+		replace MoneyDebt=1 if AJP_`x'_bin_4==1
+		replace MoneyDebt=0 if prevalence1>25 & prevalence1!=.
 	}
 
 	*Public Services, coded as 0 if H1 and H2 are answered as no, 1 otherwise
 	/* GH Note - Updated this on 21 Feb 2023 to include H3, mirroring Alex's updated categories. */
 	gen Govt_payment=0
 	foreach x in H1 H2 H3 J4 {
-	replace Govt_payment=1 if AJP_`x'_bin_4==1
+		replace Govt_payment=1 if AJP_`x'_bin_4==1
+		replace Govt_payment=0 if prevalence1>25 & prevalence1!=.
 	}
 	
 	label var Injury "Accidental Illness & Injury" 
@@ -449,7 +461,7 @@ foreach v in AJE_health AJE_emotional AJE_income AJE_drugs {
 egen hardship_n=rowtotal(AJE_health_n AJE_emotional_n AJE_income_n AJE_drugs_n)
 gen hardship=(hardship_n>0)
 replace hardship=. if hardship_n==0 & prevalence==0 
-gen hardship2=hardship
+*gen hardship2=hardship
 replace hardship=. if non_trivial==0
 replace hardship=. if non_trivial==.
 
@@ -688,7 +700,6 @@ putexcel B2:BJ28, overwri nformat("0.0%")
 putexcel A1:BK1, overwri bold hcenter txtwrap
 
 restore
-
 
 
 

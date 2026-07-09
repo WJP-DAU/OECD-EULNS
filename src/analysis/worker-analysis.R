@@ -51,6 +51,7 @@ prevalence_nontrivial_problems <- prevalence_nontrivial_problems(master, regions
 prevalence_nontrivial_problems_by_category <- prevalence_nontrivial_problems_by_category(master, regions)
 cooccurence_nproblems <- cooccurence_nproblems(master, regions)
 cooccurence_network <- cooccurence_network(master, regions)
+lift_analysis <- lift_analysis(master, regions)
 
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -77,6 +78,7 @@ access2representation_logit <- access2representation_logit(master, regions, stud
 contacted_advisers <- contacted_advisers(master, regions, study_countries)
 access2representation_barriers <- access2representation_barriers(master, regions, study_countries)
 access2representation_perceptions <- access2representation_perceptions(master, regions)
+number_of_advisors <- ncontacts(master, regions)
 
 
 if(!interactive()){
@@ -89,6 +91,7 @@ contacted_mechanisms <- contacted_mechanisms(master, regions, study_countries)
 access_to_alternative_DRM <- access_to_alternative_DRM(master, regions)
 access2DRM_barriers <- access2DRM_barriers(master, regions, study_countries)
 access2DRM_perceptions <- access2DRM_perceptions(master, regions)
+n_drm_institutions <- n_drm_institutions(master, regions)
   
 
 if(!interactive()){
