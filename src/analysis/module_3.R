@@ -68,7 +68,7 @@ unmet_legal_needs <- function(jg_data, study_countries){
     study_countries,
     function(country){
       
-      if (country %in% c("Italy", "Poland")){ # Malta doesn't have the sample for this chart
+      if (country_config[[country]]$in_upset_plot){
       
         df <- jg_data %>%
           filter(

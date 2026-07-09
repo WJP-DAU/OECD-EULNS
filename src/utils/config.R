@@ -26,6 +26,9 @@ if (Sys.info()["user"] == "carlostoruno") {
 } else if (Sys.info()["user"] == "santiagopardo") {
   path2EU <- "/Users/santiagopardo/Library/CloudStorage/OneDrive-WorldJusticeProject/EU Subnational/EU-S Data"
   path2DA <- "/Users/santiagopardo/Library/CloudStorage/OneDrive-WorldJusticeProject/Data Analytics"
+} else if (Sys.info()["user"] == "andaramirez") {
+  path2EU <- "/Users/andaramirez/Library/CloudStorage/OneDrive-WorldJusticeProject/Research - Programmatic/EU Subnational/EU-S Data"
+  path2DA <- "/Users/andaramirez/Library/CloudStorage/OneDrive-WorldJusticeProject/Research - Programmatic/Data Analytics"
 }
 
 # Helper function to print verbose messages

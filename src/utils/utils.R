@@ -494,33 +494,10 @@ export_results_kable <- function(
       col.names = c("Sociodemographic", "Estimate", "Std. Error", "p.value", "CI low", "CI high")
     )
     
-    if (country == "Italy") {
-      
+    packrows <- country_config[[country]]$logit_packrows
+    for (label in names(packrows)) {
       kable <- kable %>%
-        kableExtra::pack_rows("Sociodemographics", 1, 6) %>%
-        kableExtra::pack_rows("Age Group", 7, 11) %>%
-        kableExtra::pack_rows("Geographic Location", 12, 16) %>% 
-        kableExtra::pack_rows("Co-Occurrence & Problem Category", 17, 28)
-      
-    } 
-    
-    if (country == "Malta") {
-
-      kable <- kable %>%
-        kableExtra::pack_rows("Sociodemographics", 1, 5) %>%
-        kableExtra::pack_rows("Age Group", 6, 10) %>%
-        kableExtra::pack_rows("Co-Occurrence", 11, 11)
-
-    }
-
-    if (country == "Poland") {
-
-      kable <- kable %>%
-        kableExtra::pack_rows("Sociodemographics", 1, 6) %>%
-        kableExtra::pack_rows("Age Group", 7, 11) %>%
-        kableExtra::pack_rows("Geographic Location", 12, 18) %>%
-        kableExtra::pack_rows("Co-Occurrence & Problem Category", 19, 30)
-
+        kableExtra::pack_rows(label, packrows[[label]][1], packrows[[label]][2])
     }
     
     suppressMessages(
