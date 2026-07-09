@@ -118,7 +118,7 @@ contacted_mechanisms <- function(master, regions, study_countries){
       )
       n_rows <- nrow(df)
       
-      if (country %in% c("Italy", "Poland")){
+      if (country_config[[country]]$in_upset_plot){
         upset <- ComplexUpset::upset(
           df, names(df), 
           name = "Contacted Institutions", 
