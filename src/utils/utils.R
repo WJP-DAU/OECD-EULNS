@@ -5,6 +5,10 @@
 ## Creation date:     July 23, 2025
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+if (!exists("country_config")) {
+  source("src/utils/country_config.R")
+}
+
 
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ##
@@ -176,30 +180,17 @@ estimate_logit <- function(data, f){
 study_countries <- c("Hungary", "Italy", "Malta", "Poland")
 names(study_countries) <- study_countries
 
-independent_vars <- list(
-  "Hungary" = c(
-    "gender", "financial", "residence",
-    "age_group", "edu_level", "marital_status",
-    "nationality", "emp_status", "selected_problem_category", "nproblems",
-    "nuts_id"
-  ),
-  "Italy" = c(
-    "gender", "financial", "residence",
-    "age_group", "edu_level", "marital_status",
-    "nationality", "emp_status", "selected_problem_category", "nproblems",
-    "nuts_id"
-  ),
-  "Malta" = c(
-    "gender", "financial",
-    "age_group", "edu_level", "marital_status",
-    "emp_status", "nproblems"
-  ),
-  "Poland" = c(
-    "gender", "financial", "residence",
-    "age_group", "edu_level", "marital_status",
-    "nationality", "emp_status", "selected_problem_category", "nproblems",
-    "nuts_id"
+missing_country_config <- setdiff(study_countries, names(country_config))
+if (length(missing_country_config) > 0) {
+  stop(
+    "Missing country_config entries for: ",
+    paste(missing_country_config, collapse = ", ")
   )
+}
+
+independent_vars <- lapply(
+  country_config[study_countries],
+  function(config) config$logit_vars
 )
 
 
