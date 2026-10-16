@@ -171,17 +171,7 @@ get_visual_n <- function(master, source_table, country, grouping = NULL, categor
   
   if (source_table == "2_3_5_access2DRM_barriers.csv"){
     return(data %>%
-      mutate(
-        target = case_when(
-          AJR_noresol_reason == 1 ~ "Access problems",
-          AJR_noresol_reason == 2 ~ "Did not know what to do or where to go",
-          AJR_noresol_reason == 3 ~ "Time or bureaucracy",
-          AJR_noresol_reason == 4 ~ "Fear of retaliation",
-          AJR_noresol_reason == 5 ~ "Lack of trust in authorities",
-          AJR_noresol_reason %in% c(98,99) ~ "Don't know / No answer"
-        )
-      ) %>%
-      filter(access2drm == 0 & !is.na(target)) %>%
+      filter(access2drm == 0 & !is.na(AJR_noresol_reason)) %>%
       nrow())
   }
   
