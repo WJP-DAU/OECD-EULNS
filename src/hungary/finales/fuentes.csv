@@ -1,0 +1,29 @@
+fig,archivo,md5
+3,output/viz/Hungary/analisis adicionales/F02_prevalencia_severidad_zona.svg,486eccb1422e161a0cea247334b8c96d
+4,output/viz/Hungary/Hungary_cooccurence_nproblems.svg,46ee144ec8a49bd4f3dc7116bdce558f
+6,data/master.csv,f4f52976e0766b349f93b78ffad5917c
+6,data/regions.csv,0fbd7a766dc93a9359ad35c59fba291e
+6,output/viz/Hungary/analisis adicionales/F01_matriz_coocurrencia_condicional.svg,53603e4f49ac0d6beeb42110927ae43b
+7,output/viz/Hungary/analisis adicionales/F03_distribucion_severidad_HU_UE.svg,882c746265a8bb6d7a3b45ae277e5512
+8,output/tabs/csv/2_1_1_access_to_information.csv,7b89499fe4eccbb17cf3e8f745c91c47
+8,output/viz/Hungary/analisis adicionales/R03.csv,9876fd224a7f358df00b21ea938626c5
+11,output/viz/Hungary/analisis adicionales/R03.csv,9876fd224a7f358df00b21ea938626c5
+14,output/tabs/csv/2_2_5_access2representation_barriers.csv,16d52e8b963cbcb4074fa381f2378392
+16,output/viz/Hungary/analisis adicionales/R03.csv,9876fd224a7f358df00b21ea938626c5
+19,output/tabs/csv/2_3_5_access2DRM_barriers.csv,9cd6c41cac7eaa853cfd0254f2911cdf
+20,output/viz/Hungary/Hungary_timeliness_rp.svg,9bc10c181f15e4066a640d8e3e5c487f
+27,output/viz/Hungary/analisis adicionales/A01.csv,259cf70c22ae37a7ae7d1e207e5381f6
+27,output/viz/Hungary/analisis adicionales/A01_resolucion_segun_acceso.svg,1396e3b4a0d395fae5e311098da5bc2b
+29,data/master.csv,f4f52976e0766b349f93b78ffad5917c
+29,data/jg_data_keepdk.csv,f109020c5d01ddc6f928f30e3ef45a21
+29,data/regions.csv,0fbd7a766dc93a9359ad35c59fba291e
+32,output/viz/Hungary/analisis adicionales/A03.csv,06d5f1de792337ab3e5c0d8f6104c12b
+34,output/tabs/csv/4_1_knowledge_rights.csv,92eaa71e3642eaad3986d686e90e869e
+34,output/tabs/csv/2_1_1_access_to_information.csv,7b89499fe4eccbb17cf3e8f745c91c47
+34,output/viz/Hungary/analisis adicionales/F06.csv,d0adb3ac3a6dbbfcb93b479772f72110
+36,output/tabs/csv/4_2_perceived_causes.csv,2fa3c4b08d6634cb43d8b1ea15bb3ef5
+38,output/viz/Hungary/Hungary_trust_judges.svg,6ef3a23e2145ff8923568ac4a240f9cc
+39,output/viz/Hungary/Hungary_trust_prosecutors.svg,bb6f67de4242ce403daebb15ab5c5aa4
+40,output/viz/Hungary/Hungary_trust_pda.svg,c6aec844503d7f809fa4cc56d0fd2e3c
+41,output/viz/Hungary/analisis adicionales/A04.csv,595477bb9c945b283b9d3643e415083f
+42,output/viz/Hungary/analisis adicionales/A05.csv,928dddcf2ae2b3ab06b8083bdf93d420
