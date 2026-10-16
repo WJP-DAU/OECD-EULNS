@@ -24,7 +24,7 @@ if (Sys.info()["user"] == "carlostoruno") {
   path2EU <- "/Users/carlostoruno/OneDrive - World Justice Project/EU Subnational/EU-S Data"
   path2DA <- "/Users/carlostoruno/OneDrive - World Justice Project/Data Analytics"
 } else if (Sys.info()["user"] == "santiagopardo") {
-  path2EU <- "/Users/santiagopardo/Library/CloudStorage/OneDrive-WorldJusticeProject/EU Subnational/EU-S Data"
+  path2EU <- "/Users/santiagopardo/Library/CloudStorage/OneDrive-WorldJusticeProject/EU Subnational/EUROVOICES 2024/EU-S Data"
   path2DA <- "/Users/santiagopardo/Library/CloudStorage/OneDrive-WorldJusticeProject/Data Analytics"
 } else if (Sys.info()["user"] == "andaramirez") {
   path2EU <- "/Users/andaramirez/Library/CloudStorage/OneDrive-WorldJusticeProject/Research - Programmatic/EU Subnational/EU-S Data"
