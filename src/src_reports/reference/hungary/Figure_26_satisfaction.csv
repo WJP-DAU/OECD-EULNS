@@ -1,0 +1,24 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,avg,,National Average,61,NA,61%,,0.6110695794224326,NA,0.6
+2,header,Gender,Gender,NA,NA,,,NA,NA,0.6
+3,row,Gender,Male,58,NA,58%,,0.5761552731400725,NA,0.6
+4,row,Gender,Female,63,NA,63%,,0.6343273250823711,NA,0.6
+5,header,Age Group,Age Group,NA,NA,,,NA,NA,0.6
+6,row,Age Group,65-100,58,NA,58%,,0.5839909184040756,NA,0.6
+7,row,Age Group,55-64,63,NA,63%,,0.6333305645540881,NA,0.6
+8,row,Age Group,45-54,NA,NA,N/A,,NA,NA,0.6
+9,row,Age Group,35-44,NA,NA,N/A,,NA,NA,0.6
+10,row,Age Group,25-34,73,NA,73%,,0.7297394578730237,NA,0.6
+11,row,Age Group,18-24,NA,NA,N/A,,NA,NA,0.6
+12,header,Financial Situation,Financial Situation,NA,NA,,,NA,NA,0.6
+13,row,Financial Situation,Unconstrained,64,NA,64%,,0.6400863859124512,NA,0.6
+14,row,Financial Situation,Constrained,58,NA,58%,,0.5849046155550017,NA,0.6
+15,header,Area of Residence,Area of Residence,NA,NA,,,NA,NA,0.6
+16,row,Area of Residence,Urban,62,NA,62%,,0.6194589805354819,NA,0.6
+17,row,Area of Residence,Rural,62,NA,62%,,0.6219785696486418,NA,0.6
+18,header,Problem Status,Problem Status,NA,NA,,,NA,NA,0.6
+19,row,Problem Status,Ongoing,NA,NA,N/A,,NA,NA,0.6
+20,row,Problem Status,Done,61,NA,61%,,0.6110695794224326,NA,0.6
+21,header,Resolution,Resolution,NA,NA,,,NA,NA,0.6
+22,row,Resolution,Not in favor / Unknown,20,NA,20%,,0.19647257524157596,NA,0.6
+23,row,Resolution,In favor of respondent,84,NA,84%,,0.8423457097765595,NA,0.6

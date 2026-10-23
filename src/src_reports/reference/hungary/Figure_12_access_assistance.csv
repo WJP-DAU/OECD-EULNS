@@ -1,0 +1,37 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,avg,,National Average,32,NA,32%,,0.31931926328164356,NA,0.6
+2,avg,,EU Average,38,NA,38%,,0.3767844147119744,NA,0.6
+3,header,Gender,Gender,NA,NA,,,NA,NA,0.6
+4,row,Gender,Male,33,NA,33%,,0.3310474164474052,NA,0.6
+5,row,Gender,Female,31,NA,31%,,0.30831887141017744,NA,0.6
+6,header,Age Group,Age Group,NA,NA,,,NA,NA,0.6
+7,row,Age Group,65-100,35,NA,35%,,0.35162066842075795,NA,0.6
+8,row,Age Group,55-64,34,NA,34%,,0.3370934333538599,NA,0.6
+9,row,Age Group,45-54,30,NA,30%,,0.29801825001399534,NA,0.6
+10,row,Age Group,35-44,27,NA,27%,,0.2715949168672675,NA,0.6
+11,row,Age Group,25-34,33,NA,33%,,0.3316632144656552,NA,0.6
+12,row,Age Group,18-24,NA,NA,N/A,,NA,NA,0.6
+13,header,Financial Situation,Financial Situation,NA,NA,,,NA,NA,0.6
+14,row,Financial Situation,Unconstrained,35,NA,35%,,0.3469462016458601,NA,0.6
+15,row,Financial Situation,Constrained,25,NA,25%,,0.2501259586855511,NA,0.6
+16,header,Area of Residence,Area of Residence,NA,NA,,,NA,NA,0.6
+17,row,Area of Residence,Urban,33,NA,33%,,0.3331467278732575,NA,0.6
+18,row,Area of Residence,Rural,30,NA,30%,,0.3038403403683591,NA,0.6
+19,header,Category,Category,NA,NA,,,NA,NA,0.6
+20,row,Category,Public Services,25,NA,25%,,0.24811061971673287,NA,0.6
+21,row,Category,Money & Debt,18,NA,18%,,0.18182836029782223,NA,0.6
+22,row,Category,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+23,row,Category,Land,NA,NA,N/A,,NA,NA,0.6
+24,row,Category,Housing,NA,NA,N/A,,NA,NA,0.6
+25,row,Category,Family,64,NA,64%,,0.6363432794043553,NA,0.6
+26,row,Category,Employment,NA,NA,N/A,,NA,NA,0.6
+27,row,Category,Education,NA,NA,N/A,,NA,NA,0.6
+28,row,Category,Consumer,30,NA,30%,,0.2950232323797794,NA,0.6
+29,row,Category,Community,33,NA,33%,,0.3333146727873257,NA,0.6
+30,row,Category,Citizenship & ID,NA,NA,N/A,,NA,NA,0.6
+31,row,Category,Accidental,NA,NA,N/A,,NA,NA,0.6
+32,header,Co-occurrent Problems,Co-occurrent Problems,NA,NA,,,NA,NA,0.6
+33,row,Co-occurrent Problems,6 or more problems,36,NA,36%,,0.358310474164474,NA,0.6
+34,row,Co-occurrent Problems,4-5 problems,34,NA,34%,,0.3373173599059508,NA,0.6
+35,row,Co-occurrent Problems,2-3 problems,33,NA,33%,,0.33132732463751885,NA,0.6
+36,row,Co-occurrent Problems,1 problem,20,NA,20%,,0.20349325421261824,NA,0.6

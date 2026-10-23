@@ -1,0 +1,13 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol,lo,hi
+1,card,Without a non-trivial problem,Judges,47.66862217949175,NA,48%,,NA,NA,0.6,29,55
+2,card,Without a non-trivial problem,Prosecutors,54.92056928337084,NA,55%,,NA,NA,0.6,29,55
+3,card,Without a non-trivial problem,Public defense attorneys,41.801202670767886,NA,42%,,NA,NA,0.6,29,55
+4,card,"Problem, did not need a DRM",Judges,45.11345590493231,47.66862217949175,45%,−3 points,NA,NA,0.6,29,55
+5,card,"Problem, did not need a DRM",Prosecutors,51.27407959591645,54.92056928337084,51%,−4 points,NA,NA,0.6,29,55
+6,card,"Problem, did not need a DRM",Public defense attorneys,37.61966160197968,41.801202670767886,38%,−4 points,NA,NA,0.6,29,55
+7,card,"Needed a DRM, had access",Judges,40.48548548548549,47.66862217949175,40%,−8 points,NA,NA,0.6,29,55
+8,card,"Needed a DRM, had access",Prosecutors,40.757424090757425,54.92056928337084,41%,−14 points,NA,NA,0.6,29,55
+9,card,"Needed a DRM, had access",Public defense attorneys,30.04337671004338,41.801202670767886,30%,−12 points,NA,NA,0.6,29,55
+10,card,"Needed a DRM, no access",Judges,34.44594777928111,47.66862217949175,34%,−14 points,NA,NA,0.6,29,55
+11,card,"Needed a DRM, no access",Prosecutors,36.66237280272369,54.92056928337084,37%,−18 points,NA,NA,0.6,29,55
+12,card,"Needed a DRM, no access",Public defense attorneys,28.80279064489591,41.801202670767886,29%,−13 points,NA,NA,0.6,29,55

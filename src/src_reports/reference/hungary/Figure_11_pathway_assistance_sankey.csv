@@ -1,0 +1,11 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,node,1,contacted,29,NA,29%,,NA,NA,0.6
+2,node,1,not_contacted,71,NA,71%,,NA,NA,0.6
+3,node,2,appropriate,21,NA,21%,,NA,NA,0.6
+4,node,2,non_appropriate,8,NA,8%,,NA,NA,0.6
+5,node,2,needed_no,38,NA,38%,,NA,NA,0.6
+6,node,2,no_need,25,NA,25%,,NA,NA,0.6
+7,node,2,unknown,8,NA,8%,,NA,NA,0.6
+8,node,3,access,32,NA,32%,,NA,NA,0.6
+9,node,3,no_access,68,NA,68%,,NA,NA,0.6
+10,node,3,excluded,33,NA,33%,,NA,NA,0.6

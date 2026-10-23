@@ -1,0 +1,7 @@
+# config/local.yml.example — copie a config/local.yml (está en .gitignore) y ajuste las rutas de su máquina.
+# Precedencia: variables de entorno (SRC_REPORTS_CACHE, CHROMOTE_CHROME) > local.yml > valores por defecto.
+path2EU: "/Users/<usuario>/Library/CloudStorage/OneDrive-WorldJusticeProject/EU Subnational/EUROVOICES 2024/EU-S Data"  # raíz con data.dta; solo hace falta para --stage data sin caché
+chrome: ""             # binario de Chrome/Chromium para los PNG; vacío = CHROMOTE_CHROME, rutas habituales de macOS/Linux, PATH
+cache_dir: ""          # vacío = <carpeta>/cache; conviene una ruta fuera de OneDrive
+published_dir: ""      # PNG/SVG publicados (Figure_NN_slug.*); solo tools/build_reference.R
+reference_src_dir: ""  # CSV de valores de las figuras publicadas (finales/datos); solo tools/build_reference.R

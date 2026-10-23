@@ -1,0 +1,11 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol,lo,hi
+1,card,At least one hardship,Fully resolved,45.67254628171701,NA,46%,,NA,NA,0.6,2,62
+2,card,At least one hardship,Not resolved,61.7875222893144,45.67254628171701,62%,+16 points,NA,NA,0.6,2,62
+3,card,Health issues,Fully resolved,29.82425894248331,NA,30%,,NA,NA,0.6,2,62
+4,card,Health issues,Not resolved,40.18357675916875,29.82425894248331,40%,+10 points,NA,NA,0.6,2,62
+5,card,Economic issues,Fully resolved,26.072953270173866,NA,26%,,NA,NA,0.6,2,62
+6,card,Economic issues,Not resolved,35.99938736550759,26.072953270173866,36%,+10 points,NA,NA,0.6,2,62
+7,card,Relationship breakdown,Fully resolved,18.060815314718116,NA,18%,,NA,NA,0.6,2,62
+8,card,Relationship breakdown,Not resolved,32.162993073739884,18.060815314718116,32%,+14 points,NA,NA,0.6,2,62
+9,card,Alcohol or drug problems,Fully resolved,1.9197394702007404,NA,2%,,NA,NA,0.6,2,62
+10,card,Alcohol or drug problems,Not resolved,5.895489216943243,1.9197394702007404,6%,+4 points,NA,NA,0.6,2,62

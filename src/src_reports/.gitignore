@@ -1,0 +1,8 @@
+# src_reports: nunca microdatos ni salidas en el repo
+cache/
+output/
+config/local.yml
+.Rhistory
+.RData
+*.log
+.DS_Store

@@ -1,0 +1,24 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,avg,,National Average,28,NA,28%,,0.28469462016458597,NA,0.6
+2,avg,,EU Average,40,NA,40%,,0.4018082069081341,NA,0.6
+3,header,Gender,Gender,NA,NA,,,NA,NA,0.6
+4,row,Gender,Male,31,NA,31%,,0.314896713877848,NA,0.6
+5,row,Gender,Female,26,NA,26%,,0.25751553490455126,NA,0.6
+6,header,Age Group,Age Group,NA,NA,,,NA,NA,0.6
+7,row,Age Group,65-100,33,NA,33%,,0.3309914348093825,NA,0.6
+8,row,Age Group,55-64,26,NA,26%,,0.25541622347869897,NA,0.6
+9,row,Age Group,45-54,31,NA,31%,,0.3145328332307003,NA,0.6
+10,row,Age Group,35-44,22,NA,22%,,0.21835637910765268,NA,0.6
+11,row,Age Group,25-34,NA,NA,N/A,,NA,NA,0.6
+12,row,Age Group,18-24,NA,NA,N/A,,NA,NA,0.6
+13,header,Financial Situation,Financial Situation,NA,NA,,,NA,NA,0.6
+14,row,Financial Situation,Unconstrained,28,NA,28%,,0.2829591893858814,NA,0.6
+15,row,Financial Situation,Constrained,27,NA,27%,,0.2692716788893243,NA,0.6
+16,header,Area of Residence,Area of Residence,NA,NA,,,NA,NA,0.6
+17,row,Area of Residence,Urban,29,NA,29%,,0.28819347254100647,NA,0.6
+18,row,Area of Residence,Rural,30,NA,30%,,0.29731847953871127,NA,0.6
+19,header,Co-occurrent Problems,Co-occurrent Problems,NA,NA,,,NA,NA,0.6
+20,row,Co-occurrent Problems,6 or more problems,36,NA,36%,,0.3627330235682696,NA,0.6
+21,row,Co-occurrent Problems,4-5 problems,23,NA,23%,,0.22580193696467557,NA,0.6
+22,row,Co-occurrent Problems,2-3 problems,18,NA,18%,,0.1808766724514359,NA,0.6
+23,row,Co-occurrent Problems,1 problem,NA,NA,N/A,,NA,NA,0.6
