@@ -4,7 +4,7 @@
 ## tipo (o de WJP_theme()/wjp_palette() cuando WJPr no tiene una) y la complementa hasta acercarse a lo publicado.
 ## Recibe el df del contrato (§4.4: order, kind, grouping, label, value, value2, text, text2 + extras) y la spec,
 ## igual que chart_<tipo>(), y devuelve un ggplot con attr(p, "wjpr") = list(base, complementos). La exporta y la
-## mide tools/wjpr_gallery.R; main.R todavía no la usa (las figuras siguen con su plot()).
+## mide tools/wjpr_gallery.R; desde el 23-oct es el motor de main.R (metodo wjpr: plot = wjpr_<tipo>(df, spec)).
 ## Cada complemento lleva "# complemento: <qué le falta a WJPr>": es la fuente del documento de brechas.
 ## Solo funciones: nada se ejecuta al cargar; WJPr solo se pide al llamar (deps.csv lo declara opcional).
 
@@ -13,9 +13,27 @@ WJPR_FAMILY <- "inter"   # familia registrada por setup_fonts() (Inter Tight); l
 
 ## Utilidades comunes ----------------------------------------------------------------------------------------------
 
+# Interruptor único de los complementos: options(wjpr.complementos = FALSE) dibuja cada figura con WJPr sola (la línea
+# de base que mide la galería con --sin-complementos: lo que el paquete logra sin ayuda)
+wjpr_complementos <- function() isTRUE(getOption("wjpr.complementos", TRUE))
+
 wjpr_require <- function() {
-  if (!requireNamespace("WJPr", quietly = TRUE)) stop("WJPr no está instalado (deps.csv: opcional)", call. = FALSE)
+  if (!requireNamespace("WJPr", quietly = TRUE)) stop("WJPr no está instalado: es el motor de dibujo (metodo wjpr, deps.csv)", call. = FALSE)
+  if (wjpr_has_fun("wjp_font_family")) options(wjpr.family = WJPR_FAMILY)   # main: fuente nativa (sobra wjpr_font)
   invisible(TRUE)
+}
+
+# Capacidades de la versión de WJPr cargada: cada adaptador usa lo nativo cuando existe y el complemento cuando no,
+# así una versión nueva del paquete reduce los complementos sin tocar este archivo (salvo lo que cambie de nombre)
+wjpr_has_fun <- function(fun) requireNamespace("WJPr", quietly = TRUE) && exists(fun, envir = asNamespace("WJPr"), inherits = FALSE)
+wjpr_has_arg <- function(fun, arg) wjpr_has_fun(fun) && arg %in% names(formals(get(fun, envir = asNamespace("WJPr"))))
+wjpr_native_font <- function() wjpr_has_fun("wjp_font_family")
+# Versión y commit de la build cargada ("1.1.0@382aee9"; "local" si se instaló desde un clon): dos builds con el mismo
+# número de versión tienen código distinto (1.1.0 del 13-jul frente a main)
+wjpr_build <- function() {
+  if (!requireNamespace("WJPr", quietly = TRUE)) return(NA_character_)
+  d <- utils::packageDescription("WJPr")
+  paste0(d$Version, "@", substr(d$RemoteSha %||% d$GithubSHA1 %||% "local", 1, 7))
 }
 
 # Marca el ggplot con la función de WJPr de partida y los complementos aplicados (los lee la galería)
@@ -131,14 +149,15 @@ wjpr_similarity <- function(png_new, png_pub, r = 2L, dpi_new = NA) {
 
 # df del contrato desde la referencia publicada, para dibujar figuras cuyo data() aún no existe. En los tipos con
 # barra relativa a 100 % (agrupadas, dumbbell, hbars, pareadas) value/value2 = frac·100 (la barra publicada exacta);
-# en el resto, value/value2 tal cual (en columns frac es value/vmax). Extras (x, y, n, lo, hi) se conservan.
+# en columns frac = value/vmax y frac·100 da las mismas alturas relativas; en el resto, value/value2 tal cual.
+# Extras (x, y, n, lo, hi) se conservan.
 wjpr_ref_df <- function(spec, cfg) {
   f <- file.path(cfg$paths$reference, paste0(figure_stem(spec), ".csv"))
   if (!file.exists(f)) stop("sin referencia: ", basename(f), call. = FALSE)
   d <- read_csv(f, col_types = cols(.default = col_character()), na = character())
   num <- intersect(c("order", "value", "value2", "frac", "frac2", "x", "y", "n", "lo", "hi"), names(d))
   d <- d %>% mutate(across(all_of(num), ~ suppressWarnings(as.numeric(.x))))
-  if (spec$tipo %in% c("grouped_bars", "dumbbell", "hbars", "paired_bars")) {
+  if (spec$tipo %in% c("grouped_bars", "dumbbell", "hbars", "paired_bars", "columns")) {   # columns: frac = value/vmax
     scale <- if (spec$tipo == "grouped_bars" && !any(grepl("%", d$text))) 10 else 100      # fig 4: media 0-10
     d <- d %>% mutate(value = coalesce(frac * scale, value), value2 = coalesce(frac2 * scale, value2))
   }
@@ -151,17 +170,22 @@ wjpr_ref_df <- function(spec, cfg) {
 
 ## Bloque wjpr grouped_bars — figuras 1, 4, 9, 12, 17, 20-28, 31, 33, 35, 38-40 --------------------------------------
 ## Base: WJPr::wjp_groupbars() con argumentos documentados: colors (principal y pista; en la 4 la pista transparente),
-## labels (= df$text, impreso tal cual), group_order, level_order, show_national + national_style "bar" +
+## labels (= df$text, impreso tal cual), group_order, level_order (las filas en el orden del df, en el sentido en que lo
+## lee la build: main de arriba abajo, 1.1.0 de abajo arriba; wjpr_gb_top_down), show_national + national_style "bar" +
 ## national_position "top" + national_label + national_value (fila National Average; la 27 no la lleva),
 ## national_group_label, label_position "end", bar_width (barra / paso de fila del diseño), show_axis FALSE,
-## strip_position "left" y ptheme = wjpr_theme(). Se conservan sus capas (geom_col apilado = barra + pista 0-100 %,
-## geom_text de los valores), su faceta (paneles de alto libre) y su barra nacional; los complementos van marcados
-## "# complemento:". Medidas del diseño publicado: STD (04_svg.R; la 27, ST_A01 con la pista que llena los 6.5 in,
-## como chart_grouped(fill_w = spec$w_in * 72)) y la columna de etiquetas LABEL_COL[["std"]]. Variantes por figura
-## (spec$fig): 4 = media 0-10 sin pista y con el valor tras la barra (chart_grouped(track = FALSE, value_at_end =
-## TRUE)); 27 = ST_A01 sin filas de promedio. complementos = FALSE devuelve la llamada a WJPr sola (la línea de base
-## con la que se mide el efecto de los complementos). Unidades: las medidas del diseño son puntos de 1/72 in (los de
-## svglite y de 04_svg.R) = "bigpts" de grid; el "pt" de grid/ggplot2::margin() es 1/72.27 in (0.4 % menor).
+## strip_position "left" y ptheme = wjpr_theme(). Fuente: en main la nativa (options(wjpr.family = ), que fija
+## wjpr_require()); en 1.1.0, el complemento wjpr_font(). Se conservan sus capas (geom_col apilado = barra + pista
+## 0-100 %, geom_text de los valores), su faceta (paneles de alto libre) y su barra nacional; los complementos van
+## marcados "# complemento:". Medidas del diseño publicado: STD (04_svg.R; la 27, ST_A01 con la pista que llena los
+## 6.5 in, como chart_grouped(fill_w = spec$w_in * 72)) y la columna de etiquetas LABEL_COL[["std"]]. Variantes por
+## figura (spec$fig): 4 = media 0-10 sin pista y con el valor tras la barra (chart_grouped(track = FALSE, value_at_end =
+## TRUE)); 27 = ST_A01 sin filas de promedio. complementos = FALSE devuelve la llamada a WJPr sola (la línea de base con
+## la que se mide el efecto de los complementos). Unidades: las medidas del diseño son puntos de 1/72 in (los de svglite
+## y de 04_svg.R) = "bigpts" de grid; el "pt" de grid/ggplot2::margin() es 1/72.27 in (0.4 % menor).
+## Builds probadas: 1.1.0@382aee9 (13-jul) y main a46c831. Cada "propuesta:" de un complemento es el argumento de
+## wjp_groupbars que lo sustituiría: cuando una build lo traiga, entra en la llamada con wjpr_has_arg("wjp_groupbars",
+## "<arg>") y el complemento queda en la otra rama (no se escriben ramas sin una build que las pruebe).
 
 WJPR_GB_NAT <- " "   # faceta de los promedios = national_group_label por defecto de WJPr (strip en blanco)
 WJPR_GB_HDR <- "\u00b6 "   # prefijo de la faceta de encabezado de cada grupo (no se ve: los strips van ocultos)
@@ -209,10 +233,22 @@ wjpr_gb_design <- function(df, spec) {
   list(st = st, W = W, L = L, x0 = L + st$gap_label, scale = if (media) 10 else 100, track = !media, value_at_end = media)
 }
 
+# Sentido en que la build cargada lee level_order: main (f4f3b8f) lo documenta y lo aplica de arriba abajo; 1.1.0 lo
+# pasa tal cual a ggplot2, que pone el primer nivel abajo (su ayuda lo advierte). Se mira lo que hace con dos filas y
+# no el número de versión (las dos builds dicen 1.1.0); no es un complemento: es el argumento documentado de cada una
+wjpr_gb_top_down <- function() {
+  p <- WJPr::wjp_groupbars(data.frame(g = "a", l = c("x", "y"), v = c(10, 20)), target = "v", grouping = "g",
+                           levels = "l", level_order = list(a = c("x", "y")), ptheme = ggplot2::theme())
+  lim <- ggplot2::layer_scales(p)$y$get_limits()        # niveles del eje y de abajo arriba
+  grepl("y$", lim[1])                                   # abajo el último dado → los lee de arriba abajo
+}
+
 # Entrada de wjp_groupbars: una fila por categoría (grp, lvl, v = barra 0-100, lab = df$text, kind). Con complementos,
 # la fila EU Average en la faceta de los promedios y, por grupo, una faceta de encabezado (una fila sin barra) antes
-# de la de sus categorías. Devuelve d, el orden de facetas (group_order), level_order y el tipo de cada faceta.
-wjpr_gb_input <- function(df, g, complementos = TRUE) {
+# de la de sus categorías. Devuelve d, el orden de facetas (group_order), level_order (las filas en el orden del df,
+# de arriba abajo, en el sentido de la build: top_down) y el tipo de cada faceta.
+wjpr_gb_input <- function(df, g, complementos = TRUE, top_down = wjpr_gb_top_down()) {
+  lo <- function(x) if (top_down) x else rev(x)
   avg <- df[df$kind == "avg", ]; body <- df[df$kind %in% c("header", "row"), ]
   # complemento: WJPr solo acepta proporciones (0-1) o porcentajes (0-100) y leería la media 0-10 de la 4 como %
   # (propuesta: scale_max = 10): la barra entra como value / scale · 100 y el texto, de df$text
@@ -222,30 +258,30 @@ wjpr_gb_input <- function(df, g, complementos = TRUE) {
   row_d <- function(r, grp) tibble(grp = grp, lvl = r$label, v = pct(r$value), lab = coalesce(r$text, ""), kind = r$kind)
   if (!complementos) {
     d <- row_d(rows, as.character(rows$grouping))
-    lev <- setNames(lapply(groups, function(gr) rev(d$lvl[d$grp == gr])), groups)
+    lev <- setNames(lapply(groups, function(gr) lo(d$lvl[d$grp == gr])), groups)
     return(list(d = d, order = groups, lev = lev, panels = rep("rows", length(groups)), avg = avg))
   }
   extra <- if (nrow(avg)) avg[-1, ] else avg
   d <- row_d(extra, rep(WJPR_GB_NAT, nrow(extra))) %>% mutate(kind = "avg")
   order <- character(); panels <- character(); lev <- list()
-  if (nrow(avg)) { order <- WJPR_GB_NAT; panels <- "avg"; lev[[WJPR_GB_NAT]] <- rev(avg$label) }
+  if (nrow(avg)) { order <- WJPR_GB_NAT; panels <- "avg"; lev[[WJPR_GB_NAT]] <- lo(avg$label) }
   for (gr in groups) {
     b <- body[as.character(body$grouping) == gr, ]
     h <- b[b$kind == "header", ]; r <- b[b$kind == "row", ]
     if (nrow(h)) {
       key <- paste0(WJPR_GB_HDR, gr)
       d <- bind_rows(d, row_d(h, rep(key, nrow(h))) %>% mutate(lab = ""))
-      order <- c(order, key); panels <- c(panels, "header"); lev[[key]] <- rev(h$label)
+      order <- c(order, key); panels <- c(panels, "header"); lev[[key]] <- lo(h$label)
     }
     if (nrow(r)) {
       d <- bind_rows(d, row_d(r, rep(gr, nrow(r))))
-      order <- c(order, gr); panels <- c(panels, "rows"); lev[[gr]] <- rev(r$label)
+      order <- c(order, gr); panels <- c(panels, "rows"); lev[[gr]] <- lo(r$label)
     }
   }
   list(d = d, order = order, lev = lev, panels = panels, avg = avg)
 }
 
-wjpr_grouped_bars <- function(df, spec, complementos = TRUE, ...) {
+wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...) {
   wjpr_require()
   df <- df[order(df$order), ]
   g <- wjpr_gb_design(df, spec); st <- g$st
@@ -262,7 +298,12 @@ wjpr_grouped_bars <- function(df, spec, complementos = TRUE, ...) {
     ptheme = wjpr_theme())
   if (!complementos) return(wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = character()))
 
-  comp <- c("fuente Inter Tight en capas y tema (wjpr_font)", if (g$scale != 100) "media 0-10 a barra 0-100")
+  # complemento (solo 1.1.0): WJPr fija family = "Lato Full" en capas y tema (wjpr_font); main la toma de
+  # options(wjpr.family = ), que fija wjpr_require(), y el complemento sobra
+  native_font <- wjpr_native_font()
+  if (!native_font) p <- wjpr_font(p)
+  comp <- c(if (!native_font) "fuente Inter Tight en capas y tema (wjpr_font)",
+            if (g$scale != 100) "media 0-10 a barra 0-100")
   # complemento: WJPr no admite una segunda fila de promedio (national_value es un escalar; propuesta: national_value
   # con nombres, p. ej. c("National Average" = 61, "EU Average" = 61)): la fila UE entra como dato en la faceta del
   # promedio nacional (national_group_label), debajo de él (wjpr_gb_input).
@@ -271,14 +312,6 @@ wjpr_grouped_bars <- function(df, spec, complementos = TRUE, ...) {
   # ellas (propuesta: group_header = "row"): cada encabezado es una faceta de una fila sin barra, en la columna de
   # etiquetas y alineado a la derecha como las categorías (wjpr_gb_input), y los strips se ocultan (tema, abajo).
   comp <- c(comp, "encabezados en la columna de etiquetas")
-
-  # complemento: con la barra nacional WJPr pone axis.text.y = ggtext::element_markdown (S3) y con ggplot2 >= 4.0 no se
-  # le puede sumar ningún theme(axis.text.y = …) ("Can't merge the axis.text.y theme element"), ni el de wjpr_font()
-  # (propuesta: estilo de las etiquetas por argumento, sin element_markdown en el tema): se reemplaza (%+replace%) y se
-  # vuelve a poner, completo, al final.
-  p@theme <- p@theme %+replace% ggplot2::theme(axis.text.y = ggplot2::element_blank())
-  p <- wjpr_font(p)
-  comp <- c(comp, "axis.text.y por %+replace% (element_markdown S3 en ggplot2 4)")
 
   # complemento: WJPr pone cada valor tras su barra (value + 1 unidades) y solo los alinea en columna con intervalos
   # de confianza (label_after_ci, a 101); falta una columna fija sin intervalos y la separación en pt (propuesta:
@@ -337,8 +370,12 @@ wjpr_grouped_bars <- function(df, spec, complementos = TRUE, ...) {
   used <- top + n_units * st$pitch + sum(spacing) + 4
   # complemento: element_markdown (el de WJPr para la barra nacional) centra la caja de gridtext, con descendentes, y
   # no la altura de mayúsculas como el texto normal: la etiqueta queda 0.104 em por encima de su barra; un margen
-  # superior de 0.208 em la baja a la línea base publicada (desaparece con la propuesta anterior: sin Markdown)
-  p@theme <- p@theme %+replace% ggplot2::theme(
+  # superior de 0.208 em la baja a la línea base publicada. Con la barra nacional, el axis.text.y de WJPr es
+  # ggtext::element_markdown y ggplot2 4 solo le suma otro element_markdown (theme(axis.text.y = element_text(…)) da
+  # "Can't merge"): el de las etiquetas, que hace falta igual para los promedios y encabezados en Markdown, se suma
+  # sin tocar p@theme (propuesta: estilo de las etiquetas por argumento, sin Markdown en el tema; con ella sobra el
+  # margen)
+  p <- p + ggplot2::theme(
     axis.text.y = ggtext::element_markdown(family = WJPR_FAMILY, size = st$size_label, colour = st$col$text, hjust = 1,
                                            margin = ggplot2::margin(t = 0.208 * st$size_label, r = st$gap_label, unit = "bigpts")))
   p <- p + ggplot2::theme(
@@ -355,25 +392,33 @@ wjpr_grouped_bars <- function(df, spec, complementos = TRUE, ...) {
   wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = comp)
 }
 ## Prueba del bloque (2026-10-23): Rscript tools/wjpr_gallery.R --figs 1,4,9,12,17,20,21,22,23,24,25,26,27,28,31,33,35,
-## 38,39,40 → 20/20 ok, textos iguales, 0 dudosos, f1_publicada 1.000 (r = 0 px: 0.996-0.999; mad 0.0005-0.0011);
-## complementos = FALSE (WJPr solo): f1 0.17-0.79. Posiciones en el SVG: barra en x0 = 155, etiquetas a 149, valores a
-## 410 (27: 441), filas y líneas base de encabezados a ±0.05 pt de STD/ST_A01; escape Markdown ("a*b_c*", "1. …", "&").
+## 38,39,40, con 1.1.0@382aee9 y con main a46c831 (SRC_REPORTS_LIB) → 20/20 ok en las dos, textos iguales, 0 dudosos,
+## f1_publicada 1.000 (r = 0 px: 0.996-0.999; mad 0.0005-0.0011); los 20 SVG son idénticos byte a byte entre builds y
+## con los de antes de adaptar main. Complementos: 9-11 con 1.1.0, 8-10 con main (sin wjpr_font). Con main antes de
+## esto (level_order al revés): f1 0.72-0.97. complementos = FALSE (WJPr solo): f1 0.17-0.79 (1.1.0; mediana 0.64) y
+## 0.14-0.79 (main; mediana 0.62: Inter Tight nativa, misma geometría). Posiciones en el SVG: barra en x0 = 155,
+## etiquetas a 149, valores a 410 (27: 441), filas y líneas base de encabezados a ±0.05 pt de STD/ST_A01; escape
+## Markdown ("a*b_c*", "1. …", "&").
 
 
 ## Bloque wjpr dumbbell — figuras 10, 15 ----------------------------------------------------------------------------
-## Base: WJPr::wjp_dumbbells() con sus argumentos documentados: data larga (dos filas por línea de la figura,
-## Perception / Experience, también para los encabezados, con valor NA), target, grouping (clave única por línea:
-## dos categorías con el mismo nombre no se funden), cgroups, colors, labels (= df$text / df$text2 tal cual), labpos
-## (posición de cada valor, a dot_r + 3 pt del punto y por fuera del par; la automática de WJPr, ±7 en la escala y
-## recortada a 3-97, da NA en una fila con un solo valor: la 18-24 de la 10 perdía su 68 %), cvec (colores del
-## reporte), order (el de df) y ptheme = wjpr_theme(). Se conservan sus 7 capas (blank, ribbon de franjas, segment,
-## 2 point, 2 text): los complementos cambian parámetros y mapeos de esas capas, sus escalas, el clip y el tema, y la
-## leyenda es la guía del color de los puntos (ninguna capa nueva). Medidas: ST_DUMB y LABEL_COL[["dumb"]], las de
-## chart_dumbbell() (05_charts.R): leyenda con líneas base 10 y 24 pt, rótulos del eje con base 44, línea del eje en
-## 49, filas desde 52; la figura 15 (18-24 sin ningún valor) sale como fila vacía sin rama propia.
+## Base: WJPr::wjp_dumbbells() con sus argumentos documentados: data larga (dos filas por línea de la figura, una por
+## serie, también para los encabezados, con valor NA), target, grouping (clave única por línea: dos categorías con el
+## mismo nombre no se funden), cgroups (= los textos de la leyenda), colors, labels (= df$text / df$text2 tal cual),
+## cvec (colores del reporte), order (el de df), ptheme = wjpr_theme() y, según la build cargada: labpos (posición de
+## cada valor, a dot_r + 3 pt del punto y por fuera del par; la automática de 1.1.0, ±7 recortada a 3-97, y el
+## label_offset de main dan NA en una fila con un solo valor: la 18-24 de la 10 perdería su 68 %) o label_offset (main,
+## cuando da la misma posición: la 15), y show_legend = TRUE (main: puntos con el color mapeado y leyenda rotulada con
+## cgroups; 1.1.0 no tiene leyenda y el color se mapea como complemento). Se conservan sus 7 capas (blank, ribbon de
+## franjas, segment, 2 point, 2 text): los complementos cambian parámetros y mapeos de esas capas, sus escalas, la guía,
+## el clip y el tema (ninguna capa nueva). Medidas: ST_DUMB y LABEL_COL[["dumb"]], las de chart_dumbbell()
+## (05_charts.R): leyenda con líneas base 10 y 24 pt, rótulos del eje con base 44, línea del eje en 49, filas desde 52;
+## la figura 15 (18-24 sin ningún valor) sale como fila vacía sin rama propia.
 ## complementos = FALSE devuelve WJPr sin complementos (como el piloto: sin encabezados), para medir la brecha.
-## Prueba (2026-10-23, tools/wjpr_gallery.R --figs 10,15): textos iguales, 0 dudosos, f1 con la publicada 1.000 en las
-## dos (sin complementos: 0.128 y 0.170; solo con wjpr_font: 0.129 y 0.170, es decir, la brecha es de geometría).
+## Prueba (2026-10-23, tools/wjpr_gallery.R --figs 10,15, con y sin SRC_REPORTS_LIB): textos iguales, 0 dudosos, f1
+## 1.000 en las dos con 1.1.0@382aee9 (13 complementos) y con main a46c831 (12 en la 10, que sigue con labpos por su
+## 18-24 de un solo valor; 11 en la 15: sobran wjpr_font y labpos). Sin complementos: 0.128 / 0.170 con 1.1.0 (y
+## Noto Sans Syriac en lugar de la fuente: 24 textos dudosos) y 0.185 / 0.221 con main (fuente nativa, 0 dudosos).
 ## Auxiliares de este bloque (los usa también el bloque hbars): unidades del diseño → ggplot2 y edición de capas.
 
 # Conversión de las medidas del diseño (pt = 1/72 in, la unidad del SVG) a ggplot2, comprobada en el SVG de svglite:
@@ -427,11 +472,11 @@ wjpr_labcol_w <- function(label, kind, size) {
 
 wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
                                                "People with a non-trivial problem: experience"),
-                          st = ST_DUMB, complementos = TRUE) {
+                          st = ST_DUMB, complementos = wjpr_complementos()) {
   wjpr_require()
   df <- df[order(df$order), , drop = FALSE]
-  cg <- c("Perception", "Experience")
-  cvec <- c(Perception = st$col$main, Experience = st$col$exp)
+  cg <- legend                                     # series = sus textos de leyenda: main rotula su leyenda con cgroups
+  cvec <- stats::setNames(c(st$col$main, st$col$exp), cg)
   v1 <- as.numeric(df$value); v2 <- as.numeric(df$value2)
   t1 <- coalesce(as.character(df$text), ""); t2 <- coalesce(as.character(df$text2), "")
   if (!isTRUE(complementos)) {
@@ -460,26 +505,41 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
   gap <- pct(st$dot_r + 3)
   two <- !is.na(v1) & !is.na(v2)
   left1 <- two & v1 <= v2; left2 <- two & v2 < v1                              # el menor del par va a la izquierda
-  long <- bind_rows(
-    tibble(key = key, serie = cg[1], v = v1, lab = t1, pos = if_else(left1, v1 - gap, v1 + gap)),
-    tibble(key = key, serie = cg[2], v = v2, lab = t2, pos = if_else(left2, v2 - gap, v2 + gap)))
-  p <- WJPr::wjp_dumbbells(data = long, target = "v", grouping = "key", cgroups = cg, colors = "serie",
-                           labels = "lab", labpos = "pos", cvec = cvec, order = setNames(seq_along(key), key),
-                           ptheme = wjpr_theme())
-  p <- wjpr_font(p)
+  pos1 <- if_else(left1, v1 - gap, v1 + gap); pos2 <- if_else(left2, v2 - gap, v2 + gap)
+  long <- bind_rows(tibble(key = key, serie = cg[1], v = v1, lab = t1, pos = pos1),
+                    tibble(key = key, serie = cg[2], v = v2, lab = t2, pos = pos2))
+  # Lo que trae la build cargada: main dibuja la leyenda (show_legend; puntos con el color mapeado y escala con los
+  # cgroups) y coloca los valores con label_offset (por fuera del par, a label_offset del punto); 1.1.0 no tiene ninguno
+  leg_native <- wjpr_has_arg("wjp_dumbbells", "show_legend")
+  pp <- c(pos1[two], pos2[two])
+  off_native <- wjpr_has_arg("wjp_dumbbells", "label_offset") && !any(xor(is.na(v1), is.na(v2))) &&
+    all(pp >= gap & pp <= 100 - gap)
+  args <- list(data = long, target = "v", grouping = "key", cgroups = cg, colors = "serie", labels = "lab",
+               cvec = cvec, order = setNames(seq_along(key), key), ptheme = wjpr_theme())
+  if (leg_native) args$show_legend <- TRUE
+  # complemento: posición de los valores (labpos, a dot_r + 3 pt del punto y por fuera del par) donde label_offset no
+  # llega: en una fila con un solo valor da NA (if_else(start <= end) con start NA: la 18-24 de la 10 perdería su
+  # 68 %) y recorta a [offset, 100 − offset]; 1.1.0 no lo tiene (su automática: ±7, recortada a 3-97). Con un
+  # label_offset que coloque el valor solitario, el complemento sobraría en todas
+  args <- c(args, if (off_native) list(label_offset = gap) else list(labpos = "pos"))
+  p <- do.call(WJPr::wjp_dumbbells, args)
+  comp <- character()
+  if (!wjpr_native_font()) { p <- wjpr_font(p); comp <- "fuente (wjpr_font)" }  # main: options(wjpr.family)
   ip <- wjpr_which_layers(p, "GeomPoint"); it <- wjpr_which_layers(p, "GeomText")
   is <- wjpr_which_layers(p, "GeomSegment")
   # complemento: tamaño de punto (r = dot_r, sin trazo): wjp_dumbbells fija size = 4.5 (r ≈ 5.5 pt), sin argumento
-  # complemento: leyenda: wjp_dumbbells da a los puntos un color fijo y no dibuja leyenda; se mapea el color de cada
-  # serie para que la guía de ggplot2 la dibuje con los textos de `legend`
-  p <- wjpr_edit_layers(p, ip[1], params = list(size = wjpr_pt2size(st$dot_r), stroke = 0, colour = NULL),
-                        mapping = ggplot2::aes(colour = "Perception"))
-  p <- wjpr_edit_layers(p, ip[2], params = list(size = wjpr_pt2size(st$dot_r), stroke = 0, colour = NULL),
-                        mapping = ggplot2::aes(colour = "Experience"))
+  if (leg_native) {
+    p <- wjpr_edit_layers(p, ip, params = list(size = wjpr_pt2size(st$dot_r), stroke = 0))
+  } else {
+    # complemento: leyenda (1.1.0): wjp_dumbbells da a los puntos un color fijo y no dibuja leyenda; se mapea el
+    # color de cada serie para que la guía de ggplot2 la dibuje con los textos de `legend`
+    for (j in 1:2) p <- wjpr_edit_layers(p, ip[j], params = list(size = wjpr_pt2size(st$dot_r), stroke = 0, colour = NULL),
+                                         mapping = ggplot2::aes(colour = !!cg[j]))
+  }
   # complemento: segmento del color y grosor del reporte (wjp_dumbbells: #BFBFBF, linewidth 2.5, sin argumento)
   p <- wjpr_edit_layers(p, is, params = list(colour = st$col$track, linewidth = wjpr_pt2lw(st$segment)))
   # complemento: valores en semibold cursiva de size_value pt, anclados por fuera del punto (wjp_dumbbells: negrita de
-  # 10 pt centrada en labpos, sin argumento de cara, tamaño ni alineación)
+  # 10 pt centrada en su posición, sin argumento de cara, tamaño ni alineación)
   p <- wjpr_edit_layers(p, it[1], params = list(fontface = "bold.italic", size = wjpr_pt2txt(st$size_value)),
                         mapping = ggplot2::aes(hjust = as.numeric(labp0 < start)))
   p <- wjpr_edit_layers(p, it[2], params = list(fontface = "bold.italic", size = wjpr_pt2txt(st$size_value)),
@@ -505,7 +565,11 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
                                 expand = c(0, 0), oob = scales::oob_keep, position = "right") +
     # complemento: sin franjas alternas (bgcolor solo cambia las blancas; las grises son #EBEBEB fijas)
     ggplot2::scale_fill_manual(values = c(grey = "transparent", white = "transparent"), guide = "none") +
-    ggplot2::scale_colour_manual(values = cvec, breaks = cg, labels = legend, name = NULL) +
+    # leyenda: 1.1.0, escala del color mapeado; main, complemento: una serie por línea (su guía fija direction =
+    # "horizontal", nrow = 1 y override.aes size = 4.5; la guía por defecto toma la dirección del tema y el punto).
+    # Con un argumento de dirección o columnas de la leyenda en wjp_dumbbells, la guía sobraría
+    (if (leg_native) ggplot2::guides(colour = ggplot2::guide_legend()) else
+      ggplot2::scale_colour_manual(values = cvec, breaks = cg, name = NULL)) +
     # complemento: clip = "off": un valor junto a 0 o 100 % se imprime fuera de la pista (coord_flip() de WJPr recorta)
     ggplot2::coord_flip(clip = "off") +
     ggplot2::theme(
@@ -525,22 +589,27 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
                                               margin = wjpr_margin_bp(b = geo$ax_line - geo$ax_base)),
       axis.line.x.top = ggplot2::element_line(colour = st$col$axis, linewidth = wjpr_pt2lw(0.75)),
       axis.ticks.length = wjpr_unit_bp(0),
+      # complemento: leyenda arriba a la izquierda, una serie por línea, texto regular de size_legend pt y claves del
+      # tamaño del punto (main, wjp_legend_theme: horizontal, 11 pt negrita, clave de 1.4 cm y márgenes 4 / 20 pt;
+      # sin argumentos de tamaño, cara ni márgenes, que entrarían en wjp_legend_theme y en cada función)
       legend.position = "top", legend.justification = "left", legend.direction = "vertical",
-      legend.margin = wjpr_margin_bp(l = -shift), legend.key = ggplot2::element_blank(),
+      legend.margin = wjpr_margin_bp(l = -shift), legend.box.margin = wjpr_margin_bp(), legend.key = ggplot2::element_blank(),
       legend.key.spacing.y = wjpr_unit_bp(0), legend.key.width = wjpr_unit_bp(2 * st$dot_r),
       legend.key.height = wjpr_unit_bp(key_h),
       legend.box.spacing = wjpr_unit_bp(geo$ax_base - ax_box - (top + 2 * key_h)),
-      legend.text = ggplot2::element_text(size = st$size_legend, colour = st$col$text,
+      legend.text = ggplot2::element_text(size = st$size_legend, colour = st$col$text, face = "plain",
                                           margin = wjpr_margin_bp(l = 5 - shift)),
       # complemento: márgenes que ponen la pista en x0..x0 + track y el panel desde la línea del eje hasta abajo
       plot.margin = wjpr_margin_bp(t = top, r = W - x0 - track, b = 0,
                                    l = x0 - st$gap_label - wjpr_labcol_w(df$label, df$kind, st$size_label)))
-  wjpr_meta(p, base = "WJPr::wjp_dumbbells",
-            complementos = c("fuente (wjpr_font)", "tamaño de punto", "leyenda (color mapeado + guía)",
-                             "segmento: color y grosor", "valores: cara, tamaño y anclaje",
-                             "posición de los valores (labpos)", "encabezados y alturas de fila (escala discreta)",
-                             "eje cada 25 % sin expansión", "sin franjas alternas", "clip off", "sin rejilla",
-                             "columna de etiquetas: alineación y estilos", "eje: tamaño, línea y márgenes"))
+  comp <- c(comp, "tamaño de punto",
+            if (leg_native) "leyenda: una serie por línea, texto y claves (guía + tema)" else
+              "leyenda (color mapeado + escala + tema)",
+            "segmento: color y grosor", "valores: cara, tamaño y anclaje",
+            if (!off_native) "posición de los valores (labpos)", "encabezados y alturas de fila (escala discreta)",
+            "eje cada 25 % sin expansión", "sin franjas alternas", "clip off", "sin rejilla",
+            "columna de etiquetas: alineación y estilos", "eje: tamaño, línea y márgenes")
+  wjpr_meta(p, base = "WJPr::wjp_dumbbells", complementos = comp)
 }
 
 
@@ -558,10 +627,14 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
 ## dumbbell. Medidas: ST_HBARS y LABEL_COL[["hbars"]], las de chart_hbars_axis (report_charts.R:224-242): etiquetas
 ## desde x = 2, barras desde L + 12, pista track pt, rótulos del eje con base 12 pt, filas desde 20, rejilla desde 18.
 ## complementos = FALSE devuelve la función de WJPr sin complementos.
-## Prueba (2026-10-23, tools/wjpr_gallery.R --figs 13,14,18,19,36): textos iguales, 0 dudosos, f1 1.000 en las cinco
-## (sin complementos: 0.554, 0.680, 0.709, 0.862, 0.267; lollipops sin complementos 0.26-0.49; edgebars 0.31-0.43).
+## Prueba (2026-10-23, tools/wjpr_gallery.R --figs 13,14,18,19,36, con y sin SRC_REPORTS_LIB): textos iguales, 0
+## dudosos, f1 1.000 en las cinco con 1.1.0@382aee9 (7 complementos) y con main a46c831 (6: la fuente sale de
+## options(wjpr.family)); sin complementos: 0.554, 0.680, 0.709, 0.862, 0.267 (1.1.0) y 0.557, 0.685, 0.710, 0.863,
+## 0.270 (main). Bases alternativas (mismas cinco): lollipops 1.000 en las dos builds (8 / 7 complementos; sin ellos
+## 0.26-0.49); edgebars 1.000 con 1.1.0 (10; sin ellos 0.31-0.43) y con main se detiene: la rehízo (rectángulos sobre
+## una y numérica, rótulo encima de la barra, bar_width ≤ 0.8) y sus complementos no le corresponden.
 wjpr_hbars <- function(df, spec, base = c("wjp_bars", "wjp_lollipops", "wjp_edgebars"), st = ST_HBARS,
-                       complementos = TRUE) {
+                       complementos = wjpr_complementos()) {
   wjpr_require()
   base <- match.arg(base)
   df <- df[order(df$order), , drop = FALSE]
@@ -576,6 +649,11 @@ wjpr_hbars <- function(df, spec, base = c("wjp_bars", "wjp_lollipops", "wjp_edge
   n <- nrow(d)
   lab_lo <- (geo$lab_x - x0) / track * 100                                     # x = 2 pt en la escala (edgebars)
   bare <- !isTRUE(complementos)
+  # main rehízo wjp_edgebars (rectángulos sobre una y numérica, rótulo encima de la barra, sin eje ni coord_flip, y
+  # bar_width ≤ 0.8): los complementos de abajo son los de su API de 1.1.0 y no se aplican a esa versión
+  if (!bare && base == "wjp_edgebars" && wjpr_has_arg("wjp_edgebars", "label_start"))
+    stop("base = \"wjp_edgebars\": complementos escritos para la API de WJPr 1.1.0; con esta build usa wjp_bars o ",
+         "wjp_lollipops", call. = FALSE)
   p <- switch(base,
     wjp_bars = if (bare) {
       WJPr::wjp_bars(data = d, target = "value", grouping = "label", labels = "text", colors = "serie",
@@ -602,13 +680,16 @@ wjpr_hbars <- function(df, spec, base = c("wjp_bars", "wjp_lollipops", "wjp_edge
                          ptheme = wjpr_theme())
     })
   if (bare) return(wjpr_meta(p, base = paste0("WJPr::", base)))
-  comp <- "fuente (wjpr_font)"
-  if (base == "wjp_edgebars") {
-    # complemento: wjp_edgebars mapea family = "Lato Full" dentro de aes() en el rótulo (geom_richtext): wjpr_font
-    # quita ese mapeo y el rótulo quedaría sin familia (Helvetica); se fija la del reporte como parámetro
-    p <- wjpr_edit_layers(p, wjpr_which_layers(p, "GeomRichText"), params = list(family = WJPR_FAMILY))
+  comp <- character()
+  if (!wjpr_native_font()) {                         # main: la fuente sale de options(wjpr.family) (wjpr_require)
+    comp <- "fuente (wjpr_font)"
+    if (base == "wjp_edgebars") {
+      # complemento: wjp_edgebars 1.1.0 mapea family = "Lato Full" dentro de aes() en el rótulo (geom_richtext):
+      # wjpr_font quita ese mapeo y el rótulo quedaría sin familia (Helvetica); se fija la del reporte como parámetro
+      p <- wjpr_edit_layers(p, wjpr_which_layers(p, "GeomRichText"), params = list(family = WJPR_FAMILY))
+    }
+    p <- wjpr_font(p)
   }
-  p <- wjpr_font(p)
   it <- wjpr_which_layers(p, "GeomText")
   # complemento: valor a continuación del final de la barra (hjust = 0, gap_value pt) en semibold cursiva y en el
   # color del texto del reporte (WJPr: negrita #4a4a49 centrada en lab_pos; lollipops: en el valor + 7, sin lab_pos;
@@ -671,9 +752,13 @@ wjpr_hbars <- function(df, spec, base = c("wjp_bars", "wjp_lollipops", "wjp_edge
 ## Bloque wjpr paired_bars — figuras 2 ------------------------------------------------------------------------------
 ## Las barras pareadas (2), las columnas (30, 37), la severidad (7) y el embudo (8, 34) parten de WJPr::wjp_bars().
 ## Este bloque define también los auxiliares comunes a los cuatro (prefijo wjpr_wb_): datos largos país | UE, copia
-## modificada de una capa de WJPr, pista, leyenda {country} | EU Average y medidas de Inter Tight en el texto de grid.
-## Fig 2: ancho 8.4 in con columna de etiquetas propia (la más ancha + 2 pt), pista hasta la columna de valores.
-## Prueba (galería, 2026-10-23): fig 2 f1 1.000 (sin complementos 0.530), textos iguales, 0 dudosos.
+## modificada de una capa de WJPr, pista, la llamada a wjp_bars con la leyenda de la build (main: show_legend; 1.1.0:
+## complemento en la capa), su tema {country} | EU Average, la fuente según la build y medidas de Inter Tight en el
+## texto de grid. Fig 2: ancho 8.4 in con columna de etiquetas propia (la más ancha + 2 pt), pista hasta la columna de
+## valores.
+## Prueba (galería, 2026-10-23, con y sin SRC_REPORTS_LIB): fig 2 f1 1.000 con 1.1.0@382aee9 (8 complementos) y con
+## main a46c831 (7: leyenda con show_legend y fuente nativa), textos iguales, 0 dudosos; sin complementos 0.530 (1.1.0)
+## y 0.332 (main: su leyenda, arriba y fuera del panel, desplaza el dibujo; sin show_legend daría 0.527).
 
 # Medidas de Inter Tight en el texto de grid (medidas en el SVG de svglite), en em: ascendente que apoya vjust = 1 y
 # alto de un texto de eje (ascendente + descendente de la fuente)
@@ -706,6 +791,28 @@ wjpr_wb_layer <- function(l, ..., aes_params = list(), drop_params = character()
 # Índices de las capas de barras y de texto de wjp_bars
 wjpr_wb_is <- function(p, geom) vapply(p$layers, function(l) inherits(l$geom, geom), logical(1))
 
+# Leyenda de wjp_bars: main la dibuja con su argumento show_legend = TRUE (wjpr_wb_bars(legend = TRUE) lo pasa, también
+# sin complementos: es un argumento documentado); 1.1.0 la oculta con show.legend = FALSE fijo en geom_col y
+# wjpr_wb_legend_on() la activa en una copia de la capa (complemento, solo en esa build)
+wjpr_wb_native_legend <- function() wjpr_has_arg("wjp_bars", "show_legend")
+wjpr_wb_bars <- function(..., legend = FALSE) {
+  if (legend && wjpr_wb_native_legend()) WJPr::wjp_bars(..., show_legend = TRUE) else WJPr::wjp_bars(...)
+}
+wjpr_wb_legend_on <- function(p) {
+  if (wjpr_wb_native_legend()) return(p)
+  is_col <- wjpr_wb_is(p, "GeomCol")
+  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, show.legend = TRUE)
+  p
+}
+# Nombre del complemento de leyenda según la build: en 1.1.0 la capa y el tema; en main solo el tema
+wjpr_wb_legend_comp <- function(where) {
+  if (wjpr_wb_native_legend()) paste0("leyenda ", where, ": texto y claves (tema)") else
+    paste0("leyenda {country} | EU Average ", where, " (capa + tema)")
+}
+# Fuente: main la toma de options(wjpr.family) (wjpr_require); en 1.1.0 wjpr_font reemplaza la "Lato Full" fija
+wjpr_wb_font <- function(p) if (wjpr_native_font()) p else wjpr_font(p)
+wjpr_wb_font_comp <- function() if (wjpr_native_font()) character() else "fuente Inter Tight en capas"
+
 # Capa de pista (barra al 100 % detrás de cada barra, 0 si el valor está suprimido) en la posición de las barras
 wjpr_wb_track <- function(width, position, fill) {
   ggplot2::geom_col(data = function(x) dplyr::mutate(x, target_var = ifelse(na, 0, 100)),
@@ -714,19 +821,22 @@ wjpr_wb_track <- function(width, position, fill) {
 }
 
 # Leyenda {country} | EU Average dentro del panel, arriba a la izquierda (cuadros de 9 pt a top pt del borde, texto a
-# gap_key pt del cuadro, gap_item pt entre elementos: chart_paired / chart_columns)
+# gap_key pt del cuadro, gap_item pt entre elementos: chart_paired / chart_columns). Texto regular, ancho de la clave
+# y margen de la caja explícitos: main (wjp_legend_theme) los fija en 11 pt negrita, 1.4 cm y 4 / 20 pt
 wjpr_wb_legend <- function(st, top = 2, key = 9, gap_key = 4, gap_item = 14) {
   ggplot2::theme(
     legend.position = "inside", legend.position.inside = c(0, 1), legend.justification.inside = c(0, 1),
     legend.direction = "horizontal", legend.title = ggplot2::element_blank(),
     legend.background = ggplot2::element_blank(), legend.key = ggplot2::element_blank(),
-    legend.margin = ggplot2::margin(top, 0, 0, 0), legend.key.size = grid::unit(key, "pt"),
+    legend.margin = ggplot2::margin(top, 0, 0, 0), legend.box.margin = ggplot2::margin(0, 0, 0, 0),
+    legend.key.size = grid::unit(key, "pt"), legend.key.width = grid::unit(key, "pt"),
     legend.key.spacing.x = grid::unit(gap_item, "pt"),
-    legend.text = ggplot2::element_text(size = st$size_legend, colour = st$col$text, margin = ggplot2::margin(l = gap_key)))
+    legend.text = ggplot2::element_text(size = st$size_legend, colour = st$col$text, face = "plain",
+                                        margin = ggplot2::margin(l = gap_key)))
 }
 
 # bare = TRUE: solo wjp_bars con argumentos documentados (para medir la brecha sin complementos)
-wjpr_paired_bars <- function(df, spec, bare = FALSE, ...) {
+wjpr_paired_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_require()
   st <- ST_WIDE2                                     # pista a toda la columna: pair_pitch 21, pair_bar 8
   W <- spec$w_in * 72
@@ -738,17 +848,18 @@ wjpr_paired_bars <- function(df, spec, bare = FALSE, ...) {
   track <- W - x0 - st$gap_value - st$value_w        # la pista llega hasta la columna de valores
   d$lab_pos <- 100 + 100 * st$gap_value / track      # valores a gap_value pt del final de la pista
   w <- 2 * st$pair_bar / st$pair_pitch               # dos barras de pair_bar pt por fila de pair_pitch pt
-  p <- WJPr::wjp_bars(data = d, target = "v", grouping = "label", labels = "lab", colors = "serie",
-                      cvec = stats::setNames(c(st$col$main, st$col$eu), levels(d$serie)), direction = "horizontal",
-                      stacked = FALSE, lab_pos = "lab_pos", order = "order", width = w, ptheme = wjpr_theme())
+  p <- wjpr_wb_bars(data = d, target = "v", grouping = "label", labels = "lab", colors = "serie",
+                    cvec = stats::setNames(c(st$col$main, st$col$eu), levels(d$serie)), direction = "horizontal",
+                    stacked = FALSE, lab_pos = "lab_pos", order = "order", width = w, ptheme = wjpr_theme(),
+                    legend = TRUE)
   if (bare) return(wjpr_meta(p, base = "wjp_bars"))
   # complemento: wjp_bars fija position = "stack" en geom_col (stacked solo cambia el color del texto); falta un
   # argumento position = "dodge" (con su ancho y el orden de las series: el país arriba)
   dodge <- ggplot2::position_dodge(width = 2 * (st$pair_bar + 2) / st$pair_pitch, reverse = TRUE)
-  # complemento: wjp_bars oculta la leyenda (show.legend = FALSE fijo); falta un argumento legend
+  # complemento (1.1.0): wjp_bars oculta la leyenda (show.legend = FALSE fijo); main la trae (show_legend)
+  p <- wjpr_wb_legend_on(p)
   is_col <- wjpr_wb_is(p, "GeomCol"); is_txt <- wjpr_wb_is(p, "GeomText")
-  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, show.legend = TRUE,
-                             aes_params = list(linewidth = 0))
+  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, aes_params = list(linewidth = 0))
   # complemento: el texto de wjp_bars no sigue a las barras (sin position), tiene color, fontface "bold" y 10 pt
   # fijos; faltan label_position, label_colors (por serie), label_face, label_size y label_hjust
   p$layers[is_txt] <- lapply(p$layers[is_txt], wjpr_wb_layer, position = dodge,
@@ -769,21 +880,25 @@ wjpr_paired_bars <- function(df, spec, bare = FALSE, ...) {
     axis.text.x = ggplot2::element_blank(), axis.title.x = ggplot2::element_blank(), axis.title.y = ggplot2::element_blank(),
     axis.ticks = ggplot2::element_blank(), panel.grid.major.x = ggplot2::element_blank(), panel.grid.major.y = ggplot2::element_blank(),
     plot.margin = ggplot2::margin(0, 0, 0, L - wmax)) +
+    # complemento: leyenda dentro del panel, arriba a la izquierda (main: arriba, fuera del panel, 11 pt negrita; un
+    # argumento de posición "inside" y de estilo en wjp_legend_theme / wjp_bars lo haría innecesario)
     wjpr_wb_legend(st)
-  wjpr_meta(wjpr_font(p), base = "wjp_bars",
-            complementos = c("lado a lado (dodge, país arriba)", "leyenda {country} | EU Average",
+  wjpr_meta(wjpr_wb_font(p), base = "wjp_bars",
+            complementos = c("lado a lado (dodge, país arriba)", wjpr_wb_legend_comp("dentro del panel"),
                              "texto por serie (posición, color, semibold cursiva 9 pt)", "pista al 100 %",
                              "escala de valores sin expansión", "alto de fila (expansión discreta)",
-                             "tema sin eje ni rejilla, etiquetas a la derecha", "fuente Inter Tight en capas"))
+                             "tema sin eje ni rejilla, etiquetas a la derecha", wjpr_wb_font_comp()))
 }
 
 ## Bloque wjpr columns — figuras 30, 37 -----------------------------------------------------------------------------
 ## wjp_bars vertical con país y UE lado a lado, alturas relativas al máximo de las dos series (la más alta = col_h),
 ## valores encima de cada columna, etiquetas debajo y línea base (chart_columns); usa los auxiliares wjpr_wb_*.
-## Prueba (galería, 2026-10-23): f1 0.998 / 1.000 (sin complementos 0.675 / 0.706), textos iguales, 0 dudosos;
-## la 30 desde la referencia usa value redondeado (wjpr_ref_df descarta frac): alturas a ≤ 3 pt de las publicadas.
+## Prueba (galería, 2026-10-23, con y sin SRC_REPORTS_LIB): f1 0.998 / 1.000 con 1.1.0@382aee9 (7 complementos) y
+## con main a46c831 (6), textos iguales, 0 dudosos; sin complementos 0.675 / 0.706 (1.1.0) y 0.538 / 0.601 (main, con
+## su leyenda arriba; sin ella 0.675 / 0.706). La 30 desde la referencia usa value redondeado (wjpr_ref_df descarta
+## frac): alturas a ≤ 3 pt de las publicadas; con value = frac·100 la misma función da 1.000 en las dos builds.
 
-wjpr_columns <- function(df, spec, bare = FALSE, ...) {
+wjpr_columns <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_require()
   st <- ST_COLS                                      # col_w 46, col_h 180
   W <- spec$w_in * 72; H <- spec$h_in * 72
@@ -794,16 +909,17 @@ wjpr_columns <- function(df, spec, bare = FALSE, ...) {
   yb <- 24 + st$size_value + 6 + st$col_h            # línea base (pt desde arriba): la más alta llega a 39 pt
   d$lab_pos <- d$v + vmax * 4 / st$col_h             # valor a 4 pt de la cima de su columna
   w <- 2 * st$col_w / gw
-  p <- WJPr::wjp_bars(data = d, target = "v", grouping = "label", labels = "lab", colors = "serie",
-                      cvec = stats::setNames(c(st$col$main, st$col$eu), levels(d$serie)), direction = "vertical",
-                      stacked = FALSE, lab_pos = "lab_pos", order = "order", width = w, ptheme = wjpr_theme())
+  p <- wjpr_wb_bars(data = d, target = "v", grouping = "label", labels = "lab", colors = "serie",
+                    cvec = stats::setNames(c(st$col$main, st$col$eu), levels(d$serie)), direction = "vertical",
+                    stacked = FALSE, lab_pos = "lab_pos", order = "order", width = w, ptheme = wjpr_theme(),
+                    legend = TRUE)
   if (bare) return(wjpr_meta(p, base = "wjp_bars"))
   # complemento: wjp_bars fija position = "stack" en geom_col; falta un argumento position = "dodge" (y su ancho)
   dodge <- ggplot2::position_dodge(width = 2 * (st$col_w + gap) / gw)
-  # complemento: wjp_bars oculta la leyenda (show.legend = FALSE fijo); falta un argumento legend
+  # complemento (1.1.0): wjp_bars oculta la leyenda (show.legend = FALSE fijo); main la trae (show_legend)
+  p <- wjpr_wb_legend_on(p)
   is_col <- wjpr_wb_is(p, "GeomCol"); is_txt <- wjpr_wb_is(p, "GeomText")
-  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, show.legend = TRUE,
-                             aes_params = list(linewidth = 0))
+  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, aes_params = list(linewidth = 0))
   # complemento: el texto no sigue a su columna ni se apoya encima (vjust), y color, fontface y tamaño son fijos;
   # faltan label_position, label_vjust, label_colors, label_face y label_size
   p$layers[is_txt] <- lapply(p$layers[is_txt], wjpr_wb_layer, position = dodge,
@@ -829,38 +945,43 @@ wjpr_columns <- function(df, spec, bare = FALSE, ...) {
     axis.ticks = ggplot2::element_blank(), axis.line.x = ggplot2::element_line(colour = st$col$axis, linewidth = wjpr_wb_lw(0.6)),
     panel.grid.major.x = ggplot2::element_blank(), panel.grid.major.y = ggplot2::element_blank(),
     plot.margin = ggplot2::margin(0, m, max(0, H - yb - mt - text_h), m)) +
+    # complemento: leyenda dentro del panel, arriba a la izquierda (main: arriba, fuera del panel, 11 pt negrita; un
+    # argumento de posición "inside" y de estilo en wjp_legend_theme / wjp_bars lo haría innecesario)
     wjpr_wb_legend(st, top = 3)
-  wjpr_meta(wjpr_font(p), base = "wjp_bars",
-            complementos = c("lado a lado (dodge)", "leyenda {country} | EU Average",
+  wjpr_meta(wjpr_wb_font(p), base = "wjp_bars",
+            complementos = c("lado a lado (dodge)", wjpr_wb_legend_comp("dentro del panel"),
                              "texto por serie (posición, color, semibold cursiva 9 pt)", "escala al máximo sin expansión",
-                             "etiquetas con ajuste de línea", "tema sin eje ni rejilla, con línea base", "fuente Inter Tight en capas"))
+                             "etiquetas con ajuste de línea", "tema sin eje ni rejilla, con línea base", wjpr_wb_font_comp()))
 }
 
 ## Bloque wjpr severity_bars — figuras 7 ----------------------------------------------------------------------------
 ## wjp_bars vertical con las dos series lado a lado por nivel de severidad 0-10 y la línea de corte en 3.5 (entre 3 y
 ## 4), como F03.R:28-45: geom_col dodge 0.8 width 0.75 y theme_minimal('inter') con textos a 13 sobre un lienzo × 1.3
 ## que se reduce a w_in. Aquí todo va en pt finales (pt del original × k = 1/1.3: texto a 10 pt). Usa wjpr_wb_layer().
-## Prueba (galería, 2026-10-23): f1 0.999 (sin complementos 0.380), textos iguales, 0 dudosos; idéntica al F03
-## original salvo los guiones de la línea de corte (svglite no escala el guion por debajo de lwd 1: 4 pt, no 3.5).
+## Prueba (galería, 2026-10-23, con y sin SRC_REPORTS_LIB): f1 0.999 con 1.1.0@382aee9 (7 complementos) y con main
+## a46c831 (6), textos iguales, 0 dudosos; sin complementos 0.380 (1.1.0) y 0.266 (main, con su leyenda a la
+## izquierda; sin ella 0.380); idéntica al F03 original salvo los guiones de la línea de corte (svglite no escala el
+## guion por debajo de lwd 1: 4 pt, no 3.5).
 
-wjpr_severity_bars <- function(df, spec, bare = FALSE, ...) {
+wjpr_severity_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_require()
   st <- STD; k <- 1 / 1.3
   lv <- c(spec$country, "EU Average")
   d <- df %>% filter(kind == "bar") %>%
     mutate(serie = factor(ifelse(grouping == lv[2], lv[2], lv[1]), levels = lv), sev = as.numeric(label),
            value = coalesce(value, 0), label = factor(label, levels = unique(label[order(sev)])))
-  p <- WJPr::wjp_bars(data = d, target = "value", grouping = "label", colors = "serie",
-                      cvec = stats::setNames(c(st$col$main, st$col$eu), lv), direction = "vertical", stacked = FALSE,
-                      order = "sev", width = 0.75, ptheme = wjpr_theme())
+  p <- wjpr_wb_bars(data = d, target = "value", grouping = "label", colors = "serie",
+                    cvec = stats::setNames(c(st$col$main, st$col$eu), lv), direction = "vertical", stacked = FALSE,
+                    order = "sev", width = 0.75, ptheme = wjpr_theme(), legend = TRUE)
   if (bare) return(wjpr_meta(p, base = "wjp_bars"))
   # complemento: wjp_bars fija position = "stack" en geom_col; falta un argumento position = "dodge" (y su ancho)
   dodge <- ggplot2::position_dodge(width = 0.8)
-  # complemento: wjp_bars oculta la leyenda (show.legend = FALSE fijo); falta un argumento legend. linewidth: el de
-  # geom_col por defecto (0.5 mm) × k; sin contorno solo reduce el cuadro de la leyenda, como en el original
+  # complemento (1.1.0): wjp_bars oculta la leyenda (show.legend = FALSE fijo); main la trae (show_legend).
+  # linewidth: el de geom_col por defecto (0.5 mm) × k; sin contorno solo reduce el cuadro de la leyenda, como en el
+  # original
+  p <- wjpr_wb_legend_on(p)
   is_col <- wjpr_wb_is(p, "GeomCol")
-  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, show.legend = TRUE,
-                             aes_params = list(linewidth = 0.5 * k))
+  p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, aes_params = list(linewidth = 0.5 * k))
   # complemento: WJPr no tiene líneas de referencia; falta un argumento ref_lines (posición, tipo, color, grosor)
   cut <- 3.5 - min(d$sev) + 1                        # 3.5 en la escala discreta (posición 1 = la severidad mínima)
   p$layers <- c(p$layers, list(ggplot2::geom_vline(xintercept = cut, linetype = "dashed", colour = st$col$text,
@@ -871,7 +992,8 @@ wjpr_severity_bars <- function(df, spec, bare = FALSE, ...) {
     ggplot2::scale_y_continuous(labels = function(x) paste0(x, "%"), expand = ggplot2::expansion(mult = c(0, 0.08))) +
     # complemento: el eje de categorías de WJPr expande 0.6; el original es continuo (5 % del rango de las barras)
     ggplot2::scale_x_discrete(expand = ggplot2::expansion(add = ext + 0.05 * (max(d$sev) - min(d$sev) + 2 * ext))))
-  # complemento: WJPr fija rejilla discontinua #d1cfd1, '% of respondents', textos de 10 pt en #524F4C y sin leyenda;
+  # complemento: WJPr fija rejilla discontinua #d1cfd1, '% of respondents', textos de 10 pt en #524F4C y la leyenda
+  # (1.1.0: ninguna; main, wjp_legend_theme: a la izquierda, 11 pt negrita, clave de 1.4 cm, márgenes 4 / 20 pt);
   # se lleva el tema de F03 (theme_minimal base 11, textos 13, clave 1.2 líneas = 17.28 pt) a pt finales
   p <- p + ggplot2::theme(
     axis.text.x = ggplot2::element_text(size = 13 * k, colour = st$col$text, vjust = 1, margin = ggplot2::margin(t = 4.95 * k)),
@@ -879,16 +1001,20 @@ wjpr_severity_bars <- function(df, spec, bare = FALSE, ...) {
     axis.title.x = ggplot2::element_blank(), axis.title.y = ggplot2::element_blank(), axis.ticks = ggplot2::element_blank(),
     panel.grid.major.x = ggplot2::element_blank(), panel.grid.minor = ggplot2::element_blank(),
     panel.grid.major.y = ggplot2::element_line(colour = "#eeeeee", linewidth = 0.5 * k, linetype = "solid"),
-    legend.position = "top", legend.direction = "horizontal", legend.title = ggplot2::element_blank(),
-    legend.background = ggplot2::element_blank(), legend.key = ggplot2::element_blank(),
-    legend.text = ggplot2::element_text(size = 13 * k, colour = st$col$text, margin = ggplot2::margin(l = 0.5 * 13 * k)),
-    legend.key.size = grid::unit(17.28 * k, "pt"), legend.key.spacing.x = grid::unit(5.5 * k, "pt"),
-    legend.margin = ggplot2::margin(5.5 * k, 5.5 * k, 5.5 * k, 5.5 * k), legend.box.spacing = grid::unit(11 * k, "pt"),
+    legend.position = "top", legend.justification = "center", legend.direction = "horizontal",
+    legend.title = ggplot2::element_blank(), legend.background = ggplot2::element_blank(),
+    legend.key = ggplot2::element_blank(),
+    legend.text = ggplot2::element_text(size = 13 * k, colour = st$col$text, face = "plain",
+                                        margin = ggplot2::margin(l = 0.5 * 13 * k)),
+    legend.key.size = grid::unit(17.28 * k, "pt"), legend.key.width = grid::unit(17.28 * k, "pt"),
+    legend.key.spacing.x = grid::unit(5.5 * k, "pt"),
+    legend.margin = ggplot2::margin(5.5 * k, 5.5 * k, 5.5 * k, 5.5 * k), legend.box.margin = ggplot2::margin(0, 0, 0, 0),
+    legend.box.spacing = grid::unit(11 * k, "pt"),
     plot.margin = ggplot2::margin(5.5 * k, 5.5 * k, 5.5 * k, 5.5 * k))
-  wjpr_meta(wjpr_font(p), base = "wjp_bars",
-            complementos = c("lado a lado (dodge)", "leyenda {country} | EU Average", "línea de corte en 3.5",
+  wjpr_meta(wjpr_wb_font(p), base = "wjp_bars",
+            complementos = c("lado a lado (dodge)", wjpr_wb_legend_comp("arriba, centrada"), "línea de corte en 3.5",
                              "escala y en % sin límite fijo", "expansión del eje x como el original",
-                             "tema de F03 (rejilla, leyenda, textos 10 pt)", "fuente Inter Tight en capas"))
+                             "tema de F03 (rejilla, leyenda, textos 10 pt)", wjpr_wb_font_comp()))
 }
 
 ## Bloque wjpr funnel — figuras 8, 34 -------------------------------------------------------------------------------
@@ -896,9 +1022,10 @@ wjpr_severity_bars <- function(df, spec, bare = FALSE, ...) {
 ## cada barra para centrarla (ancho = value / máximo) y los valores en blanco que da stacked = TRUE en el centro
 ## (lab_pos = 50); complementos: conectores, tipografía del valor, etiquetas con salto de línea a la derecha y la
 ## geometría de chart_funnel (barra 40 pt, hueco 18 pt, 4 pt arriba y abajo). Usa wjpr_wb_layer().
-## Prueba (galería, 2026-10-23): f1 1.000 / 1.000 (sin complementos 0.645 / 0.650), textos iguales, 0 dudosos.
+## Prueba (galería, 2026-10-23, con y sin SRC_REPORTS_LIB): f1 1.000 / 1.000 con 1.1.0@382aee9 (8 complementos) y
+## con main a46c831 (7: fuente nativa), textos iguales, 0 dudosos; sin complementos 0.645 / 0.650 en las dos.
 
-wjpr_funnel <- function(df, spec, bare = FALSE, ...) {
+wjpr_funnel <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_require()
   st <- ST_FUNNEL                                    # funnel_bar 40, funnel_gap 18, funnel_value 11, funnel_label_w 190
   s <- df %>% filter(kind == "stage") %>% arrange(order) %>% mutate(frac = coalesce(value / max(value, na.rm = TRUE), 0))
@@ -944,10 +1071,10 @@ wjpr_funnel <- function(df, spec, bare = FALSE, ...) {
     axis.text.x = ggplot2::element_blank(), axis.title.x = ggplot2::element_blank(), axis.title.y = ggplot2::element_blank(),
     axis.ticks = ggplot2::element_blank(), panel.grid.major.x = ggplot2::element_blank(), panel.grid.major.y = ggplot2::element_blank(),
     plot.margin = ggplot2::margin(0, 4, 0, L - wmax))
-  wjpr_meta(wjpr_font(p), base = "wjp_bars",
+  wjpr_meta(wjpr_wb_font(p), base = "wjp_bars",
             complementos = c("barra centrada (tramo transparente apilado)", "conectores entre etapas", "valor 11 pt semibold cursiva",
                              "escala 0-100 sin expansión", "alto de barra y hueco (expansión discreta)",
-                             "etiquetas a la derecha con salto de línea", "tema sin eje ni rejilla", "fuente Inter Tight en capas"))
+                             "etiquetas a la derecha con salto de línea", "tema sin eje ni rejilla", wjpr_wb_font_comp()))
 }
 
 
@@ -999,7 +1126,7 @@ wjpr_round_rect_df <- function(x0, y0, w, h, r, n = 6) {
   }))
 }
 
-wjpr_cards <- function(df, spec, complementos = getOption("wjpr.complementos", TRUE), st = ST_CARDS) {
+wjpr_cards <- function(df, spec, complementos = wjpr_complementos(), st = ST_CARDS) {
   wjpr_require()
   df <- df[order(df$order), ]
   rows <- unique(df$grouping); cols <- unique(df$label)
@@ -1087,7 +1214,7 @@ wjpr_cards <- function(df, spec, complementos = getOption("wjpr.complementos", T
 ## k = base_pt / 10 veces mayor (render_figure.R:29-38; 06_export.R): aquí cada tamaño va dividido por k porque
 ## wjpr_render() exporta al tamaño final. Los títulos de eje son texto fijo del diseño (argumentos). La galería
 ## cuenta text2 (la banda) como texto esperado: se dibuja como color y leyenda, no como texto en cada celda.
-wjpr_matrix <- function(df, spec, complementos = getOption("wjpr.complementos", TRUE),
+wjpr_matrix <- function(df, spec, complementos = wjpr_complementos(),
                         x_title = "Among people who experienced problems with:", y_title = "People who also experienced:",
                         cols_band = c(STD$col$track, STD$col$eu, STD$col$main)) {
   wjpr_require()
@@ -1109,7 +1236,7 @@ wjpr_matrix <- function(df, spec, complementos = getOption("wjpr.complementos", 
     WJPr::WJP_theme()
   if (!isTRUE(complementos)) return(wjpr_meta(p, base = base))
 
-  k <- (spec$base_pt %||% 10) / 10
+  k <- (if (is.null(spec$base_pt) || is.na(spec$base_pt)) 10 else spec$base_pt) / 10   # base_pt vacío llega como NA
   if (is.na(k)) k <- 1
   comp <- character()
   # complemento: WJPr solo trae una paleta categórica (wjp_palette) y el gris "#e5e8e8"; no tiene la escala ordinal
@@ -1157,7 +1284,7 @@ wjpr_matrix <- function(df, spec, complementos = getOption("wjpr.complementos", 
 ## facetas bold cursiva main), dibujado en un lienzo k = base_pt / 10 mayor: aquí cada tamaño va dividido por k.
 ## highlight = categorías destacadas (top_cats de F02.R:36: diseño de la figura). La galería cuenta los rótulos de
 ## categoría como texto sobrante: el contrato del scatter no imprime valores (text = "").
-wjpr_scatter <- function(df, spec, complementos = getOption("wjpr.complementos", TRUE),
+wjpr_scatter <- function(df, spec, complementos = wjpr_complementos(),
                          highlight = c("Public Services", "Consumer", "Community", "Money & Debt", "Housing", "Family"),
                          x_title = "Prevalence", y_title = "Mean seriousness (0-10)") {
   wjpr_require()
@@ -1177,7 +1304,7 @@ wjpr_scatter <- function(df, spec, complementos = getOption("wjpr.complementos",
     WJPr::WJP_theme()
   if (!isTRUE(complementos)) return(wjpr_meta(p, base = base))
 
-  k <- (spec$base_pt %||% 10) / 10
+  k <- (if (is.null(spec$base_pt) || is.na(spec$base_pt)) 10 else spec$base_pt) / 10   # base_pt vacío llega como NA
   if (is.na(k)) k <- 1
   comp <- character()
   # complemento: línea de tendencia gris discontinua fina; WJPr no tiene capa de tendencia
@@ -1229,7 +1356,7 @@ wjpr_scatter <- function(df, spec, complementos = getOption("wjpr.complementos",
 ## sobre la barra); los complementos lo llevan al diseño publicado (lienzo k = base_pt / 10 = 1.024: cada medida de
 ## ComplexUpset va dividida por k). Filas: kind row, label "A + B" (conjuntos de df kind set), en el orden de df$order
 ## de izquierda a derecha; conjuntos: kind set en el orden de df$order de arriba abajo; text tal cual.
-wjpr_upset <- function(df, spec, complementos = getOption("wjpr.complementos", TRUE),
+wjpr_upset <- function(df, spec, complementos = wjpr_complementos(),
                        y_title = "% of people within\nthe justice gap", width_ratio = 0.22) {
   wjpr_require()
   df <- df[order(df$order), ]
@@ -1237,7 +1364,7 @@ wjpr_upset <- function(df, spec, complementos = getOption("wjpr.complementos", T
   memb <- lapply(strsplit(inter$label, " + ", fixed = TRUE), trimws)
   bad <- setdiff(unlist(memb), sets$label)
   if (length(bad)) stop("wjpr_upset: conjuntos sin fila set en df: ", paste(unique(bad), collapse = ", "), call. = FALSE)
-  k <- (spec$base_pt %||% 10) / 10
+  k <- (if (is.null(spec$base_pt) || is.na(spec$base_pt)) 10 else spec$base_pt) / 10   # base_pt vacío llega como NA
   if (is.na(k)) k <- 1
   W <- spec$w_in * 72; H <- spec$h_in * 72
   m <- 2 * 5.48 / k                                   # margen de ggplot + margen de patchwork (5.5 pt TeX = 5.48 bp)
@@ -1347,7 +1474,7 @@ wjpr_circle_df <- function(x, y, r, n = 72) {
   bind_rows(lapply(seq_along(x), function(i) tibble(x = x[i] + r * cos(a), y = y[i] + r * sin(a), id = i)))
 }
 
-wjpr_network <- function(df, spec, complementos = getOption("wjpr.complementos", TRUE),
+wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
                          name_lines = c("Public Services" = "Public\nServices", "Citizenship & ID" = "Citizenship\n& ID",
                                         "Money & Debt" = "Money &\nDebt", "Law Enforcement" = "Law\nEnforcement"),
                          src_scale = 518.03) {
@@ -1442,7 +1569,7 @@ wjpr_bezier_band <- function(xa, ya0, ya1, xb, yb0, yb1, n = 40) {
   tibble(x = c(bez(xa, xm, xm, xb), bez(xb, xm, xm, xa)), y = c(bez(ya0, ya0, yb0, yb0), bez(yb1, yb1, ya1, ya1)))
 }
 
-wjpr_sankey <- function(df, spec, complementos = getOption("wjpr.complementos", TRUE), which = NULL, st = ST_SANKEY) {
+wjpr_sankey <- function(df, spec, complementos = wjpr_complementos(), which = NULL, st = ST_SANKEY) {
   wjpr_require()
   df <- df[order(df$order), ]
   which <- which %||% if ("turned" %in% df$label[df$grouping == "2"]) "drm" else "assistance"

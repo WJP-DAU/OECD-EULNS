@@ -6,7 +6,9 @@
 ## tinta a 96 dpi, R/09_wjpr.R) y, si existe, con la figura propia (svg_r) de output/<slug>/figures/.
 ## Salidas en output/<slug>/wjpr/: Figure_NN_slug.svg|png, compare/Figure_NN_slug.png (publicada | WJPr), 00-wjpr.csv,
 ## index.html y wjpr_gallery.log. No toca el resto de output/ ni el manifiesto.
-## Uso: Rscript src/src_reports/tools/wjpr_gallery.R [--figs 09,13] [--country hungary] [--no-png]
+## Uso: Rscript src/src_reports/tools/wjpr_gallery.R [--figs 09,13] [--country hungary] [--out <carpeta>] [--sin-complementos]
+## --sin-complementos: options(wjpr.complementos = FALSE): cada figura con WJPr sola (lo que el paquete logra sin ayuda).
+## Otra build de WJPr: SRC_REPORTS_LIB=<librería que la contiene> (se antepone a .libPaths()); queda en la columna wjpr_build.
 
 lib <- Sys.getenv("SRC_REPORTS_LIB"); if (nzchar(lib)) .libPaths(unique(c(lib, .libPaths())))
 ROOT <- local({
@@ -20,6 +22,7 @@ for (f in sort(list.files(file.path(ROOT, "R"), pattern = "^[0-9]{2}_.*\\.R$", f
 a <- commandArgs(trailingOnly = TRUE)
 opt <- function(k) { i <- match(k, a); if (is.na(i) || i == length(a)) NULL else a[i + 1] }
 cfg <- load_config(ROOT, opt("--country")); check_deps(cfg); setup_fonts(cfg); wjpr_require()
+if ("--sin-complementos" %in% a) options(wjpr.complementos = FALSE)
 specs <- read_manifest(cfg)
 figs <- if (is.null(opt("--figs"))) NULL else as.integer(strsplit(opt("--figs"), ",")[[1]])
 if (!is.null(figs)) specs <- Filter(function(s) s$fig %in% figs, specs)
@@ -28,11 +31,12 @@ if (!grepl("^/", out_dir)) out_dir <- file.path(getwd(), out_dir)
 dir.create(file.path(out_dir, "compare"), recursive = TRUE, showWarnings = FALSE)
 log_open(file.path(out_dir, "wjpr_gallery.log"))
 ctx <- tryCatch(load_ctx(cfg, build = FALSE)$ctx, error = function(e) { log_msg("sin ctx: ", conditionMessage(e)); NULL })
-log_msg("WJPr ", as.character(packageVersion("WJPr")), " · ", length(specs), " figuras")
+log_msg("WJPr ", wjpr_build(), " · complementos ", wjpr_complementos(), " · fuente nativa ", wjpr_native_font(), " · ", length(specs), " figuras")
 
 row_for <- function(spec) {
   t0 <- Sys.time(); fn <- paste0("wjpr_", spec$tipo)
-  base <- tibble(fig = sprintf("%02d", spec$fig), slug = spec$slug, tipo = spec$tipo, adaptador = fn)
+  base <- tibble(fig = sprintf("%02d", spec$fig), slug = spec$slug, tipo = spec$tipo, adaptador = fn, wjpr_build = wjpr_build(),
+                 complementos_activos = wjpr_complementos())
   if (!exists(fn, mode = "function")) return(base %>% mutate(estado = "sin adaptador"))
   res <- tryCatch({
     use_data <- identical(spec$status, "ok") && !is.null(ctx)
@@ -86,8 +90,8 @@ html_row <- function(r) {
 }
 writeLines(c("<!doctype html><meta charset='utf-8'><title>Galería WJPr</title>",
              "<style>body{font-family:sans-serif;margin:16px}td{vertical-align:top;border-top:1px solid #ccc;padding:4px;font-size:12px}td:last-child{width:60%}</style>",
-             sprintf("<h1>Figuras con WJPr + complementos</h1><p>WJPr %s · %s · f1 = parecido con la publicada (1 = igual)</p>",
-                     as.character(packageVersion("WJPr")), format(Sys.time(), "%Y-%m-%d %H:%M")),
+             sprintf("<h1>Figuras con WJPr + complementos</h1><p>WJPr %s · complementos %s · %s · f1 = parecido con la publicada (1 = igual)</p>",
+                     wjpr_build(), if (wjpr_complementos()) "sí" else "no", format(Sys.time(), "%Y-%m-%d %H:%M")),
              "<table><tr><th>fig</th><th>tipo</th><th>base · complementos</th><th>textos</th><th>f1</th><th>estado</th><th>publicada | WJPr</th></tr>",
              vapply(split(rows, seq_len(nrow(rows))), html_row, ""), "</table>"),
            file.path(out_dir, "index.html"))

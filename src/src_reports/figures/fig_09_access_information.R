@@ -12,5 +12,7 @@ fig_09 <- list(
     rows_grouped(tbl, eu = eu_value(ctx, "data4web", "access2info"), decimals = 0)
   },
 
-  plot = function(df, spec) chart_grouped(df, spec)
+  # Dibujo: WJPr::wjp_groupbars() + complementos (wjpr_grouped_bars, R/09_wjpr.R; metodo wjpr). Respaldo sin WJPr:
+  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en el manifiesto.
+  plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

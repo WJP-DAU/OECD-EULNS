@@ -12,7 +12,8 @@ data:
   data4web: "reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv"   # relativo a path2EU; solo tools/build_reference.R
 layout:
   text_pt: 10                # tamaño final (pt) del texto de las figuras ggplot (lienzo × base_pt / text_pt, 06_export.R);
-                             # las svg_r no lo leen: su texto es STD$size_label = 10 pt (R/04_svg.R)
+                             # las svg_r no lo leen: su texto es STD$size_label = 10 pt (R/04_svg.R); las wjpr tampoco:
+                             # WJPr y sus complementos ya dan los tamaños en pt finales (k = 1)
   max_w_callout_in: 6.5      # ancho máximo junto a un recuadro (callout true): read_manifest() avisa si w_in lo supera
   max_w_full_in: 8.4         # ancho máximo a página completa (callout false): ídem
   dpi: 300
@@ -20,6 +21,9 @@ verify:
   tol_pp: 0.6                # puntos porcentuales (valor crudo vs referencia)
   tol_frac: 0.006            # fracción de barra dibujada vs publicada
   size_tol_in: 0.01          # alto del SVG vs manifiesto
+  min_f1: 0.995              # metodo wjpr: parecido mínimo con el PNG publicado (f1 de tinta a 96 dpi, wjpr_similarity;
+                             # 1 = mismo dibujo). Con WJPr 1.1.0@382aee9 las 42 dan 0.996-1.000; con la rama main
+                             # (a46c831) y los mismos complementos, la 09 da 0.907 y la 10 0.419 (23-oct)
 checks:                      # comprobaciones de --stage data: se registran en el log, no detienen (tolerancia 0.01)
   ncol_master_csv: 200       # columnas de master equivalentes a data/master.csv (53 study_vars + 147 AJP_/AJD_/AJR_/AJE_)
   national:                  # nat_est(ctx, var): promedio nacional ponderado por NUTS

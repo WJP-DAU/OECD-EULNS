@@ -1,6 +1,6 @@
 ## 00_setup.R — locale, paquetes, configuración, dependencias, fuentes, manifiesto, registro y tabla de consola ------
 ## Origen: nuevo para src_reports (sustituye src/utils/config.R, que elegía rutas por Sys.info()["user"]).
-## Carga: main.R hace source() de R/00-08 en orden. Al cargar solo se ejecutan la guarda de locale UTF-8
+## Carga: main.R hace source() de R/00-09 en orden. Al cargar solo se ejecutan la guarda de locale UTF-8
 ## (ensure_utf8, decisión 10 de la revisión), las librerías, las opciones y el entorno .sr (estado de sesión).
 
 .sr <- new.env(parent = emptyenv())                   # estado de sesión: log, memo de estimadores, avisos de arranque
@@ -101,6 +101,9 @@ check_cfg <- function(cfg, file) {
     if (!is.null(get("data", "data4web")) && !txt(get("data", "data4web"))) "data$data4web",
     if (!num(get("layout", "dpi"))) "layout$dpi", if (!num(get("layout", "text_pt"))) "layout$text_pt",
     if (!num(get("verify", "size_tol_in"))) "verify$size_tol_in",
+    if (!is.null(get("verify", "min_f1")) && !(num(get("verify", "min_f1")) && get("verify", "min_f1") <= 1)) {
+      "verify$min_f1 (entre 0 y 1)"
+    },
     unlist(lapply(list(c("verify", "tol_pp"), c("verify", "tol_frac"), c("layout", "max_w_callout_in"), c("layout", "max_w_full_in")),
                   function(k) if (!is.null(get(k[1], k[2])) && !num(get(k[1], k[2]))) paste0(k[1], "$", k[2]))),
     if (!is.null(cfg$checks)) check_leaves(cfg$checks, "checks")
@@ -158,7 +161,10 @@ chrome_version <- function(chrome) {
 
 # deps.csv: paquete, version, origen, modo (exacta | minima | opcional), uso. Falta de 'minima' detiene; desajuste de
 # 'exacta' avisa (cabecera y log); 'opcional' se registra en el log con su versión o "ausente", sin cargarlo (los
-# ausentes quedan en .sr$deps_optional_missing para la cabecera de main.R).
+# ausentes quedan en .sr$deps_optional_missing y en el log). En 'exacta', si origen fija un commit
+# ("github worldjusticeproject-org/WJPr@382aee9") se compara también la build instalada (deps_exact_mismatch): dos
+# builds de WJPr con la misma versión 1.1.0 dibujan distinto (la del 13-jul y la rama main). Que una figura con
+# metodo wjpr no se pueda dibujar sin WJPr lo comprueba check_method_deps() en la etapa figures.
 check_deps <- function(cfg) {
   deps <- read_csv(cfg$paths$deps, col_types = cols(.default = col_character()), na = character())
   ver <- function(p, modo) {
@@ -172,8 +178,12 @@ check_deps <- function(cfg) {
          paste0(missing$paquete, " >= ", missing$version, collapse = ", "),
          "\nInstale con: install.packages(c(", paste0("'", missing$paquete, "'", collapse = ", "), "))", call. = FALSE)
   }
-  exact <- deps %>% filter(modo == "exacta" & (is.na(instalada) | instalada != version))
-  .sr$deps_warning <- if (nrow(exact) > 0) paste0(exact$paquete, " ", coalesce(exact$instalada, "ausente"), " (esperada ", exact$version, ")", collapse = ", ") else NULL
+  exact <- deps_exact_mismatch(deps)
+  same_v <- !is.na(exact$instalada) & sub("@.*$", "", exact$instalada) == sub("@.*$", "", exact$esperada)
+  .sr$deps_warning <- if (nrow(exact) > 0) {
+    paste0(exact$paquete, " ", coalesce(exact$instalada, "ausente"), " (esperada ", exact$esperada,
+           ifelse(same_v, ": otra build con la misma versión", ""), ")", collapse = ", ")
+  } else NULL
   if (!is.null(.sr$deps_warning)) log_msg("deps.csv: versiones distintas de las exactas: ", .sr$deps_warning)
   opt <- deps %>% filter(modo == "opcional")
   for (i in seq_len(nrow(opt))) {
@@ -182,6 +192,62 @@ check_deps <- function(cfg) {
   }
   .sr$deps_optional_missing <- opt$paquete[is.na(opt$instalada)]
   invisible(deps)
+}
+
+# Commit que fija la columna origen ("github worldjusticeproject-org/WJPr@382aee9" → "382aee9"); NA si no trae "@sha"
+dep_sha_expected <- function(origen) {
+  m <- regmatches(origen, regexec("@([0-9a-fA-F]{7,40})([^0-9a-fA-F]|$)", origen))
+  vapply(m, function(x) if (length(x) >= 2) tolower(x[2]) else NA_character_, "")
+}
+
+# Commit de la build cargada o instalada: RemoteSha (remotes, pak) o GithubSHA1 (devtools antiguo); "local" si se
+# instaló desde un clon o un tarball (R CMD INSTALL no lo registra); NA si el paquete no está
+dep_sha_installed <- function(p) {
+  d <- suppressWarnings(utils::packageDescription(p))
+  if (!inherits(d, "packageDescription")) return(NA_character_)
+  tolower(d$RemoteSha %||% d$GithubSHA1 %||% "local")
+}
+
+# Paquetes 'exacta' cuya build instalada difiere de la de deps.csv: tibble(paquete, esperada, instalada), con
+# "versión@commit" cuando origen fija el commit (instalada NA si falta). La usan check_deps() y verify (campo entorno).
+deps_exact_mismatch <- function(deps) {
+  ex <- deps[deps$modo == "exacta", , drop = FALSE]
+  sha <- dep_sha_expected(ex$origen)
+  v <- unname(vapply(ex$paquete, function(p) {
+    if (requireNamespace(p, quietly = TRUE)) as.character(packageVersion(p)) else NA_character_
+  }, ""))
+  got_sha <- unname(vapply(ex$paquete, dep_sha_installed, ""))
+  esperada <- ifelse(is.na(sha), ex$version, paste0(ex$version, "@", sha))
+  instalada <- ifelse(is.na(v), NA_character_, ifelse(is.na(sha), v, paste0(v, "@", substr(got_sha, 1, nchar(sha)))))
+  tibble(paquete = ex$paquete, esperada = esperada, instalada = instalada) %>% filter(is.na(instalada) | instalada != esperada)
+}
+
+# Paquetes sin los que un metodo de dibujo no funciona, aunque deps.csv los declare 'exacta' (que solo avisa): las
+# figuras con metodo wjpr se dibujan con WJPr, y wjp_groupbars y wjp_edgebars usan ggtext (geom_richtext).
+METHOD_DEPS <- list(wjpr = c("WJPr", "ggtext"))
+
+# Si alguna figura seleccionada tiene un metodo de METHOD_DEPS y falta uno de sus paquetes, error legible (la etapa
+# figures se detiene antes de dibujar, en vez de un "there is no package called 'WJPr'" por figura) con cómo instalarlo
+# según origen de deps.csv. La llama run_figures() (06_export.R), que conoce la selección de --figs.
+check_method_deps <- function(specs, cfg) {
+  sel <- Filter(function(s) isTRUE(s$selected %||% TRUE), specs)
+  for (m in names(METHOD_DEPS)) {
+    figs <- vapply(Filter(function(s) identical(s$metodo, m), sel), function(s) sprintf("%02d", as.integer(s$fig)), "")
+    miss <- METHOD_DEPS[[m]][!vapply(METHOD_DEPS[[m]], requireNamespace, logical(1), quietly = TRUE)]
+    if (length(figs) == 0 || length(miss) == 0) next
+    deps <- read_csv(cfg$paths$deps, col_types = cols(.default = col_character()), na = character())
+    hint <- vapply(miss, function(p) {
+      o <- deps$origen[match(p, deps$paquete)]
+      if (!is.na(o) && grepl("^github ", o)) sprintf("remotes::install_github(\"%s\")", sub("^github ", "", o))
+      else sprintf("install.packages(\"%s\")", p)
+    }, "")
+    stop("Las figuras ", paste(figs, collapse = ", "), " (metodo ", m, ") necesitan ", paste(miss, collapse = " y "), ", que no ",
+         if (length(miss) > 1) "están instalados" else "está instalado", " en ", paste(.libPaths(), collapse = " ni en "),
+         ". Instale con ", paste(hint, collapse = " y "), ", defina SRC_REPORTS_LIB con una librería que ",
+         if (length(miss) > 1) "los" else "lo", " tenga o use el respaldo (metodo svg_r, chart_<tipo>) en el manifiesto",
+         call. = FALSE)
+  }
+  invisible(TRUE)
 }
 
 # Las 8 TTF estáticas de Inter Tight viven en fonts/ (OFL). Mismo registro que src/hungary/setup.R:200-206.
@@ -445,3 +511,11 @@ closing_line <- function(rows, log = log_path()) {
 ## - print_rows: ancho antes de 'archivo' 82 en todas las líneas con 'caché', 'tamaño', '·', '×' (antes 74/70/74/68) y
 ##   la 'ok' de figures entera ('98 <text>'); figura en error en figures → "error · figures: pendiente: fig_12 sin
 ##   implementar" en vez de 'sin salida'. closing_line: ver la prueba de main.R.
+## Adopción de WJPr (2026-10-23): cd /tmp && Rscript SCRATCH/adopt_M3/pruebas/t_adopcion.R <copia> → check_method_deps:
+##   sin error con WJPr y ggtext, con la figura no seleccionada o con metodo svg_r; con un paquete ausente "Las figuras
+##   09 (metodo wjpr) necesitan …, que no está instalado en <librerías>. Instale con remotes::install_github("…@382aee9")
+##   …" (install.packages si origen no es github; plural con dos). check_cfg: verify$min_f1 2, "a" o 0 → "faltan o no son
+##   válidas las claves verify$min_f1 (entre 0 y 1)"; ausente → sin error. deps_exact_mismatch: deps.csv tal cual → sin
+##   diferencias; origen @deadbee → "WJPr 1.1.0@382aee9 ≠ 1.1.0@deadbee"; exacta ausente → instalada NA; origen sin
+##   commit → solo la versión. main.R con SRC_REPORTS_LIB de la rama main (instalada desde un clon) → cabecera "aviso
+##   deps.csv: WJPr 1.1.0@local (esperada 1.1.0@382aee9: otra build con la misma versión)".

@@ -1,8 +1,9 @@
 ## 07_verify.R — verificación de la tabla, el dibujo y los archivos de cada figura contra reference/<slug> ---------
 ## Origen: nuevo para src_reports. Criterio de tolerancias tomado de src/hungary/finales/figure_specs.R:166-198
 ## (check_spec: texto impreso exacto; barra dentro de tol puntos de la escala; "suprimido" = ni dato ni texto).
-## Usa de 00_setup.R: figure_stem(), figure_file(), log_msg(), first_line(); de 01_load.R: rel_path(), read_key(),
-## pkg_ver(), secs(); de 04_svg.R: svg_size(path) → list(width_in, height_in) y count_live_text(path) → n de <text>.
+## Usa de 00_setup.R: figure_stem(), figure_file(), log_msg(), first_line(), deps_exact_mismatch(); de 01_load.R:
+## rel_path(), read_key(), secs(); de 04_svg.R: svg_size(path) → list(width_in, height_in) y count_live_text(path) → n
+## de <text>; de 09_wjpr.R: wjpr_similarity() (metodo wjpr).
 ##
 ##   run_verify(specs, cfg)           → tibble(fig, metodo, estado, verificacion, archivo) (§4.7), una fila por spec en
 ##                                      el orden del manifiesto; actualiza output/<slug>/tables/00-verificacion.csv (fig,
@@ -15,14 +16,18 @@
 ##
 ## Estados de la figura: ok | fallo | error | sin salida | sin referencia | desactualizada | estatica | omitida.
 ## Resultado por fila del detalle: ok | fallo | conocida | suprimido | faltante | extra.
-## Campos: text | text2 | value | value2 | x | y | lo | hi | n | frac | frac2 | orden | ancho | alto | png | texto_vivo |
-## entorno.
+## Campos: text | text2 | value | value2 | x | y | lo | hi | n | frac | frac2 | orden | parecido | textos | ancho | alto |
+## png | texto_vivo | entorno.
 ## Pasos de verify_figure: (1) estados previos: figures dio "error" (verificacion "figures: <motivo de figures_status>"),
 ## sin tabla, static, sin referencia, desactualizada; (2) unión por (kind, grouping, label): faltante / extra; (3) orden
 ## de las filas comunes; (4) por fila: text/text2 exactos si la referencia los trae, en la tabla y en drawn.csv (lo
 ## dibujado, svg_r); |value − ref| ≤ tol (tol de la fila o cfg$verify$tol_pp; ambos NA → suprimido); value2 con tol2 de
 ## la fila (NA → la de value); x, y con tol_xy de la fila (NA → 0.01) y lo, hi, n exactos (|Δ| ≤ 1e-9) cuando la
 ## referencia los trae (decisión 1 de la revisión); (5) drawn.csv: frac/frac2 con cfg$verify$tol_frac y mismo orden;
+## con metodo wjpr, en su lugar (WJPr no expone las barras dibujadas): parecido = f1 de tinta del PNG nuevo frente a
+## reference/<slug>/published/Figure_NN_slug.png ≥ cfg$verify$min_f1 (wjpr_similarity a 96 dpi; sin uno de los dos
+## PNG, suprimido) y textos = la comparación de los textos dibujados con df que hizo figures (wjpr_textos en
+## figures_status); una salida sin wjpr_build en figures_status (dibujada con otro metodo) está desactualizada;
 ## (6) archivo: ancho exacto (±0.001) y alto ± size_tol_in, PNG = round(w_in·dpi) × round(h_in·dpi), 0 <text>,
 ## versiones 'exacta' de deps.csv (aviso, campo entorno); (7) conocida: una fila fallida cuyo label y text obtenido
 ## aparezcan en spec$nota como [conocida: <label>=<text>] pasa a "conocida" (ni ok ni fallo; una figura solo con
@@ -39,6 +44,7 @@
 
 KEY_COLS <- c("kind", "grouping", "label", ".dup")   # clave de unión (+ índice de repetición)
 XY_TOL   <- 0.01                                     # tol de x, y cuando la referencia no trae tol_xy (decisión 1)
+MIN_F1   <- 0.995                                    # parecido mínimo (metodo wjpr) si el yml no trae verify$min_f1
 
 
 ## Utilidades ------------------------------------------------------------------------------------------------------
@@ -181,15 +187,41 @@ is_stale <- function(status, f_table, f_svg, cfg) {
   no
 }
 
-# Paquetes 'exacta' de deps.csv con versión instalada distinta (tibble paquete, version, instalada) o NULL
+# Paquetes 'exacta' de deps.csv con build instalada distinta (tibble paquete, version, instalada) o NULL: versión y, si
+# origen fija un commit ("…/WJPr@382aee9"), también el commit ("1.1.0@local" ≠ "1.1.0@382aee9"; deps_exact_mismatch)
 deps_mismatch <- function(cfg) {
   f <- cfg$paths$deps
   if (is.null(f) || is.na(f) || !file.exists(f)) return(NULL)
-  deps <- read_csv(f, col_types = cols(.default = col_character()), show_col_types = FALSE, progress = FALSE) %>%
-    filter(modo == "exacta")
-  if (nrow(deps) == 0) return(NULL)
-  deps$instalada <- unname(vapply(deps$paquete, pkg_ver, ""))
-  deps %>% filter(instalada != version)
+  deps <- read_csv(f, col_types = cols(.default = col_character()), na = character(), show_col_types = FALSE, progress = FALSE)
+  dm <- deps_exact_mismatch(deps)
+  if (nrow(dm) == 0) NULL else transmute(dm, paquete, version = esperada, instalada = coalesce(instalada, "-"))
+}
+
+# metodo wjpr, en lugar de drawn.csv: parecido del PNG nuevo con el publicado (wjpr_similarity, 09_wjpr.R: f1 de tinta
+# a 96 dpi, 1 = mismo dibujo) ≥ min_f1. Una build de WJPr que cambia el dibujo (orden de las categorías, una leyenda
+# por defecto) lo baja aunque la tabla y los textos sean los mismos. Sin PNG nuevo o sin publicada: suprimido.
+parecido_row <- function(f_png, f_pub, min_f1, status, root) {
+  esp <- paste0("≥ ", fmt_val(min_f1))
+  dib <- if (is.na(sfield(status, "wjpr_build"))) "" else paste0("; dibujada con WJPr ", sfield(status, "wjpr_build"))
+  none <- function(why) vrow("parecido", esp, "", "suprimido", nota = paste0(why, ": no se mide", dib))
+  if (!file.exists(f_png)) return(none("sin PNG nuevo (--no-png o sin Chrome)"))
+  if (!file.exists(f_pub)) return(none(paste0("sin PNG publicado (", rel_path(f_pub, root), ")")))
+  sm <- tryCatch(wjpr_similarity(f_png, f_pub), error = function(e) e)
+  if (inherits(sm, "error")) {
+    return(vrow("parecido", esp, "", "fallo", nota = paste("wjpr_similarity:", first_line(conditionMessage(sm)))))
+  }
+  vrow("parecido", esp, sprintf("%.4f", sm$f1), if (isTRUE(sm$f1 >= min_f1 - 1e-9)) "ok" else "fallo",
+       nota = sprintf("f1 de tinta a 96 dpi frente a %s (precision %.4f, recall %.4f, mad %.4f)%s", rel_path(f_pub, root),
+                      sm$precision, sm$recall, sm$mad, dib))
+}
+
+# metodo wjpr: textos dibujados frente a df (columnas attr(p, "wjpr")$compara), comparados en figures con el plot vivo
+# (drawn_text_diff_wjpr, 06_export.R) y guardados en figures_status (wjpr_textos)
+textos_row <- function(status) {
+  t <- sfield(status, "wjpr_textos")
+  if (is.na(t)) return(vrow("textos", "iguales", "", "suprimido", nota = "sin wjpr_textos en figures_status: no se comprueba"))
+  vrow("textos", "iguales", t, if (identical(t, "iguales")) "ok" else "fallo",
+       nota = "textos dibujados (wjpr_texts) frente a df$text/text2, medidos en figures")
 }
 
 # Dimensiones (ancho, alto) en px de un PNG y dpi declarados, como png_props() de build_finales.R:154-157 pero con
@@ -227,11 +259,15 @@ verify_figure <- function(spec, cfg, status = NULL) {
   if (!file.exists(f_ref)) return(done("sin referencia", "corra tools/build_reference.R"))
   st <- is_stale(status, f_table, f_svg, cfg)
   if (st$stale) return(done("desactualizada", st$why))
+  wjpr <- identical(spec$metodo, "wjpr")
+  if (wjpr && !is.null(status) && is.na(sfield(status, "wjpr_build"))) {
+    return(done("desactualizada", "salida dibujada sin WJPr (otro metodo): corra --stage figures"))
+  }
 
   tol_pp <- cfg$verify$tol_pp %||% 0.6; tol_frac <- cfg$verify$tol_frac %||% 0.006
   size_tol <- cfg$verify$size_tol_in %||% 0.01; dpi <- cfg$layout$dpi %||% 300
   out <- read_table_csv(f_table); ref <- read_table_csv(f_ref)
-  d_k <- if (!identical(spec$metodo, "ggplot") && file.exists(f_drawn)) add_key(read_table_csv(f_drawn)) else NULL
+  d_k <- if (!spec$metodo %in% c("ggplot", "wjpr") && file.exists(f_drawn)) add_key(read_table_csv(f_drawn)) else NULL
   det <- list()
   add <- function(row) det[[length(det) + 1L]] <<- row
 
@@ -279,7 +315,16 @@ verify_figure <- function(spec, cfg, status = NULL) {
 
   # (5) dibujo: drawn.csv vs frac/frac2 de la referencia (solo donde alguna trae barra) y mismo orden; ggplot no dibuja.
   # Si la referencia no trae ninguna fracción (sankey 11/16: sin barra medible) las de drawn.csv no se comparan.
-  if (!identical(spec$metodo, "ggplot")) {
+  # metodo wjpr: parecido con la publicada y textos dibujados en lugar de drawn.csv. Si WJPr llegara a devolver lo que
+  # dibuja (p. ej. un attr con la fracción de cada barra), aquí volvería la comparación frac/frac2 de las svg_r.
+  f1 <- NA_real_
+  if (wjpr) {
+    pr <- parecido_row(f_png, file.path(cfg$paths$reference, "published", paste0(stem, ".png")),
+                       cfg$verify$min_f1 %||% MIN_F1, status, root)
+    if (pr$resultado == "ok") f1 <- as.numeric(pr$obtenido)
+    add(pr)
+    add(textos_row(status))
+  } else if (!identical(spec$metodo, "ggplot")) {
     has_frac <- any(!is.na(ref$frac)) || any(!is.na(ref$frac2))
     if (!is.null(d_k)) {
       bd <- inner_join(ref_k, d_k, by = KEY_COLS, suffix = c("_ref", "_drawn")) %>% arrange(order_ref)
@@ -367,7 +412,7 @@ verify_figure <- function(spec, cfg, status = NULL) {
   estado <- if (length(fails) > 0) "fallo" else "ok"
   verificacion <- if (length(fails) > 0) sprintf("%d/%d · %s", n_ok, n_total, motivo(detalle[fails[1], ]))
                   else if (length(known) > 0) sprintf("%d/%d · conocida %s", n_ok, n_total, motivo(detalle[known[1], ]))
-                  else sprintf("%d/%d ok", n_ok, n_total)
+                  else sprintf("%d/%d ok%s", n_ok, n_total, if (is.na(f1)) "" else sprintf(" · parecido f1 %.3f", f1))
   detalle <- bind_cols(tibble(fig = rep(fig, n_total), slug = rep(spec$slug, n_total)), detalle)
   done(estado, verificacion, detalle)
 }
@@ -446,3 +491,11 @@ run_verify <- function(specs, cfg) {
 ##   90/90, 26/26); --stage verify y --stage compare sin error. main.R --stage all --figs 12 --no-png (stub): la consola
 ##   mostraba "sin salida" y "0 errores" → "12 svg_r error figures: pendiente: fig_12 sin implementar" y "0/1
 ##   verificadas · 0 conocidas · 1 errores".
+## Adopción de WJPr (2026-10-23): main.R --stage all --figs 09,10,11 → "73/73 ok · parecido f1 1.000", "66/66 ok · …" y
+##   "27/27 ok · …" (sin filas frac ni de drawn.csv; parecido 1.0000 y textos iguales); con SRC_REPORTS_LIB de la rama
+##   main (a46c831) → 09 "fallo · 73/74 · parecido: ≥ 0.995→0.9069", 10 "fallo · 66/67 · parecido: ≥ 0.995→0.4189", 11
+##   "28/28 ok · parecido f1 1.000" (+ fila entorno "WJPr 1.1.0@382aee9" → "WJPr 1.1.0@local"). --stage verify de las 42:
+##   sin error de ejecución (3 ok, 1 error: la 12, de figures; 38 sin salida). t_adopcion.R: status sin wjpr_build →
+##   "desactualizada · salida dibujada sin WJPr"; sin figures_status → textos suprimido; wjpr_textos ≠ iguales → "fallo ·
+##   72/73 · textos: …"; sin PNG nuevo (también --no-png de punta a punta) o sin publicada → parecido suprimido y ok;
+##   min_f1 1.5 → fallo; yml sin min_f1 → MIN_F1.

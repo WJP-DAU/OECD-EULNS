@@ -13,6 +13,9 @@ fig_11 <- list(
   # acceso entre quienes lo necesitaban y excluidos) con text = fmt_num(value, 0).
   data = function(ctx) rows_sankey(journey(ctx), "assistance"),
 
-  # Dibujo: rótulos y encabezados fijos de sankey_def("assistance"); ancho del manifiesto (8.4 in). Devuelve chart_out.
-  plot = function(df, spec) chart_sankey(df, spec, "assistance")
+  # Dibujo: WJP_theme()/wjp_palette() + complementos (wjpr_sankey, R/09_wjpr.R; metodo wjpr: WJPr no tiene sankey),
+  # con los rótulos y encabezados fijos de sankey_def("assistance"), que el adaptador deduce del df (sin el nodo
+  # "turned" de la 16); ancho del manifiesto (8.4 in). Respaldo sin WJPr: chart_sankey(df, spec, "assistance") con
+  # metodo svg_r.
+  plot = function(df, spec) wjpr_sankey(df, spec)
 )
