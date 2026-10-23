@@ -159,11 +159,7 @@ main <- function(argv) {
       if (length(fig_stages) && !any(vapply(specs, `[[`, logical(1), "selected"))) {
         stop("Ninguna figura del manifiesto coincide con --figs ", paste(sprintf("%02d", figs), collapse = ","), call. = FALSE)
       }
-      adopt <- vapply(specs, function(s) isTRUE(s$selected) && identical(s$wjpr, "adoptada"), logical(1))
-      if (length(.sr$deps_optional_missing) && any(adopt)) {
-        notes <- c(notes, paste0("falta el paquete opcional ", paste(.sr$deps_optional_missing, collapse = ", "),
-                                 " (figuras con wjpr = adoptada)"))
-      }
+      # WJPr ya no es opcional: con figuras metodo wjpr, check_method_deps() (R/00_setup.R) lo exige en run_figures()
       specs
     })
     ctx <- NULL

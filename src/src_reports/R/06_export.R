@@ -4,16 +4,25 @@
 ## de textos dudosos al contornear). png_props (build_finales.R:154-157) no se porta: 07 lee las dimensiones del PNG
 ## con png_dims() y 08 con read_png_rgb().
 ## El flujo por figura (run_figures, validate_df, save_figure, figures_status.csv) es nuevo para src_reports.
-## Usa de 00_setup.R: load_figure(), figure_file(), figure_stem(), log_msg(), first_line(); de 01_load.R: secs(),
-## rel_path(), ctx_key(); de 04_svg.R: svg_size(), outline_svg_text(), set_size(), count_live_text().
+## Métodos de dibujo (columna metodo del manifiesto): wjpr (el motor por defecto desde 2026-10-23: plot() devuelve el
+## ggplot de wjpr_<tipo>(), R/09_wjpr.R, que se exporta como las ggplot con k = 1 y cuyos textos dibujados se comparan
+## con df), svg_r (respaldo: chart_out de chart_<tipo>(), R/05_charts.R), ggplot (lienzo × base_pt / text_pt) y static.
+## Usa de 00_setup.R: load_figure(), figure_file(), figure_stem(), log_msg(), first_line(), check_method_deps(); de
+## 01_load.R: secs(), rel_path(), ctx_key(); de 04_svg.R: svg_size(), outline_svg_text(), set_size(),
+## count_live_text(); de 09_wjpr.R: wjpr_require(), wjpr_build(), wjpr_native_font(), wjpr_complementos(),
+## wjpr_texts(), wjpr_text_diff().
 ## Nada se ejecuta al cargar. Nunca se imprimen filas de microdatos: df es ya un agregado y solo se escribe a CSV.
 
 # Columnas fijas de df (CONTRATOS §4.4), extras permitidas y columnas de log/figures_status.csv (§4.6 + motivo,
 # decisión 2 de la revisión: primera línea del error o del motivo del estado; "" si ok)
 DF_COLS     <- c("order", "kind", "grouping", "label", "value", "value2", "text", "text2")
 DF_EXTRAS   <- c("x", "y", "n", "lo", "hi", "series")
+# + wjpr_build (wjpr_build() de la build que dibujó: "1.1.0@382aee9"; "1.1.0@local" desde un clon), wjpr_complementos
+# (número de complementos de attr(p, "wjpr")) y wjpr_textos ("iguales" o lo que falta y sobra; verify lo muestra):
+# NA en las figuras que no son metodo wjpr
 STATUS_COLS <- c("fig", "slug", "run_id", "ctx_key", "md5_table", "md5_drawn", "md5_svg", "md5_png", "n_text",
-                 "width_in", "height_in", "png_px", "estado", "segundos", "fecha", "motivo")
+                 "width_in", "height_in", "png_px", "estado", "segundos", "fecha", "motivo",
+                 "wjpr_build", "wjpr_complementos", "wjpr_textos")
 
 
 ## Rutas y utilidades --------------------------------------------------------------------------------------------
@@ -84,6 +93,24 @@ drawn_text_diff <- function(drawn, df) {
     tibble(campo = "text2", label = df$label, df = df$text2, drawn = d2)[d2 != df$text2, ],
     tibble(campo = "text", label = chr(drawn$label[extra]), df = "", drawn = chr(drawn$text[extra]))
   )
+}
+
+# Textos de un ggplot de wjpr_<tipo>() frente a df, con la regla de tools/wjpr_gallery.R (las dos deben coincidir):
+# faltan = textos de las columnas attr(p, "wjpr")$compara (por defecto text y text2; p. ej. en la matriz text2 es la
+# banda de color, no un texto) que no se dibujan; sobran = valores dibujados (números, %, "(40%)", "+16 points", "N/A",
+# "–") que df no trae, o textos de df dibujados más veces. Los rótulos fijos del diseño (leyendas, encabezados, ejes)
+# no cuentan. Un ggplot no emparejado por order (WJPr no conserva filas): es un multiconjunto. Devuelve list(faltan,
+# sobran, resumen = "iguales" | "faltan n (…) · sobran m (…)", el texto de la columna textos de la galería).
+WJPR_VALUE_RE <- "^(\\(?[−+±-]?[0-9]+([.,][0-9]+)?%?\\)?( points)?|N/A|–)$"
+drawn_text_diff_wjpr <- function(p, df) {
+  cols <- intersect(attr(p, "wjpr")$compara %||% c("text", "text2"), names(df))
+  expected <- unlist(df[cols], use.names = FALSE)
+  drawn <- wjpr_texts(p)
+  td <- wjpr_text_diff(drawn[grepl(WJPR_VALUE_RE, drawn) | drawn %in% expected], expected)
+  ej <- function(x) paste(head(unique(x), 3), collapse = " ")
+  td$resumen <- if (length(td$faltan) + length(td$sobran) == 0) "iguales" else
+    paste0("faltan ", length(td$faltan), " (", ej(td$faltan), ") · sobran ", length(td$sobran), " (", ej(td$sobran), ")")
+  td
 }
 
 
@@ -157,10 +184,13 @@ doubtful_texts <- function(lg) {
 # Devuelve (invisible) el registro de outline_svg_text(): como outline_checked (standard_figures.R:438-442), los
 # textos dudosos (medidos con otra familia que Inter o con textLength fuera de ±3 %) se anotan en el log y
 # save_figure da estado "texto"; antes el registro se descartaba y la figura quedaba "ok".
+# metodo wjpr: k = 1 sin base_pt (WJPr y sus complementos dan los tamaños en pt finales: 3.514598 mm = 10 pt) y el alto
+# del manifiesto también en set_size(), como wjpr_render() de la galería (09_wjpr.R): el mismo SVG que mide su f1.
 save_ggplot_svg <- function(plot, spec, cfg, svg) {
   if (requireNamespace("showtext", quietly = TRUE)) showtext::showtext_auto(FALSE)   # svglite debe emitir <text>
-  if (is.na(spec$base_pt)) stop("metodo ggplot requiere base_pt en el manifiesto (fig ", spec$fig, ")", call. = FALSE)
-  k <- spec$base_pt / cfg$layout$text_pt
+  wjpr <- identical(spec$metodo, "wjpr")
+  if (!wjpr && is.na(spec$base_pt)) stop("metodo ggplot requiere base_pt en el manifiesto (fig ", spec$fig, ")", call. = FALSE)
+  k <- if (wjpr) 1 else spec$base_pt / cfg$layout$text_pt
   tmp <- tempfile(fileext = ".svg")
   ggplot2::ggsave(tmp, plot, device = svglite::svglite, width = spec$w_in * k, height = spec$h_in * k, units = "in")
   lg <- outline_svg_text(tmp)
@@ -170,29 +200,35 @@ save_ggplot_svg <- function(plot, spec, cfg, svg) {
     log_msg(sprintf("fig %02d", spec$fig), ": ", nrow(dud), " de ", nrow(lg), " textos dudosos al contornear (familia ",
             fam, "): ", paste(head(dud$text, 8), collapse = " | "), if (nrow(dud) > 8) " | …" else "")
   }
-  set_size(tmp, spec$w_in)
+  set_size(tmp, spec$w_in, if (wjpr) spec$h_in)
   if (!file.copy(tmp, svg, overwrite = TRUE)) stop("No se pudo mover el SVG a ", svg, call. = FALSE)
   unlink(tmp)
   invisible(lg)
 }
 
 # Escribe figures/Figure_NN_slug.svg (y .png) y tables/Figure_NN_slug.drawn.csv a partir de lo que devolvió
-# plot(): chart_out (svg_r), ggplot o nada (static: se copia static/Figure_NN_slug.svg). Luego comprueba el
-# archivo, con esta precedencia de estados: ancho exacto (±0.001 in) y alto ± cfg$verify$size_tol_in → "tamaño";
-# <text> vivos, texto dibujado ≠ df$text/text2 (svg_r) o textos dudosos al contornear (ggplot) → "texto"; PNG
-# (solo si png && hay Chrome) fallido → "png". El dibujo no se corrige. motivo junta todos los problemas, el del
-# estado primero. Devuelve list(estado, motivo, svg, png, width_in, height_in, n_text, png_px, drawn).
+# plot(): ggplot (wjpr o ggplot), chart_out (svg_r) o nada (static: se copia static/Figure_NN_slug.svg). Luego comprueba
+# el archivo, con esta precedencia de estados: ancho exacto (±0.001 in) y alto ± cfg$verify$size_tol_in → "tamaño";
+# <text> vivos, texto dibujado ≠ df$text/text2 (svg_r: drawn.csv; wjpr: drawn_text_diff_wjpr) o textos dudosos al
+# contornear (ggplot y wjpr) → "texto"; PNG (solo si png && hay Chrome) fallido → "png". El dibujo no se corrige.
+# motivo junta todos los problemas, el del estado primero. Devuelve list(estado, motivo, svg, png, width_in,
+# height_in, n_text, png_px, drawn, wjpr); wjpr = list(build, complementos, textos) en metodo wjpr, NULL en el resto.
 save_figure <- function(out, df, spec, cfg, png = TRUE) {
   p <- figure_paths(spec, cfg); tag <- sprintf("fig %02d", spec$fig)
   if (anyNA(c(spec$w_in, spec$h_in))) stop("w_in/h_in faltan en el manifiesto (fig ", spec$fig, ")", call. = FALSE)
-  dif <- NULL; dud <- NULL
+  dif <- NULL; dud <- NULL; wj <- NULL; wt <- NULL
   if (identical(spec$metodo, "static")) {
     src <- file.path(cfg$paths$root, "static", paste0(p$stem, ".svg"))
     if (!file.exists(src)) stop("No existe static/", basename(src), " (metodo static)", call. = FALSE)
     if (!file.copy(src, p$svg, overwrite = TRUE)) stop("No se pudo copiar ", src, call. = FALSE)
     drawn <- empty_drawn()
   } else if (inherits(out, "chart_out")) {
-    if (!identical(spec$metodo, "svg_r")) stop("plot() devolvió chart_out pero el manifiesto dice metodo '", spec$metodo, "'", call. = FALSE)
+    if (!identical(spec$metodo, "svg_r")) {
+      stop("plot() devolvió chart_out pero el manifiesto dice metodo '", spec$metodo, "'",
+           if (identical(spec$metodo, "wjpr")) {
+             " (con WJPr: plot = function(df, spec) wjpr_<tipo>(df, spec); chart_<tipo>() es el respaldo, metodo svg_r)"
+           }, call. = FALSE)
+    }
     if (!is.data.frame(out$drawn)) stop("chart_out sin tabla drawn (§4.5)", call. = FALSE)
     con <- file(p$svg, open = "w", encoding = "UTF-8"); writeLines(out$svg, con); close(con)
     drawn <- out$drawn
@@ -203,8 +239,19 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
               paste(head(sprintf("%s %s: %s→%s", dif$campo, dif$label, dif$df, dif$drawn), 5), collapse = "; "))
     }
   } else if (inherits(out, "ggplot")) {
-    if (!identical(spec$metodo, "ggplot")) stop("plot() devolvió ggplot pero el manifiesto dice metodo '", spec$metodo, "'", call. = FALSE)
+    if (!spec$metodo %in% c("ggplot", "wjpr")) {
+      stop("plot() devolvió ggplot pero el manifiesto dice metodo '", spec$metodo, "'", call. = FALSE)
+    }
     dud <- doubtful_texts(save_ggplot_svg(out, spec, cfg, p$svg))
+    if (identical(spec$metodo, "wjpr")) {
+      meta <- attr(out, "wjpr")
+      if (is.null(meta)) log_msg(tag, ": el ggplot no trae attr(, \"wjpr\") (¿no sale de wjpr_<tipo>()?): complementos sin contar")
+      wt <- drawn_text_diff_wjpr(out, df)
+      wj <- list(build = wjpr_build(), complementos = if (is.null(meta)) NA_integer_ else length(meta$complementos),
+                 textos = wt$resumen)
+      log_msg(tag, ": WJPr ", wj$build, " · base ", meta$base %||% "?", " · ", wj$complementos, " complementos (",
+              paste(meta$complementos, collapse = "; "), ") · textos ", wt$resumen)
+    }
     drawn <- empty_drawn()
   } else {
     stop("plot() devolvió un objeto de clase '", class(out)[1], "' (se esperaba chart_out o ggplot)", call. = FALSE)
@@ -226,6 +273,7 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
     flag("texto", sprintf("texto dibujado ≠ df en %d %s · %s %s: %s→%s", nrow(dif), if (nrow(dif) == 1) "fila" else "filas",
                           dif$campo[1], dif$label[1], dif$df[1], dif$drawn[1]))
   }
+  if (!is.null(wt) && !identical(wt$resumen, "iguales")) flag("texto", paste0("textos dibujados ≠ df: ", wt$resumen))
   if (!is.null(dud) && nrow(dud) > 0) {
     flag("texto", sprintf("%d textos dudosos al contornear (familia ≠ Inter o textLength fuera de ±3 %%)", nrow(dud)))
   }
@@ -242,7 +290,7 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
   }
   estado <- if (length(est) > 0) est[1] else "ok"
   list(estado = estado, motivo = paste(mot, collapse = " · "), svg = p$svg, png = png_path, width_in = size$width_in,
-       height_in = size$height_in, n_text = n_text, png_px = png_px, drawn = drawn)
+       height_in = size$height_in, n_text = n_text, png_px = png_px, drawn = drawn, wjpr = wj)
 }
 
 
@@ -273,7 +321,9 @@ append_status <- function(spec, cfg, run_id, ctx, res, estado, t0, motivo = "") 
     n_text = as.integer(res$n_text %||% NA_integer_), width_in = as.numeric(res$width_in %||% NA_real_),
     height_in = as.numeric(res$height_in %||% NA_real_), png_px = as.character(res$png_px %||% NA_character_),
     estado = estado, segundos = round(secs(t0), 1), fecha = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
-    motivo = as.character(motivo %||% "")
+    motivo = as.character(motivo %||% ""), wjpr_build = as.character(res$wjpr$build %||% NA_character_),
+    wjpr_complementos = as.integer(res$wjpr$complementos %||% NA_integer_),
+    wjpr_textos = as.character(res$wjpr$textos %||% NA_character_)
   )[, STATUS_COLS]
   migrate_status(p$status)
   write_csv(row, p$status, append = file.exists(p$status), na = "NA")
@@ -311,8 +361,9 @@ export_figure <- function(spec, ctx, cfg, run_id, png = TRUE) {
   } else {
     estado <- res$estado
     verif <- if (estado == "ok") {
-      sprintf("%d filas · %s×%s in · %s · %d <text>", n_rows, fmt_in(res$width_in), fmt_in(res$height_in),
-              if (is.na(res$png_px)) "sin PNG" else paste0(sub("x", "×", res$png_px, fixed = TRUE), " px"), res$n_text)
+      sprintf("%d filas · %s×%s in · %s · %d <text>%s", n_rows, fmt_in(res$width_in), fmt_in(res$height_in),
+              if (is.na(res$png_px)) "sin PNG" else paste0(sub("x", "×", res$png_px, fixed = TRUE), " px"), res$n_text,
+              if (is.null(res$wjpr)) "" else paste0(" · textos ", res$wjpr$textos))
     } else res$motivo
     motivo <- if (estado == "ok") "" else res$motivo
     archivo <- p$svg
@@ -325,9 +376,17 @@ export_figure <- function(spec, ctx, cfg, run_id, png = TRUE) {
 
 # Etapa figures. Devuelve tibble(fig, metodo, estado, verificacion, archivo), una fila por spec en el orden del
 # manifiesto; spec$selected == FALSE → "omitida". Estados: ok | error | png | tamaño | texto | omitida.
+# Antes de dibujar, check_method_deps() (00_setup.R) detiene la etapa con un error legible si una figura seleccionada
+# con metodo wjpr no tiene WJPr o ggtext; con WJPr, wjpr_require() fija la fuente nativa si la build la tiene (como
+# la galería) y el log registra la build que dibuja.
 run_figures <- function(specs, ctx, cfg, run_id, png = TRUE) {
   if (png && is.na(cfg$paths$chrome)) log_msg("Chrome no encontrado: se omiten los PNG")
   if (!png) log_msg("PNG omitidos (png = FALSE)")
+  check_method_deps(specs, cfg)
+  if (any(vapply(specs, function(s) isTRUE(s$selected %||% TRUE) && identical(s$metodo, "wjpr"), logical(1)))) {
+    wjpr_require()
+    log_msg("WJPr ", wjpr_build(), " · fuente nativa ", wjpr_native_font(), " · complementos ", wjpr_complementos())
+  }
   rows <- lapply(specs, function(spec) {
     if (!isTRUE(spec$selected %||% TRUE)) {
       return(tibble(fig = sprintf("%02d", spec$fig), metodo = spec$metodo, estado = "omitida", verificacion = "", archivo = ""))
@@ -364,3 +423,10 @@ run_figures <- function(specs, ctx, cfg, run_id, png = TRUE) {
 ##   ctx_key(cfg, ctx$meta$key); código muerto (sin uso en main.R, R/, figures/ ni tools/): png_props 1 → 0 líneas
 ##   de código, VERIFY_FIELDS/RESULTS/STATES de 07 3 → 0 y el comentario huérfano de 08 1 → 0.
 ##   probe_r.R: el timeout de system2() da 124 y no deja procesos vivos con exec y sin exec.
+## Adopción de WJPr (2026-10-23): cd /tmp && Rscript <copia>/main.R --stage all --figs 09,10,11 → 3/3 con metodo wjpr
+##   (WJPr 1.1.0@382aee9; 12, 13 y 6 complementos; textos iguales; 0 <text>; 6.069×8.375, 6.500×5.250 y 8.400×5.167 in);
+##   SVG y PNG idénticos (md5) a los de tools/wjpr_gallery.R --figs 9,10,11; figures_status.csv de 16 → 19 columnas
+##   (migrate_status). SCRATCH/adopt_M3/pruebas/t_adopcion.R: un texto de df cambiado ("61%" → "99%") → estado "texto ·
+##   textos dibujados ≠ df: faltan 1 (99%) · sobran 1 (61%)"; chart_out con metodo wjpr → error con la pista de plot =
+##   wjpr_<tipo>(); ggplot sin attr(, "wjpr") → ok con complementos NA y aviso en el log; metodo ggplot sin base_pt
+##   sigue en error. Sin WJPr o ggtext la etapa se detiene con el mensaje de check_method_deps() (00_setup.R).

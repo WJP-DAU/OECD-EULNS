@@ -22,25 +22,33 @@
 ##    los ids que guarda en reference/<slug>/eu_values.csv (un id nuevo: eu_id + correr la herramienta).
 ##  - ~80 líneas. Una función auxiliar usada solo por esta figura vive aquí; pasa a R/03_estimators.R cuando
 ##    la usan dos o más figuras.
-##  - plot(df, spec) devuelve un ggplot (metodo ggplot) o un chart_out (metodo svg_r: lo que devuelve
-##    chart_<tipo>()). spec es la fila del manifiesto (fig, slug, titulo, tipo, metodo, funcion, w_in, h_in,
-##    callout, label_col, base_pt, metodo_ue, eu_id, nota, …) + selected + country (= cfg$country: el país de las
-##    leyendas {country} | EU Average). plot() no lee cfg ni ctx.
-##  - h_in es el alto que mide plot(): con uno provisional, --stage figures --figs NN da "tamaño W×H in ≠ …" y H va
-##    al manifiesto con 3 decimales (CLAUDE.md).
+##  - plot(df, spec) llama al motor de dibujo, WJPr: plot = function(df, spec) wjpr_<tipo>(df, spec) (metodo wjpr
+##    y funcion wjpr_<tipo> en el manifiesto; R/09_wjpr.R: la función de WJPr del tipo + complementos), que
+##    devuelve un ggplot marcado con attr(, "wjpr") (base, complementos, columnas cuyos textos se imprimen). La
+##    etapa figures lo exporta a w_in × h_in con los tamaños de WJPr en pt (k = 1) y exige que los textos dibujados
+##    sean df$text/text2 (estado "texto" si no); verify mide el parecido con la publicada (f1 ≥ verify$min_f1).
+##    Respaldo sin WJPr: el chart_out de chart_<tipo>(df, spec) de R/05_charts.R (metodo svg_r) o un ggplot propio
+##    (metodo ggplot, con base_pt). spec es la fila del manifiesto (fig, slug, titulo, tipo, metodo, funcion, w_in,
+##    h_in, callout, label_col, base_pt, metodo_ue, eu_id, nota, …) + selected + country (= cfg$country: el país de
+##    las leyendas {country} | EU Average). plot() no lee cfg ni ctx.
+##  - h_in: con metodo wjpr el SVG sale siempre al w_in × h_in del manifiesto (el de la publicada) y un alto
+##    equivocado deforma el dibujo, lo que verify ve en "parecido"; con svg_r es el alto que mide chart_<tipo>() (con
+##    uno provisional, --stage figures --figs NN da "tamaño W×H in ≠ …" y H va al manifiesto con 3 decimales).
 ##  - Si el valor reproducido difiere del publicado no se fuerza: se anota en la columna nota del manifiesto
 ##    ([conocida: <label>=<text>]).
 ##
-## Qué leer para escribir una figura nueva: este archivo, el bloque de su tipo en R/05_charts.R
-## (grep -n "^## Bloque" R/05_charts.R), una figura aprobada del mismo tipo y reference/<slug>/Figure_NN_slug.csv
-## (labels, textos y orden exactos que compara verify). Nada más.
+## Qué leer para escribir una figura nueva: este archivo, el bloque de su tipo en R/05_charts.R (rows_<tipo>() para
+## data(); grep -n "^## Bloque" R/05_charts.R), el de R/09_wjpr.R (wjpr_<tipo>() para plot(); grep -n "^## Bloque
+## wjpr" R/09_wjpr.R), una figura aprobada del mismo tipo y reference/<slug>/Figure_NN_slug.csv (labels, textos y
+## orden exactos que compara verify). Nada más.
 ##
 ## Ejemplo completo: barras agrupadas con media UE de data4web (patrón de 1, 9, 17, 20, 22, 23, 25 y 38-40).
 ## Sustituya fig_NN por el número real. corregido: la lista anterior mezclaba figuras con eu_est o sin media UE.
 ## Las demás agrupadas cambian la media UE: eu = eu_est(ctx, "<var>") en 12, 28 y 31, y con transform =
 ## binary_agree en 33 y 35; eu = NULL en 4, 21, 24 y 26. La 4 es además una media 0-10 (decimals = 1 y scale = 10
-## en rows_grouped; chart_grouped(df, spec, track = FALSE, value_at_end = TRUE, scale = 10)) y la 27 no usa
-## rows_grouped (sin fila National; ver su encabezado).
+## en rows_grouped) y la 27 no usa rows_grouped (sin fila National; ver su encabezado): wjpr_grouped_bars(df, spec)
+## reconoce las dos por spec$fig (respaldo svg_r de la 4: chart_grouped(df, spec, track = FALSE, value_at_end =
+## TRUE, scale = 10)).
 
 ## Figura NN · Access to Information and Advice in {country}
 ## Fuente de datos: get_results_table(ctx, "access2info", ctype = "full") (module_2_1.R:14-29);
@@ -61,6 +69,7 @@ fig_NN <- list(
     rows_grouped(tbl, eu = eu_value(ctx, "data4web", "access2info"), decimals = 0)
   },
 
-  # Dibujo: una llamada a la función del tipo (columna funcion del manifiesto). Devuelve chart_out.
-  plot = function(df, spec) chart_grouped(df, spec)
+  # Dibujo: una llamada al adaptador WJPr del tipo (columna funcion del manifiesto, metodo wjpr). Devuelve un
+  # ggplot; el respaldo sin WJPr es chart_grouped(df, spec) con metodo svg_r.
+  plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

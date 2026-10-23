@@ -15,10 +15,10 @@ fig_10 <- list(
     rows_dumbbell(tbl, decimals = 0)
   },
 
-  # Dibujo: percepción (color principal) y experiencia (magenta) unidas por un segmento gris. La leyenda es texto
-  # fijo del diseño: la de viz_helpers.R:106, impresa en la figura publicada.
-  plot = function(df, spec) {
-    chart_dumbbell(df, spec, legend = c("General population: perception",
-                                        "People with a non-trivial problem: experience"))
-  }
+  # Dibujo: WJPr::wjp_dumbbells() + complementos (wjpr_dumbbell, R/09_wjpr.R; metodo wjpr): percepción (color
+  # principal) y experiencia (magenta) unidas por un segmento gris. La leyenda es texto fijo del diseño (la de
+  # viz_helpers.R:106, impresa en la publicada) y es la que wjpr_dumbbell() trae por defecto («General population:
+  # perception» / «People with a non-trivial problem: experience»). Respaldo sin WJPr: chart_dumbbell(df, spec,
+  # legend = <la misma>) con metodo svg_r.
+  plot = function(df, spec) wjpr_dumbbell(df, spec)
 )
