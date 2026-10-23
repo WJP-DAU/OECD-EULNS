@@ -217,6 +217,19 @@ y `pilot_wjpr_criterios.csv` (fig, tipo, función, criterio, esperado, obtenido,
 otra versión de WJPr: `Rscript src/src_reports/tools/pilot_wjpr.R`; una función solo se adoptaría si cumple todos los
 criterios sin hacks, y entonces habría que fijar su versión en `deps.csv` (y avisar antes de tocar `renv.lock`).
 
+**Exploración 2b (2026-10-23, pedido del usuario: usar WJPr en el mayor número de figuras con complementos).**
+`R/09_wjpr.R` define `wjpr_<tipo>(df, spec)` para los 13 tipos: parte de la función de WJPr del tipo (`wjp_groupbars`,
+`wjp_bars`, `wjp_dumbbells`) o de `WJP_theme()`/`wjp_palette()` y la complementa (cada complemento lleva
+`# complemento: <qué le falta a WJPr>`). `Rscript src/src_reports/tools/wjpr_gallery.R [--figs …] [--out …]` dibuja las
+42 (con `data()` si existe, si no con la referencia) y mide textos, fuente y parecido con lo publicado (f1 de tinta a
+96 dpi; las figuras propias dan 1.000) → `output/<slug>/wjpr/00-wjpr.csv`, `index.html` y `compare/`. Resultado: 42/42
+con textos idénticos y f1 0.996-1.000 (33 sobre una función de gráfica de WJPr, 9 solo con tema y paleta), con 5-13
+complementos por figura; WJPr sola da 0.13-0.89 (mediana 0.65). Con la rama main de WJPr (`SRC_REPORTS_LIB` apuntando a
+una librería con ella) los mismos complementos bajan en 26 figuras (orden de `wjp_groupbars` y leyenda por defecto de
+`wjp_dumbbells`): los complementos dependen de internos de cada versión. Las brechas del paquete están en el
+documento «WJPr: brechas para automatizar las figuras de Paths to Justice». `main.R` sigue con el dibujo propio y la
+columna `wjpr` del manifiesto con la decisión del piloto hasta que se decida adoptar WJPr.
+
 ## Tiempos (medidos el 2026-10-22 y 23, MacBook, .dta ya descargado)
 | Etapa | Tiempo |
 |---|---|
