@@ -19,3 +19,4 @@ ComplexUpset,1.3.3,CRAN,exacta,upset (fig 29) y orden de sus intersecciones en t
 ggrepel,0.9.8,CRAN,exacta,rótulos del scatter (fig 3; seed 7)
 WJPr,1.1.0,github worldjusticeproject-org/WJPr@382aee9,opcional,solo tools/pilot_wjpr.R y figuras con wjpr = adoptada
 showtext,0.9.8,CRAN,opcional,solo para apagarlo (showtext_auto(FALSE)) si está instalado: svglite debe emitir <text>
+ggtext,0.1.2,CRAN,opcional,figuras con WJPr (R/09_wjpr.R): etiquetas Markdown de wjp_groupbars y wjp_edgebars

@@ -27,6 +27,7 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
 | `R/05_charts.R` | un bloque por tipo de gráfica: `rows_<tipo>()` (df del contrato) + `chart_<tipo>(df, spec)` |
 | `R/06_export.R` | `run_figures`: tablas, SVG, PNG (Chrome), `figures_status.csv` |
 | `R/07_verify.R` · `R/08_compare.R` | `run_verify`, `run_compare` |
+| `R/09_wjpr.R` · `tools/wjpr_gallery.R` | `wjpr_<tipo>(df, spec)`: las figuras sobre WJPr + complementos (experimento, aún fuera de `main.R`) y su galería de fidelidad |
 | `figures/fig_NN_slug.R` | una figura; `_template.R` es el contrato comentado |
 | `manifest/figures.csv` | la verdad de cada figura (columnas en README, «Manifiesto»); `figures_<slug>.csv` las cambia por país |
 | `reference/<slug>/` | valores y fracciones publicadas (verdad para verify); `tools/build_reference.R` los regenera |
