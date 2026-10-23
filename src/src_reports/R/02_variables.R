@@ -15,7 +15,8 @@
 
 ## 1. Demografía recodificada ------------------------------------------------------------------------------------
 
-# origen: special-vars.R:14-75. Devuelve country_year_id + 8 factores; build_master() los pasa a character
+# origen: special-vars.R:14-75. Devuelve country_year_id + 7 factores y age_group como character (su factor está
+# comentado en el original, special-vars.R:44); build_master() pasa los factores a character
 # (gender, financial, residence, age_group, edu_level, marital_status, nationality, emp_status)
 add_special_demographics <- function(data){
   
@@ -1178,10 +1179,10 @@ add_report_vars <- function(df) {
 ##   add_a2j_vars: 4000 x 33, una fila por country_year_id; attr(, "jg") = list(noDK, keepDK); keepDK 4000 x 11 con las
 ##   mismas columnas que data/jg_data_keepdk.csv; cooccurence_group = {1 problem 676, 2-3 problems 722, 4-5 problems 361,
 ##   6 or more problems 510, NA 1731}; ninguna etiqueta "5 or more problems".
-##   add_special_demographics: 4000 x 9 (country_year_id + 8 recodificaciones).
+##   add_special_demographics: 4000 x 9 (country_year_id + 7 factores + age_group character).
 ##   build_master(raw, regions) de 01_load.R: 4000 x 249; select(any_of(MASTER_VARS), starts_with(MASTER_PREFIXES)) da
-##   200 columnas, el mismo conjunto que data/master.csv (que tiene 200, no 199 como dice checks$ncol_master_csv de
-##   config/<pais>.yml); las 39 columnas de add_report_vars están; add_report_vars es idempotente (reaplicarla no cambia nada).
+##   200 columnas, el mismo conjunto que data/master.csv (checks$ncol_master_csv = 200 en config/<pais>.yml); las 39
+##   columnas de add_report_vars están; add_report_vars es idempotente (reaplicarla no cambia nada).
 ## Bloque 2 (fidelidad): trozo de 4000 filas desde la primera fila del país del reporte (skip = 32408) → build_master →
 ##   2712 encuestados comunes con data/master.csv; 198 de 200 columnas idénticas. Diferencias: cooccurence_group (473,
 ##   todas "6 or more problems" frente a "5 or more problems": la corrección permitida) y AJP_problem (644, todas "" en

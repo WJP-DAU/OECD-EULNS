@@ -1,35 +1,44 @@
 ## 07_verify.R — verificación de la tabla, el dibujo y los archivos de cada figura contra reference/<slug> ---------
 ## Origen: nuevo para src_reports. Criterio de tolerancias tomado de src/hungary/finales/figure_specs.R:166-198
 ## (check_spec: texto impreso exacto; barra dentro de tol puntos de la escala; "suprimido" = ni dato ni texto).
-## Usa de 00_setup.R: figure_stem(), log_msg(); de 01_load.R: rel_path(), read_key(), pkg_ver(), secs();
-## de 04_svg.R (otro agente): svg_size(path) → list(width_in, height_in) y count_live_text(path) → n de <text>.
+## Usa de 00_setup.R: figure_stem(), figure_file(), log_msg(), first_line(); de 01_load.R: rel_path(), read_key(),
+## pkg_ver(), secs(); de 04_svg.R: svg_size(path) → list(width_in, height_in) y count_live_text(path) → n de <text>.
 ##
 ##   run_verify(specs, cfg)           → tibble(fig, metodo, estado, verificacion, archivo) (§4.7), una fila por spec en
-##                                      el orden del manifiesto; escribe output/<slug>/tables/00-verificacion.csv (fig,
-##                                      slug, kind, grouping, label, campo, esperado, obtenido, tol, resultado, nota) y
-##                                      registra una línea por figura con log_msg().
+##                                      el orden del manifiesto; actualiza output/<slug>/tables/00-verificacion.csv (fig,
+##                                      slug, kind, grouping, label, campo, esperado, obtenido, tol, resultado, nota): las
+##                                      filas de las figuras verificadas en la corrida se reemplazan y las de las demás se
+##                                      conservan (upsert por fig: una corrida con --figs no borra el resto); registra una
+##                                      línea por figura con log_msg().
 ##   verify_figure(spec, cfg, status) → list(estado, verificacion, archivo, detalle); status = última fila de
 ##                                      log/figures_status.csv para la figura (lista) o NULL.
 ##
 ## Estados de la figura: ok | fallo | error | sin salida | sin referencia | desactualizada | estatica | omitida.
 ## Resultado por fila del detalle: ok | fallo | conocida | suprimido | faltante | extra.
-## Campos: text | text2 | value | value2 | frac | frac2 | orden | ancho | alto | png | texto_vivo | entorno.
-## Pasos de verify_figure: (1) estados previos; (2) unión por (kind, grouping, label): faltante / extra; (3) orden de
-## las filas comunes; (4) por fila: text/text2 exactos si la referencia los trae, |value − ref| ≤ tol (tol de la fila
-## o cfg$verify$tol_pp; ambos NA → suprimido), value2 igual; (5) drawn.csv: frac/frac2 con cfg$verify$tol_frac y mismo
-## orden; (6) archivo: ancho exacto (±0.001) y alto ± size_tol_in, PNG = round(w_in·dpi) × round(h_in·dpi), 0 <text>,
+## Campos: text | text2 | value | value2 | x | y | lo | hi | n | frac | frac2 | orden | ancho | alto | png | texto_vivo |
+## entorno.
+## Pasos de verify_figure: (1) estados previos: figures dio "error" (verificacion "figures: <motivo de figures_status>"),
+## sin tabla, static, sin referencia, desactualizada; (2) unión por (kind, grouping, label): faltante / extra; (3) orden
+## de las filas comunes; (4) por fila: text/text2 exactos si la referencia los trae, en la tabla y en drawn.csv (lo
+## dibujado, svg_r); |value − ref| ≤ tol (tol de la fila o cfg$verify$tol_pp; ambos NA → suprimido); value2 con tol2 de
+## la fila (NA → la de value); x, y con tol_xy de la fila (NA → 0.01) y lo, hi, n exactos (|Δ| ≤ 1e-9) cuando la
+## referencia los trae (decisión 1 de la revisión); (5) drawn.csv: frac/frac2 con cfg$verify$tol_frac y mismo orden;
+## (6) archivo: ancho exacto (±0.001) y alto ± size_tol_in, PNG = round(w_in·dpi) × round(h_in·dpi), 0 <text>,
 ## versiones 'exacta' de deps.csv (aviso, campo entorno); (7) conocida: una fila fallida cuyo label y text obtenido
 ## aparezcan en spec$nota como [conocida: <label>=<text>] pasa a "conocida" (ni ok ni fallo; una figura solo con
 ## conocidas queda "ok" y su verificacion empieza por "conocida").
-## Decisiones: value2 y frac/frac2 solo se comparan cuando alguna de las dos tablas trae el dato (si no, no hay fila);
-## sin PNG → "suprimido" (omitido con --no-png o sin Chrome) salvo que figures_status diga estado "png" → fallo; el PNG
-## se acepta con ±1 px de ancho y ±round(size_tol_in·dpi) px de alto (= 3): el alto real del SVG puede diferir del h_in
-## del manifiesto dentro de size_tol_in, y round(8.375·300) = 2512 en R (redondeo al par) mientras el publicado mide 2513.
+## Decisiones: value2, x, y, lo, hi, n y frac/frac2 solo se comparan en una fila cuando alguna de las dos tablas trae el
+## dato (value2: en toda la figura); x, y, lo, hi, n además solo si la referencia trae alguno, y frac/frac2 solo si la
+## referencia trae alguna fracción (sankey 11/16: sin barra medible); las claves repetidas se numeran en el orden de
+## `order`, no en el orden físico del CSV; el texto de drawn.csv no añade filas: la fila text/text2 falla (nota
+## "drawn.csv") si lo dibujado no es la referencia aunque la tabla lo sea; sin PNG → "suprimido" (omitido con --no-png o
+## sin Chrome) salvo que figures_status diga estado "png" → fallo; el PNG se acepta con ±1 px de ancho y
+## ±round(size_tol_in·dpi) px de alto (= 3) porque el alto real del SVG puede diferir del h_in del manifiesto dentro de
+## size_tol_in. Los PNG publicados miden exactamente round(w_in·300) × round(h_in·300) (fig 9: 1821×2512; 2513 =
+## ceiling(8.375·300) es la ventana de Chrome antes del recorte, no el PNG).
 
-VERIFY_FIELDS  <- c("text", "text2", "value", "value2", "frac", "frac2", "orden", "ancho", "alto", "png", "texto_vivo", "entorno")
-VERIFY_RESULTS <- c("ok", "fallo", "conocida", "suprimido", "faltante", "extra")
-VERIFY_STATES  <- c("ok", "fallo", "error", "sin salida", "sin referencia", "desactualizada", "estatica", "omitida")
-KEY_COLS       <- c("kind", "grouping", "label", ".dup")   # clave de unión (+ índice de repetición)
+KEY_COLS <- c("kind", "grouping", "label", ".dup")   # clave de unión (+ índice de repetición)
+XY_TOL   <- 0.01                                     # tol de x, y cuando la referencia no trae tol_xy (decisión 1)
 
 
 ## Utilidades ------------------------------------------------------------------------------------------------------
@@ -58,9 +67,11 @@ fmt_val <- function(x) {
 within_tol <- function(a, b, tol) isTRUE(abs(as.numeric(a) - as.numeric(b)) <= as.numeric(tol) + 1e-9)
 
 
-# Lee una tabla (salida, drawn o referencia) como texto y asegura las columnas del contrato: faltantes → NA / ""
+# Lee una tabla (salida, drawn o referencia) como texto y asegura las columnas del contrato: faltantes → NA / "".
+# Numéricas: value, value2, frac, frac2, tol y (decisión 1 de la revisión) tol2, tol_xy, x, y, lo, hi, n.
 read_table_csv <- function(f) {
-  num <- c("value", "value2", "frac", "frac2", "tol"); chr <- c("kind", "grouping", "label", "text", "text2")
+  num <- c("value", "value2", "frac", "frac2", "tol", "tol2", "tol_xy", "x", "y", "lo", "hi", "n")
+  chr <- c("kind", "grouping", "label", "text", "text2")
   x <- read_csv(f, col_types = cols(.default = col_character()), na = character(), show_col_types = FALSE, progress = FALSE)
   for (c in c("order", num)) if (!c %in% names(x)) x[[c]] <- NA_character_
   for (c in chr) if (!c %in% names(x)) x[[c]] <- ""
@@ -69,8 +80,9 @@ read_table_csv <- function(f) {
                across(all_of(chr), ~ coalesce(.x, "")))
 }
 
-# Clave (kind, grouping, label) + índice de repetición: las claves duplicadas se emparejan por posición
-add_key <- function(x) x %>% group_by(kind, grouping, label) %>% mutate(.dup = row_number()) %>% ungroup()
+# Clave (kind, grouping, label) + índice de repetición. Las claves duplicadas se numeran en el orden de `order`: en el
+# orden físico del CSV, el mismo contenido escrito en otro orden (validate_df lo admite) fallaba
+add_key <- function(x) x %>% arrange(order) %>% group_by(kind, grouping, label) %>% mutate(.dup = row_number()) %>% ungroup()
 
 # Compara un número de la fila: ambos NA → suprimido; uno solo NA → fallo; |esperado − obtenido| ≤ tol → ok
 cmp_num <- function(campo, esperado, obtenido, tol, meta, nota = "") {
@@ -79,6 +91,21 @@ cmp_num <- function(campo, esperado, obtenido, tol, meta, nota = "") {
          else if (within_tol(esperado, obtenido, tol)) "ok" else "fallo"
   vrow(campo, fmt_val(esperado), fmt_val(obtenido), res, tol = tol, kind = meta$kind, grouping = meta$grouping,
        label = meta$label, nota = nota)
+}
+
+# Compara un texto impreso: el de la tabla y, si hay drawn.csv (svg_r), el dibujado deben ser el de la referencia
+# (§4.5: drawn$text = df$text). dibujado = NULL si no hay drawn que mirar, NA si drawn.csv no tiene la fila.
+cmp_text <- function(campo, esperado, tabla, dibujado, meta) {
+  row <- function(obtenido, res, nota = "") vrow(campo, esperado, obtenido, res, tol = 0, kind = meta$kind,
+                                                 grouping = meta$grouping, label = meta$label, nota = nota)
+  if (!identical(esperado, tabla)) {
+    otro <- !is.null(dibujado) && !is.na(dibujado) && !identical(dibujado, tabla)
+    return(row(tabla, "fallo", if (otro) paste0("drawn.csv dibuja ", dibujado) else ""))
+  }
+  if (is.null(dibujado)) return(row(tabla, "ok"))
+  if (is.na(dibujado)) return(row("", "fallo", "drawn.csv: la fila no está (texto sin dibujar)"))
+  if (!identical(esperado, dibujado)) return(row(dibujado, "fallo", "drawn.csv: lo dibujado no es el texto de la tabla"))
+  row(tabla, "ok")
 }
 
 # Fila "orden": posición de cada fila común en la referencia vs en la salida; primera discrepancia → fallo
@@ -131,8 +158,9 @@ sfield <- function(status, name) {
 }
 
 # "desactualizada": md5 de la tabla o del SVG ≠ figures_status, o ctx_key ≠ cache/ctx_<slug>.key (si existe).
-# figures_status guarda ctx$meta$key (clave del master) y ctx_<slug>.key la extiende con |eu|…|slug|…|country|…,
-# así que se acepta la igualdad con ctx_<slug>.key, con master.key o como prefijo de ctx_<slug>.key.
+# figures_status guarda la clave del ctx (decisión 6 de la revisión: ctx$meta$ctx_key = ctx_key(cfg, master_key), el
+# contenido de ctx_<slug>.key); se acepta además la igualdad con master.key o como prefijo de ctx_<slug>.key
+# (filas escritas con la clave del master).
 is_stale <- function(status, f_table, f_svg, cfg) {
   no <- list(stale = FALSE, why = "")
   if (is.null(status)) return(no)
@@ -164,7 +192,8 @@ deps_mismatch <- function(cfg) {
   deps %>% filter(instalada != version)
 }
 
-# Dimensiones (ancho, alto) en px de un PNG y dpi declarados, con png::readPNG(native = TRUE, info = TRUE)
+# Dimensiones (ancho, alto) en px de un PNG y dpi declarados, como png_props() de build_finales.R:154-157 pero con
+# native = TRUE (una matriz de enteros en vez de alto × ancho × canales en doble precisión)
 png_dims <- function(f) {
   x <- png::readPNG(f, native = TRUE, info = TRUE)
   info <- attr(x, "info")
@@ -186,23 +215,29 @@ verify_figure <- function(spec, cfg, status = NULL) {
     list(estado = estado, verificacion = verificacion, archivo = archivo, detalle = detalle)
   }
 
-  # (1) estados previos, en este orden
+  # (1) estados previos, en este orden. El error de figures va primero (decisión 2 de la revisión): export_figure borra
+  # las salidas al empezar, así que un data() que fallaba se veía como "sin salida" y su mensaje solo quedaba en el log
+  if (identical(sfield(status, "estado"), "error")) {
+    m <- sfield(status, "motivo")
+    if (!nzchar(archivo)) archivo <- rel_path(figure_file(spec, cfg), root)
+    return(done("error", paste0("figures: ", if (is.na(m)) "error (ver log)" else first_line(m, 60))))
+  }
   if (!file.exists(f_table)) return(done("sin salida"))
   if (identical(spec$metodo, "static")) return(done("estatica", "SVG estático: no se verifica"))
   if (!file.exists(f_ref)) return(done("sin referencia", "corra tools/build_reference.R"))
   st <- is_stale(status, f_table, f_svg, cfg)
   if (st$stale) return(done("desactualizada", st$why))
-  if (identical(sfield(status, "estado"), "error")) return(done("error", "figures: error (ver log)"))
 
   tol_pp <- cfg$verify$tol_pp %||% 0.6; tol_frac <- cfg$verify$tol_frac %||% 0.006
   size_tol <- cfg$verify$size_tol_in %||% 0.01; dpi <- cfg$layout$dpi %||% 300
   out <- read_table_csv(f_table); ref <- read_table_csv(f_ref)
+  d_k <- if (!identical(spec$metodo, "ggplot") && file.exists(f_drawn)) add_key(read_table_csv(f_drawn)) else NULL
   det <- list()
   add <- function(row) det[[length(det) + 1L]] <<- row
 
   # (2) unión por (kind, grouping, label): fila de la referencia sin tabla → faltante; de la tabla sin referencia → extra
   ref_k <- add_key(ref); out_k <- add_key(out)
-  if (any(ref_k$.dup > 1) || any(out_k$.dup > 1)) log_msg("fig ", fig, ": claves (kind, grouping, label) repetidas; se emparejan por posición")
+  if (any(ref_k$.dup > 1) || any(out_k$.dup > 1)) log_msg("fig ", fig, ": claves (kind, grouping, label) repetidas; se emparejan en el orden de order")
   both  <- inner_join(ref_k, out_k, by = KEY_COLS, suffix = c("_ref", "_out")) %>% arrange(order_ref)
   miss  <- anti_join(ref_k, out_k, by = KEY_COLS) %>% arrange(order)
   extra <- anti_join(out_k, ref_k, by = KEY_COLS) %>% arrange(order)
@@ -219,35 +254,43 @@ verify_figure <- function(spec, cfg, status = NULL) {
   # (3) orden: la secuencia de order de las filas comunes debe ser la misma
   if (nrow(both) > 1) add(order_row(both$order_ref, both$order_out, both, nota = "tabla"))
 
-  # (4) por fila común: text/text2 exactos si la referencia los trae; value con la tol de la fila; value2 igual
+  # (4) por fila común: text/text2 exactos si la referencia los trae (en la tabla y en drawn.csv); value con la tol de
+  # la fila; value2 con tol2 (NA → la de value); x, y con tol_xy (NA → 0.01) y lo, hi, n exactos si la referencia los
+  # trae. Antes value2 usaba siempre la tol de value (fig 3: 0.6 en vez de 0.06) y x, y, lo, hi, n no se comparaban
+  if (!is.null(d_k)) both <- left_join(both, select(d_k, all_of(KEY_COLS), text_drawn = text, text2_drawn = text2), by = KEY_COLS)
   uses_value2 <- any(!is.na(both$value2_ref)) || any(!is.na(both$value2_out))
+  xtra <- c("x", "y", "lo", "hi", "n")
+  xtra <- xtra[vapply(xtra, function(v) any(!is.na(ref[[v]])), logical(1))]
   for (i in seq_len(nrow(both))) {
     b <- both[i, ]; meta <- list(kind = b$kind, grouping = b$grouping, label = b$label)
     tol_i <- if (is.na(b$tol_ref)) tol_pp else b$tol_ref
-    if (nzchar(b$text_ref)) {
-      add(vrow("text", b$text_ref, b$text_out, if (identical(b$text_ref, b$text_out)) "ok" else "fallo", tol = 0,
-               kind = b$kind, grouping = b$grouping, label = b$label))
-    }
-    if (nzchar(b$text2_ref)) {
-      add(vrow("text2", b$text2_ref, b$text2_out, if (identical(b$text2_ref, b$text2_out)) "ok" else "fallo", tol = 0,
-               kind = b$kind, grouping = b$grouping, label = b$label))
-    }
+    tol2_i <- if (is.na(b$tol2_ref)) tol_i else b$tol2_ref
+    if (nzchar(b$text_ref)) add(cmp_text("text", b$text_ref, b$text_out, if (is.null(d_k)) NULL else b$text_drawn, meta))
+    if (nzchar(b$text2_ref)) add(cmp_text("text2", b$text2_ref, b$text2_out, if (is.null(d_k)) NULL else b$text2_drawn, meta))
     add(cmp_num("value", b$value_ref, b$value_out, tol_i, meta))
-    if (uses_value2) add(cmp_num("value2", b$value2_ref, b$value2_out, tol_i, meta))
+    if (uses_value2) add(cmp_num("value2", b$value2_ref, b$value2_out, tol2_i, meta))
+    for (v in xtra) {
+      e <- b[[paste0(v, "_ref")]]; o <- b[[paste0(v, "_out")]]
+      if (is.na(e) && is.na(o)) next
+      tol_v <- if (v %in% c("x", "y")) (if (is.na(b$tol_xy_ref)) XY_TOL else b$tol_xy_ref) else 0
+      add(cmp_num(v, e, o, tol_v, meta))
+    }
   }
 
-  # (5) dibujo: drawn.csv vs frac/frac2 de la referencia (solo donde alguna trae barra) y mismo orden; ggplot no dibuja
+  # (5) dibujo: drawn.csv vs frac/frac2 de la referencia (solo donde alguna trae barra) y mismo orden; ggplot no dibuja.
+  # Si la referencia no trae ninguna fracción (sankey 11/16: sin barra medible) las de drawn.csv no se comparan.
   if (!identical(spec$metodo, "ggplot")) {
     has_frac <- any(!is.na(ref$frac)) || any(!is.na(ref$frac2))
-    if (file.exists(f_drawn)) {
-      d_k <- add_key(read_table_csv(f_drawn))
+    if (!is.null(d_k)) {
       bd <- inner_join(ref_k, d_k, by = KEY_COLS, suffix = c("_ref", "_drawn")) %>% arrange(order_ref)
       if (nrow(bd) > 1) add(order_row(bd$order_ref, bd$order_drawn, bd, nota = "drawn.csv"))
       for (i in seq_len(nrow(bd))) {
         b <- bd[i, ]; meta <- list(kind = b$kind, grouping = b$grouping, label = b$label)
-        if (!is.na(b$frac_ref) || !is.na(b$frac_drawn)) add(cmp_num("frac", b$frac_ref, b$frac_drawn, tol_frac, meta, nota = "drawn.csv"))
-        if (!is.na(b$frac2_ref) || !is.na(b$frac2_drawn)) add(cmp_num("frac2", b$frac2_ref, b$frac2_drawn, tol_frac, meta, nota = "drawn.csv"))
+        if (has_frac && (!is.na(b$frac_ref) || !is.na(b$frac_drawn))) add(cmp_num("frac", b$frac_ref, b$frac_drawn, tol_frac, meta, nota = "drawn.csv"))
+        if (has_frac && (!is.na(b$frac2_ref) || !is.na(b$frac2_drawn))) add(cmp_num("frac2", b$frac2_ref, b$frac2_drawn, tol_frac, meta, nota = "drawn.csv"))
       }
+      if (!has_frac) log_msg("fig ", fig, ": la referencia no trae frac/frac2; ", sum(!is.na(d_k$frac) | !is.na(d_k$frac2)),
+                             " fracciones de drawn.csv sin comparar")
       md <- anti_join(filter(ref_k, !is.na(frac) | !is.na(frac2)), d_k, by = KEY_COLS) %>% arrange(order)
       for (i in seq_len(nrow(md))) {
         add(vrow("frac", fmt_val(coalesce(md$frac[i], md$frac2[i])), "", "fallo", tol = tol_frac, kind = md$kind[i],
@@ -307,7 +350,7 @@ verify_figure <- function(spec, cfg, status = NULL) {
   detalle <- bind_rows(verify_rows_empty(), det)
   kp <- known_pairs(spec$nota)
   if (nrow(kp) > 0 && nrow(detalle) > 0) {
-    got <- out %>% distinct(kind, grouping, label, .keep_all = TRUE) %>% select(kind, grouping, label, text_out = text)
+    got <- out %>% arrange(order) %>% distinct(kind, grouping, label, .keep_all = TRUE) %>% select(kind, grouping, label, text_out = text)
     txt <- detalle %>% select(kind, grouping, label) %>% left_join(got, by = c("kind", "grouping", "label")) %>%
       pull(text_out) %>% coalesce("")
     known <- detalle$resultado %in% c("fallo", "faltante", "extra") &
@@ -332,17 +375,28 @@ verify_figure <- function(spec, cfg, status = NULL) {
 
 ## Todas las figuras -------------------------------------------------------------------------------------------------
 
+# 00-verificacion.csv anterior con el esquema de verify_empty(), o vacío si no existe o no se puede leer
+read_verificacion <- function(f) {
+  if (!file.exists(f)) return(verify_empty())
+  x <- tryCatch(read_csv(f, col_types = cols(.default = col_character()), na = character(), show_col_types = FALSE, progress = FALSE),
+                error = function(e) { log_msg("verify: no se pudo leer ", basename(f), " (", first_line(conditionMessage(e)), "); se reescribe"); NULL })
+  if (is.null(x) || !"fig" %in% names(x)) return(verify_empty())
+  if ("tol" %in% names(x)) x$tol <- suppressWarnings(as.numeric(x$tol))
+  bind_rows(verify_empty(), x)[, names(verify_empty())]
+}
+
 run_verify <- function(specs, cfg) {
   t0 <- Sys.time()
   status_tbl <- read_figures_status(cfg)
   if (is.null(status_tbl)) log_msg("verify: sin log/figures_status.csv (no se comprueban md5 ni ctx_key)")
-  rows <- vector("list", length(specs)); dets <- vector("list", length(specs))
+  rows <- vector("list", length(specs)); dets <- vector("list", length(specs)); done_figs <- character()
   for (i in seq_along(specs)) {
     spec <- specs[[i]]; fig <- sprintf("%02d", spec$fig); metodo <- spec$metodo %||% ""
     if (!is.null(spec$selected) && !isTRUE(spec$selected)) {
       rows[[i]] <- tibble(fig = fig, metodo = metodo, estado = "omitida", verificacion = "", archivo = "")
       next
     }
+    done_figs <- c(done_figs, fig)
     res <- tryCatch(
       withCallingHandlers(
         verify_figure(spec, cfg, last_status(status_tbl, spec$fig)),
@@ -353,28 +407,42 @@ run_verify <- function(specs, cfg) {
     log_msg("verify fig ", fig, " ", spec$slug, ": ", res$estado, if (nzchar(res$verificacion)) paste0(" · ", res$verificacion) else "")
   }
   detalle <- bind_rows(verify_empty(), dets)
+  # upsert por fig: las figuras verificadas reemplazan sus filas y las demás conservan las de su última verificación
+  # (antes el archivo se reescribía solo con las figuras de --figs y perdía el detalle del resto)
   f_det <- file.path(cfg$paths$output, "tables", "00-verificacion.csv")
-  write_csv(detalle, f_det)
+  kept <- read_verificacion(f_det) %>% filter(!fig %in% done_figs)
+  todo <- bind_rows(kept, detalle) %>% arrange(suppressWarnings(as.integer(fig)))
+  write_csv(todo, f_det)
   out <- bind_rows(rows)
   log_msg("verify: ", sum(out$estado == "ok"), "/", sum(out$estado != "omitida"), " ok · ", nrow(detalle),
-          " filas de detalle en ", rel_path(f_det, cfg$paths$root), " · ", round(secs(t0), 1), " s")
+          " filas de detalle de esta corrida + ", nrow(kept), " conservadas de ", n_distinct(kept$fig),
+          " figuras no verificadas ahora en ", rel_path(f_det, cfg$paths$root), " · ", round(secs(t0), 1), " s")
   out
 }
 
 
 ## Prueba ------------------------------------------------------------------------------------------------------------
-## cd /tmp && Rscript --vanilla SCRATCH/agente_F/prueba.R (carga 00_setup.R, 01_load.R y este archivo; svg_size() y
-## count_live_text() como stubs locales; cfg$paths$output/reference/cache redirigidos a SCRATCH/agente_F/).
-## Referencia sintética: finales/datos/Figure_09_access_information.csv (36 filas: 2 avg, 6 header, 28 row; 4 N/A).
-## verify_figure(): sin salida → "sin salida"; metodo static → "estatica"; sin referencia → "sin referencia";
-##   tabla = referencia y drawn = frac → "ok", "98/98 ok" (30 text, 36 value [10 suprimido], 26 frac, 2 orden, ancho,
-##   alto, png, texto_vivo); texto 60%→61% → "fallo", "97/98 · text Male: 60%→61%"; valor +1.0 pp → "fallo" (value) y
-##   +0.4 pp → "ok"; orden intercambiado → "orden Male: 4→5"; fila borrada → "faltante Female"; fila añadida →
-##   "extra Other"; nota "[conocida: Male=61%]" → "ok", "97/98 · conocida text Male: 60%→61%" (y "[conocida: Male=62%]"
-##   sigue "fallo"); frac +0.02 → fallo y +0.004 → ok; sin drawn.csv → "frac: 26→"; alto +0.05 → fallo, +0.009 → ok;
-##   ancho +0.01 → fallo; 3 <text> → "texto_vivo: 0→3"; PNG 10x10 → fallo, +2 px de alto → ok, +2 px de ancho → fallo;
-##   sin PNG → ok (suprimido) y con status estado "png" → fallo; md5 de tabla o SVG ≠ status → "desactualizada";
-##   ctx_key ≠ cache/ctx_<slug>.key → "desactualizada" (prefijo de la clave → ok); status estado "error" → "error".
-## run_verify(): 42 specs sin salida (fig 1 no seleccionada) → 41 × "sin salida" + 1 "omitida", 00-verificacion.csv
-##   con solo encabezado (11 columnas); figura 9 con figures_status coherente → "ok · 98/98 ok", 98 filas de detalle
-##   (88 ok, 10 suprimido). round(6.069·300) = 1821; round(8.375·300) = 2512.
+## Etapa 1: cd /tmp && Rscript --vanilla SCRATCH/agente_F/prueba.R (carga 00_setup.R, 01_load.R y este archivo;
+## svg_size() y count_live_text() como stubs; referencia sintética desde finales/datos/Figure_09_access_information.csv):
+## sin salida, estatica, sin referencia; tabla = referencia y drawn = frac → "ok", "98/98 ok" (30 text, 36 value [10
+## suprimido], 26 frac, 2 orden, ancho, alto, png, texto_vivo); texto, valor fuera de tol, orden, faltante, extra,
+## conocida, frac, alto/ancho, <text> vivo, PNG, md5 y ctx_key → los estados y motivos esperados. round(6.069·300) =
+## 1821; round(8.375·300) = 2512. Etapa 2 (sankey 11): referencia sin frac → las 10 de drawn.csv no se comparan, "26/26 ok".
+## Revisión (2026-10-23): cd /tmp && Rscript --vanilla SCRATCH/fix/G4/tests/t_07.R antes|despues (carga R/00-05 de la
+## copia y 06-08 de orig/ o de la copia; referencias publicadas y sintéticas en una carpeta de prueba; salidas en
+## SCRATCH/fix/G4/tests/out_07_{antes,despues}.txt). Antes → después (sin cambios: 53 → 77 comparaciones en la fig 03
+## por n, 96 → 120 en la 05 por x, y, 51 → 75 en la 41 por lo, hi y 43 → 58 en la 29 por n; todas ok):
+##   fig 03 value2 + 0.07 con tol2 = 0.06: ok → fallo "value2 Accidental: 5.99374→6.06374" (+ 0.05 → ok; sin tol2,
+##   + 0.55 sigue ok con la tol 0.6 de la fila); fig 03 n + 1: ok → fallo; fig 05 red espejada (x → 1 − x, y → 1 − y):
+##   ok → fallo "x Consumer: 1.01891→-0.0189145"; x + 0.005 → ok; x + 0.02: ok → fallo (sin tol_xy, 0.01); con tol_xy =
+##   0.05, + 0.02 → ok; fig 41 lo/hi 29/55 → 2/62: ok → fallo "lo Judges: 29→2"; fig 29 n + 1: ok → fallo;
+##   fig 09 drawn.csv con "99%" en National Average: "ok · 98/98 ok" → "fallo · 97/98 · text National Average:
+##   61%→99%" (nota drawn.csv); figures_status con estado "error" y sin tabla: "sin salida" → "error · figures:
+##   pendiente: fig_09 sin implementar" (sin columna motivo: "error · figures: error (ver log)"; con tabla y motivo
+##   largo: el motivo recortado a 60 caracteres); estado "tamaño" sin referencia: "sin referencia" en ambas
+##   (decisión 2); claves repetidas (A, A, B) en otro orden físico con el mismo order: "fallo · 6/12 · orden A: 1→2"
+##   → "ok · 12/12 ok"; run_verify --figs 09 y luego --figs 10: 00-verificacion.csv con solo la 10 (90 filas) → la 09
+##   (98) y la 10 (90), y otra corrida de la 09 no duplica filas. main.R --stage all --figs 09,10,11 → 3/3 (98/98,
+##   90/90, 26/26); --stage verify y --stage compare sin error. main.R --stage all --figs 12 --no-png (stub): la consola
+##   mostraba "sin salida" y "0 errores" → "12 svg_r error figures: pendiente: fig_12 sin implementar" y "0/1
+##   verificadas · 0 conocidas · 1 errores".

@@ -8,12 +8,13 @@ data:
   dta: "eu-gpp/1. Data/3. Merge/EU_GPP_2024.dta"      # relativo a path2EU (local.yml)
   dta_md5: ""                                          # opcional: aviso en el log si el .dta difiere
   regions: "data/regions.csv"                          # relativo a la carpeta; define los 27 países y regionpoppct
-  eu_values: "reference/hungary/eu_values.csv"         # medias UE de data4web cacheadas (10 ids)
+  eu_values: "reference/hungary/eu_values.csv"         # medias UE de data4web cacheadas (ids = columna eu_id del manifiesto)
   data4web: "reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv"   # relativo a path2EU; solo tools/build_reference.R
 layout:
-  text_pt: 10                # tamaño del texto en las figuras svg_r
-  max_w_callout_in: 6.5      # ancho máximo con recuadro
-  max_w_full_in: 8.4         # ancho máximo a página completa
+  text_pt: 10                # tamaño final (pt) del texto de las figuras ggplot (lienzo × base_pt / text_pt, 06_export.R);
+                             # las svg_r no lo leen: su texto es STD$size_label = 10 pt (R/04_svg.R)
+  max_w_callout_in: 6.5      # ancho máximo junto a un recuadro (callout true): read_manifest() avisa si w_in lo supera
+  max_w_full_in: 8.4         # ancho máximo a página completa (callout false): ídem
   dpi: 300
 verify:
   tol_pp: 0.6                # puntos porcentuales (valor crudo vs referencia)

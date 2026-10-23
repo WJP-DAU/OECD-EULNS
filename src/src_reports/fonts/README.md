@@ -6,8 +6,9 @@ permite redistribuirlas con el código, por eso viven dentro de la carpeta y no 
 
 | Archivo | Uso |
 |---|---|
-| InterTight-Regular / Bold / Italic / SemiBoldItalic | registro `systemfonts::register_font("inter", …)` en `R/00_setup.R` (igual que `src/hungary/setup.R:200-206`): figuras ggplot |
-| InterTight-Medium / MediumItalic / SemiBold / BoldItalic | texto en trazos de las figuras svg_r (`R/04_svg.R`, `font_file()`) |
+| InterTight-Regular / Italic / SemiBoldItalic / Bold / BoldItalic | `font_file(weight, italic)` de `R/04_svg.R`: texto en trazos de las svg_r (400, 400 cursiva, 600 cursiva, 700, 700 cursiva) y contorneado de las ggplot (`outline_svg_text()`) |
+| InterTight-Regular / Bold / Italic / SemiBoldItalic | registro `systemfonts::register_font("inter", plain, bold, italic, bolditalic)` en `R/00_setup.R` (igual que `src/hungary/setup.R:200-206`): las caras que pide ggplot2 |
+| InterTight-Medium / MediumItalic / SemiBold | no las usa ningún camino (ni 500 ni 600 recta); se conservan con el resto del juego y `setup_fonts()` comprueba las 8 |
 
 `md5.txt` (formato `md5 -r`) se comprueba al arrancar: si un archivo cambia o pesa 0 bytes (OneDrive sin
 descargar) `setup_fonts()` avisa o se detiene.
