@@ -6,9 +6,7 @@ readr,2.2.0,CRAN,minima,tidyverse
 purrr,1.2.2,CRAN,minima,tidyverse
 stringr,1.6.0,CRAN,minima,tidyverse
 tibble,3.3.1,CRAN,minima,tidyverse
-forcats,1.0.1,CRAN,minima,tidyverse
-glue,1.8.1,CRAN,minima,mensajes
-scales,1.4.0,CRAN,minima,ggplot2
+scales,1.4.0,CRAN,minima,la usa ggplot2 (escalas y ejes de 3 6 7 29); sin llamadas directas
 ggplot2,4.0.3,CRAN,exacta,figuras ggplot (3 6 7 29): geometría y texto dependen de la versión
 svglite,2.2.2,CRAN,exacta,SVG de las figuras ggplot antes de contornear el texto
 systemfonts,1.3.2,CRAN,exacta,registro de Inter Tight y métricas de texto
@@ -17,6 +15,7 @@ xml2,1.6.0,CRAN,minima,lectura y edición de SVG
 png,0.1.9,CRAN,minima,recorte y escritura de PNG a 300 dpi
 yaml,2.3.12,CRAN,minima,config/*.yml
 igraph,2.3.1,CRAN,exacta,layout de la red (fig 5) depende de la versión
-ComplexUpset,1.3.3,CRAN,exacta,upset (fig 29)
+ComplexUpset,1.3.3,CRAN,exacta,upset (fig 29) y orden de sus intersecciones en tools/build_reference.R
 ggrepel,0.9.8,CRAN,exacta,rótulos del scatter (fig 3; seed 7)
 WJPr,1.1.0,github worldjusticeproject-org/WJPr@382aee9,opcional,solo tools/pilot_wjpr.R y figuras con wjpr = adoptada
+showtext,0.9.8,CRAN,opcional,solo para apagarlo (showtext_auto(FALSE)) si está instalado: svglite debe emitir <text>

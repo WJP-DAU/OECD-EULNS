@@ -1,4 +1,4 @@
 order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
-1,row,,Official proof of identity,99,99,99%,99%,0.9915665434380776,0.9866566543438078,0.6
-2,row,,Written work agreement,95,93,95%,93%,0.9504101201478744,0.9336298521256932,0.6
-3,row,,Proof of housing or land tenure,88,88,88%,88%,0.8809496303142328,0.8832312846580407,0.6
+1,row,,Official proof of identity,99,99,99%,99%,1,0.9950483513922871,0.6
+2,row,,Written work agreement,95,93,95%,93%,0.9584935337294653,0.9415705464289875,0.6
+3,row,,Proof of housing or land tenure,88,88,88%,88%,0.8884422696027029,0.890743329838052,0.6

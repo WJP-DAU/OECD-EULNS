@@ -6,8 +6,8 @@ order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol,n
 5,row,,Access to Assistance + Access to Information + Resolution Process,9.040439906913894,NA,9.0%,,NA,NA,0.6,51
 6,row,,Access to Information,7.959139704226409,NA,8.0%,,NA,NA,0.6,46
 7,row,,Access to Information + Resolution Process,6.008276405675249,NA,6.0%,,NA,NA,0.6,34
-8,row,,Access to Assistance + Resolution Process + Problem Resolved,5.8854590496208985,NA,5.9%,,NA,NA,0.6,33
-9,row,,Access to Information + Resolution Process + Problem Resolved,5.859485023646874,NA,5.9%,,NA,NA,0.6,34
+8,row,,Access to Information + Resolution Process + Problem Resolved,5.859485023646874,NA,5.9%,,NA,NA,0.6,34
+9,row,,Access to Assistance + Resolution Process + Problem Resolved,5.8854590496208985,NA,5.9%,,NA,NA,0.6,33
 10,row,,Resolution Process + Problem Resolved,5.2546768260641095,NA,5.3%,,NA,NA,0.6,31
 11,row,,Access to Information + Problem Resolved,2.9430785977028746,NA,2.9%,,NA,NA,0.6,16
 12,row,,Access to Assistance + Access to Information + Problem Resolved,2.0303468208092488,NA,2.0%,,NA,NA,0.6,11

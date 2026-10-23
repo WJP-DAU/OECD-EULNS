@@ -1,7 +1,25 @@
-## 00_setup.R — paquetes, configuración, dependencias, fuentes, registro y tabla de consola --------------------
+## 00_setup.R — locale, paquetes, configuración, dependencias, fuentes, manifiesto, registro y tabla de consola ------
 ## Origen: nuevo para src_reports (sustituye src/utils/config.R, que elegía rutas por Sys.info()["user"]).
-## Carga: main.R hace source() de R/00-08 en orden; aquí no hay código que se ejecute al cargar salvo las
-## librerías y el entorno .sr (estado de sesión).
+## Carga: main.R hace source() de R/00-08 en orden. Al cargar solo se ejecutan la guarda de locale UTF-8
+## (ensure_utf8, decisión 10 de la revisión), las librerías, las opciones y el entorno .sr (estado de sesión).
+
+.sr <- new.env(parent = emptyenv())                   # estado de sesión: log, memo de estimadores, avisos de arranque
+
+# LC_CTYPE UTF-8 obligatorio: en locale C/POSIX (cron, launchd, Docker sin LANG) yaml::read_yaml() leía los yml
+# vacíos y textshaping/write_csv convertían '−', '–' y '·' en '<U+2212>'. Si no es UTF-8 se prueban los candidatos;
+# si ninguno existe se detiene (mensaje en ASCII: el locale aún no es UTF-8). Devuelve la nota del cambio o NULL.
+ensure_utf8 <- function(cands = c("C.UTF-8", "en_US.UTF-8")) {
+  if (isTRUE(l10n_info()[["UTF-8"]])) return(invisible(NULL))
+  prev <- Sys.getlocale("LC_CTYPE")
+  for (l in cands) if (nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", l))) && isTRUE(l10n_info()[["UTF-8"]])) break
+  if (!isTRUE(l10n_info()[["UTF-8"]])) {
+    stop("src_reports necesita un locale UTF-8: LC_CTYPE es '", prev, "' y no se pudo fijar ",
+         paste(cands, collapse = " ni "), ". Defina LANG=en_US.UTF-8 (p. ej. LANG=en_US.UTF-8 Rscript main.R ...).",
+         call. = FALSE)
+  }
+  invisible(paste0("LC_CTYPE ", prev, " → ", Sys.getlocale("LC_CTYPE")))
+}
+.sr$locale_note <- ensure_utf8()
 
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(readr); library(purrr); library(stringr); library(tibble); library(ggplot2)
@@ -11,69 +29,143 @@ invisible(Sys.setlocale("LC_COLLATE", "C"))          # orden alfabético determi
 if (requireNamespace("showtext", quietly = TRUE)) showtext::showtext_auto(FALSE)   # svglite debe emitir <text>
 options(wjpr.family = "inter")
 
-.sr <- new.env(parent = emptyenv())                   # estado de sesión: log, memo de estimadores, fuentes
-
 
 ## Configuración ----------------------------------------------------------------------------------------------
 
 # cfg = config/<country>.yml + config/local.yml (rutas de la máquina) + variables de entorno; cfg$paths absolutas.
-# country NULL = el único yml de config/ que no sea local*.
+# country NULL = el único yml de config/ que no sea local*. Rutas de local.yml y SRC_REPORTS_CACHE (decisión 11):
+# "~" se expande y las relativas se resuelven contra la carpeta (root), no contra el directorio de trabajo (un
+# cache_dir relativo dejaba master.rds, con microdatos, fuera de la carpeta y de .gitignore, uno por cada cwd).
 load_config <- function(root, country = NULL) {
   ymls <- setdiff(list.files(file.path(root, "config"), pattern = "\\.yml$"), c("local.yml", "local.yml.example"))
+  hay <- paste(sub("\\.yml$", "", ymls), collapse = ", ")
   if (is.null(country)) {
-    if (length(ymls) != 1) stop("Indique --country: hay ", length(ymls), " configuraciones en config/", call. = FALSE)
+    if (length(ymls) != 1) stop("Indique --country: hay ", length(ymls), " configuraciones en config/ (", hay, ")", call. = FALSE)
     country <- sub("\\.yml$", "", ymls)
   }
   file <- file.path(root, "config", paste0(country, ".yml"))
-  if (!file.exists(file)) stop("No existe ", file, call. = FALSE)
-  cfg <- yaml::read_yaml(file)
+  if (!file.exists(file)) stop("No existe ", file, " (configuraciones en config/: ", hay, ")", call. = FALSE)
+  cfg <- check_cfg(read_yml(file), file)
   local_file <- file.path(root, "config", "local.yml")
-  loc <- if (file.exists(local_file)) yaml::read_yaml(local_file) else list()
-  nz <- function(x) !is.null(x) && nzchar(x)
-  path2EU <- if (nz(loc$path2EU)) loc$path2EU else NA_character_
-  cache <- Sys.getenv("SRC_REPORTS_CACHE")
-  if (!nzchar(cache)) cache <- if (nz(loc$cache_dir)) loc$cache_dir else file.path(root, "cache")
+  loc <- if (file.exists(local_file)) read_yml(local_file) else list()
+  if (!is.list(loc)) stop(local_file, " debe ser un mapa YAML (clave: valor; ver local.yml.example)", call. = FALSE)
+  path2EU <- local_path(loc$path2EU, root)
+  cache <- local_path(Sys.getenv("SRC_REPORTS_CACHE"), root)
+  if (is.na(cache)) cache <- local_path(loc$cache_dir, root)
+  if (is.na(cache)) cache <- file.path(root, "cache")
+  chrome <- find_chrome(local_path(loc$chrome, root))
+  .sr$chrome_avisos <- attr(chrome, "avisos")          # ruta configurada que no existe: cabecera y log (main.R)
+  attr(chrome, "avisos") <- NULL
   cfg$paths <- list(
     root      = root,
     config    = file,
-    dta       = if (is.na(path2EU)) NA_character_ else file.path(path2EU, cfg$data$dta),
-    data4web  = if (is.na(path2EU) || is.null(cfg$data$data4web)) NA_character_ else file.path(path2EU, cfg$data$data4web),
-    regions   = file.path(root, cfg$data$regions),
-    eu_values = file.path(root, cfg$data$eu_values),
+    dta       = local_path(cfg$data$dta, path2EU),          # relativas a path2EU: NA si no hay path2EU
+    data4web  = local_path(cfg$data$data4web, path2EU),
+    regions   = local_path(cfg$data$regions, root),
+    eu_values = local_path(cfg$data$eu_values, root),
     fonts     = file.path(root, "fonts"),
-    chrome    = find_chrome(if (nz(loc$chrome)) loc$chrome else NULL),
+    chrome    = chrome,
     cache     = cache,
     output    = file.path(root, "output", cfg$slug),
     reference = file.path(root, "reference", cfg$slug),
     manifest  = file.path(root, "manifest", "figures.csv"),
+    manifest_country = file.path(root, "manifest", paste0("figures_", cfg$slug, ".csv")),   # opcional (decisión 5)
     deps      = file.path(root, "deps.csv"),
-    published = if (nz(loc$published_dir)) loc$published_dir else NA_character_,          # solo tools/build_reference.R
-    reference_src = if (nz(loc$reference_src_dir)) loc$reference_src_dir else NA_character_  # idem (CSV publicados)
+    published = local_path(loc$published_dir, root),          # solo tools/build_reference.R
+    reference_src = local_path(loc$reference_src_dir, root)   # idem (CSV publicados)
   )
   for (d in c("figures", "tables", "compare", "log")) dir.create(file.path(cfg$paths$output, d), recursive = TRUE, showWarnings = FALSE)
   dir.create(cfg$paths$cache, recursive = TRUE, showWarnings = FALSE)
   cfg
 }
 
-# Chrome: CHROMOTE_CHROME > local.yml > candidatos fijos > PATH. NA si no hay (los PNG se omiten con aviso).
+# yml → lista (archivo vacío → list()). Un yml mal formado da un error con el archivo, no uno críptico más adelante.
+read_yml <- function(f) {
+  y <- tryCatch(yaml::read_yaml(f), error = function(e) stop("YAML inválido en ", basename(f), ": ", conditionMessage(e), call. = FALSE))
+  if (is.null(y)) list() else y
+}
+
+# Claves de config/<pais>.yml que el código usa sin valor por defecto: sin ellas el fallo llegaba tarde y críptico
+# (dir.create(character(0)), if (logical(0))). Las numéricas opcionales (tolerancias, anchos máximos) se validan si están,
+# y cada valor esperado de checks debe ser un número ('access2info:' vacío fallaba en data_checks con 'valor ausente').
+check_cfg <- function(cfg, file) {
+  if (!is.list(cfg)) stop(basename(file), " debe ser un mapa YAML (clave: valor)", call. = FALSE)
+  get <- function(a, b = NULL) { x <- cfg[[a]]; if (is.null(b)) x else if (is.list(x)) x[[b]] else NULL }
+  txt <- function(x) is.character(x) && length(x) == 1 && !is.na(x) && nzchar(x)
+  num <- function(x) is.numeric(x) && length(x) == 1 && !is.na(x) && x > 0
+  bad <- c(
+    if (!txt(get("country"))) "country",
+    if (!txt(get("slug")) || !grepl("^[A-Za-z0-9_-]+$", get("slug"))) "slug (letras, números, _ o -)",
+    if (!txt(get("data", "dta"))) "data$dta", if (!txt(get("data", "regions"))) "data$regions",
+    if (!txt(get("data", "eu_values"))) "data$eu_values",
+    if (!is.null(get("data", "data4web")) && !txt(get("data", "data4web"))) "data$data4web",
+    if (!num(get("layout", "dpi"))) "layout$dpi", if (!num(get("layout", "text_pt"))) "layout$text_pt",
+    if (!num(get("verify", "size_tol_in"))) "verify$size_tol_in",
+    unlist(lapply(list(c("verify", "tol_pp"), c("verify", "tol_frac"), c("layout", "max_w_callout_in"), c("layout", "max_w_full_in")),
+                  function(k) if (!is.null(get(k[1], k[2])) && !num(get(k[1], k[2]))) paste0(k[1], "$", k[2]))),
+    if (!is.null(cfg$checks)) check_leaves(cfg$checks, "checks")
+  )
+  if (length(bad) > 0) stop(basename(file), ": faltan o no son válidas las claves ", paste(bad, collapse = ", "), call. = FALSE)
+  cfg
+}
+
+# Rutas (a$b$c) de las hojas de una lista del yml que no son un único número
+check_leaves <- function(x, path) {
+  if (is.list(x)) return(unlist(lapply(names(x), function(n) check_leaves(x[[n]], paste0(path, "$", n)))))
+  if (is.numeric(x) && length(x) == 1 && !is.na(x)) NULL else path
+}
+
+# Ruta de configuración → absoluta: NULL/""/NA → NA; "~" expandida; absoluta tal cual; relativa → bajo base (NA si
+# base es NA, p. ej. data$dta sin path2EU)
+local_path <- function(x, base) {
+  if (is.null(x) || length(x) != 1 || is.na(x) || !nzchar(trimws(x))) return(NA_character_)
+  x <- path.expand(as.character(x))
+  if (grepl("^(/|[A-Za-z]:[/\\\\]|\\\\\\\\)", x)) x else if (is.na(base)) NA_character_ else file.path(base, x)
+}
+
+# Chrome: CHROMOTE_CHROME > local.yml > candidatos fijos > PATH. NA si no hay (los PNG se omiten con aviso). Una ruta
+# configurada (entorno o local.yml) que no existe o no es un archivo se descarta con aviso en attr(, "avisos") (antes
+# se ignoraba en silencio) y "~" se expande (system2 no la expande). main.R registra en el log la ruta y su --version.
 find_chrome <- function(local = NULL) {
-  cand <- c(Sys.getenv("CHROMOTE_CHROME"), local,
+  ok <- function(p) !is.na(p) && nzchar(p) && file.exists(p) && !dir.exists(p)
+  conf <- c("CHROMOTE_CHROME" = path.expand(Sys.getenv("CHROMOTE_CHROME")),
+            "config/local.yml" = if (length(local) == 1 && !is.na(local)) path.expand(local) else "")
+  conf <- conf[nzchar(conf)]
+  avisos <- unname(vapply(names(conf), function(k) if (ok(conf[[k]])) "" else paste0(k, " no existe o no es un archivo: ", conf[[k]]), ""))
+  cand <- c(unname(conf),
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "/Applications/Google Chrome .app/Contents/MacOS/Google Chrome",
             "/opt/homebrew/bin/chromium", "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser",
             unname(Sys.which(c("google-chrome", "chromium", "chromium-browser", "chrome-headless-shell"))))
-  cand <- cand[!is.na(cand) & nzchar(cand) & file.exists(cand)]
-  if (length(cand) == 0) NA_character_ else cand[1]
+  cand <- cand[vapply(cand, ok, logical(1))]
+  out <- if (length(cand) == 0) NA_character_ else unname(cand[1])
+  if (any(nzchar(avisos))) attr(out, "avisos") <- avisos[nzchar(avisos)]
+  out
+}
+
+# Primera línea de '<chrome> --version' (qué binario rasteriza los PNG; main.R la registra en el log), NA si no
+# responde en 15 s. Con exec no queda un sh intermedio que escriba en la consola si Chrome muere por una señal.
+chrome_version <- function(chrome) {
+  if (is.na(chrome)) return(NA_character_)
+  v <- tryCatch(suppressWarnings(system2("exec", c(shQuote(chrome), "--version"), stdout = TRUE, stderr = FALSE, timeout = 15)),
+                error = function(e) character())
+  v <- trimws(v[nzchar(trimws(v))])
+  if (length(v) == 0) NA_character_ else v[1]
 }
 
 
 ## Dependencias y fuentes ---------------------------------------------------------------------------------------
 
-# deps.csv: paquete, version, origen, modo (exacta | minima). Falta de 'minima' detiene; desajuste de 'exacta' avisa.
+# deps.csv: paquete, version, origen, modo (exacta | minima | opcional), uso. Falta de 'minima' detiene; desajuste de
+# 'exacta' avisa (cabecera y log); 'opcional' se registra en el log con su versión o "ausente", sin cargarlo (los
+# ausentes quedan en .sr$deps_optional_missing para la cabecera de main.R).
 check_deps <- function(cfg) {
-  deps <- read_csv(cfg$paths$deps, show_col_types = FALSE)
-  installed <- vapply(deps$paquete, function(p) if (requireNamespace(p, quietly = TRUE)) as.character(packageVersion(p)) else NA_character_, "")
-  deps$instalada <- unname(installed)
+  deps <- read_csv(cfg$paths$deps, col_types = cols(.default = col_character()), na = character())
+  ver <- function(p, modo) {
+    if (modo == "opcional") return(tryCatch(as.character(packageVersion(p)), error = function(e) NA_character_))
+    if (requireNamespace(p, quietly = TRUE)) as.character(packageVersion(p)) else NA_character_
+  }
+  deps$instalada <- unname(mapply(ver, deps$paquete, deps$modo))
   missing <- deps %>% filter(modo == "minima" & (is.na(instalada) | package_version(instalada) < package_version(version)))
   if (nrow(missing) > 0) {
     stop("Faltan paquetes (o versión menor a la mínima): ",
@@ -83,21 +175,41 @@ check_deps <- function(cfg) {
   exact <- deps %>% filter(modo == "exacta" & (is.na(instalada) | instalada != version))
   .sr$deps_warning <- if (nrow(exact) > 0) paste0(exact$paquete, " ", coalesce(exact$instalada, "ausente"), " (esperada ", exact$version, ")", collapse = ", ") else NULL
   if (!is.null(.sr$deps_warning)) log_msg("deps.csv: versiones distintas de las exactas: ", .sr$deps_warning)
+  opt <- deps %>% filter(modo == "opcional")
+  for (i in seq_len(nrow(opt))) {
+    log_msg("deps.csv opcional: ", opt$paquete[i], " ", coalesce(opt$instalada[i], "ausente"), " (esperada ", opt$version[i], ")",
+            if (nzchar(opt$uso[i] %||% "")) paste0(" · ", opt$uso[i]) else "")
+  }
+  .sr$deps_optional_missing <- opt$paquete[is.na(opt$instalada)]
   invisible(deps)
 }
 
 # Las 8 TTF estáticas de Inter Tight viven en fonts/ (OFL). Mismo registro que src/hungary/setup.R:200-206.
+# Cada archivo se lee (md5): un .ttf de OneDrive sin descargar (dataless) informa su tamaño lógico, así que el tamaño
+# no basta, y si la lectura falla (sin conexión, sin permisos) md5sum da NA: error legible en vez de 'valor ausente
+# donde TRUE/FALSE es necesario'.
 setup_fonts <- function(cfg) {
   FONT_DIR <<- cfg$paths$fonts
   needed <- c("Regular", "Italic", "Medium", "MediumItalic", "SemiBold", "SemiBoldItalic", "Bold", "BoldItalic")
   files <- file.path(FONT_DIR, paste0("InterTight-", needed, ".ttf"))
-  bad <- files[!file.exists(files) | file.size(files) == 0]
-  if (length(bad) > 0) stop("Faltan o están vacías (OneDrive sin descargar) las fuentes: ", paste(basename(bad), collapse = ", "), call. = FALSE)
+  md5 <- setNames(unname(tools::md5sum(files)), basename(files))
+  size <- file.size(files)
+  bad <- basename(files)[is.na(md5) | is.na(size) | size == 0]
+  if (length(bad) > 0) {
+    stop("Fuentes de fonts/ que faltan, pesan 0 bytes o no se pudieron leer (¿OneDrive sin descargar o sin conexión?): ",
+         paste(bad, collapse = ", "), call. = FALSE)
+  }
   md5_file <- file.path(FONT_DIR, "md5.txt")
   if (file.exists(md5_file)) {
-    rec <- read.table(md5_file, col.names = c("md5", "archivo"), stringsAsFactors = FALSE)
-    now <- unname(tools::md5sum(file.path(FONT_DIR, rec$archivo)))
-    if (any(now != rec$md5)) log_msg("fonts/: md5 distinto de fonts/md5.txt en ", paste(rec$archivo[now != rec$md5], collapse = ", "))
+    rec <- tryCatch(read.table(md5_file, col.names = c("md5", "archivo"), stringsAsFactors = FALSE),
+                    error = function(e) { log_msg("fonts/md5.txt ilegible: ", conditionMessage(e)); NULL })
+    if (!is.null(rec)) {
+      now <- unname(md5[match(rec$archivo, names(md5))])
+      other <- is.na(match(rec$archivo, names(md5)))
+      if (any(other)) now[other] <- unname(tools::md5sum(file.path(FONT_DIR, rec$archivo[other])))
+      dif <- rec$archivo[is.na(now) | now != rec$md5]
+      if (length(dif) > 0) log_msg("fonts/: md5 distinto de fonts/md5.txt (o ilegible) en ", paste(dif, collapse = ", "))
+    }
   }
   systemfonts::register_font(
     name = "inter",
@@ -111,17 +223,62 @@ setup_fonts <- function(cfg) {
 ## Manifiesto y figuras -------------------------------------------------------------------------------------------
 
 # Lista de specs (una fila del manifiesto cada una, con titulo resuelto). spec es la única acepción de 'spec'.
+# spec$country = cfg$country (decisión 3): plot(df, spec) no recibe ctx y las leyendas {country} | EU Average de
+# chart_paired/chart_columns lo leen de spec. Se aceptan columnas extra (p. ej. eu_id, decisión 4). Manifiesto por país
+# opcional (decisión 5): manifest/figures_<slug>.csv, ver manifest_override(). w_in se compara con layout$max_w_* (avisos
+# en el log y en attr(, "avisos"); revisión R7-15).
 read_manifest <- function(cfg) {
   m <- read_csv(cfg$paths$manifest, col_types = cols(.default = col_character()), na = character())
   need <- c("fig", "slug", "titulo", "seccion", "pagina", "tipo", "metodo", "funcion", "w_in", "h_in", "callout",
             "label_col", "base_pt", "fuente_datos", "metodo_ue", "codigo_origen", "wjpr", "status", "verificada", "nota")
   miss <- setdiff(need, names(m))
   if (length(miss) > 0) stop("manifest/figures.csv sin columnas: ", paste(miss, collapse = ", "), call. = FALSE)
-  m <- m %>% mutate(fig = as.integer(fig), pagina = as.integer(pagina), w_in = as.numeric(w_in), h_in = as.numeric(h_in),
+  f_pais <- cfg$paths$manifest_country %||% file.path(dirname(cfg$paths$manifest), paste0("figures_", cfg$slug, ".csv"))
+  if (file.exists(f_pais)) m <- manifest_override(m, f_pais)
+  m <- m %>% mutate(fig = suppressWarnings(as.integer(fig)), pagina = as.integer(pagina), w_in = as.numeric(w_in), h_in = as.numeric(h_in),
                     callout = tolower(callout) == "true", base_pt = suppressWarnings(as.numeric(base_pt)),
-                    titulo = str_replace_all(titulo, fixed("{country}"), cfg$country))
+                    titulo = str_replace_all(titulo, fixed("{country}"), cfg$country), country = cfg$country)
+  if (anyNA(m$fig)) stop("manifest/figures.csv: fig no numérico en ", sum(is.na(m$fig)), " fila(s)", call. = FALSE)
   if (anyDuplicated(m$fig)) stop("manifest/figures.csv: fig repetido", call. = FALSE)
-  lapply(seq_len(nrow(m)), function(i) as.list(m[i, ]))
+  avisos <- manifest_width_check(m, cfg$layout)
+  for (a in avisos) log_msg("aviso manifiesto: ", a)
+  specs <- lapply(seq_len(nrow(m)), function(i) as.list(m[i, ]))
+  attr(specs, "avisos") <- avisos
+  specs
+}
+
+# manifest/figures_<slug>.csv (decisión 5): columna fig y cualquier columna del manifiesto a sobrescribir (h_in, nota,
+# ...). Una celda vacía conserva el valor común; columnas o figuras que no están en el manifiesto → error (erratas).
+manifest_override <- function(m, f) {
+  o <- read_csv(f, col_types = cols(.default = col_character()), na = character())
+  if (!"fig" %in% names(o)) stop(basename(f), " necesita la columna fig", call. = FALSE)
+  extra <- setdiff(names(o), names(m))
+  if (length(extra) > 0) stop(basename(f), ": columnas que no están en manifest/figures.csv: ", paste(extra, collapse = ", "), call. = FALSE)
+  key <- suppressWarnings(as.integer(o$fig))
+  if (anyNA(key) || anyDuplicated(key)) stop(basename(f), ": fig vacío, no numérico o repetido", call. = FALSE)
+  idx <- match(key, suppressWarnings(as.integer(m$fig)))
+  if (anyNA(idx)) stop(basename(f), ": figuras que no están en el manifiesto: ", paste(o$fig[is.na(idx)], collapse = ", "), call. = FALSE)
+  cols <- setdiff(names(o), "fig")
+  for (col in cols) {
+    use <- nzchar(trimws(o[[col]]))
+    m[[col]][idx[use]] <- o[[col]][use]
+  }
+  log_msg("manifiesto del país: ", basename(f), " (", nrow(o), " figuras; columnas ", paste(cols, collapse = ", "), ")")
+  m
+}
+
+# w_in contra los anchos máximos del yml: con recuadro (callout) ≤ max_w_callout_in, a página completa ≤
+# max_w_full_in; w_in ausente o no positivo también se informa. Devuelve los avisos (texto), vacío si todo cabe.
+manifest_width_check <- function(m, layout) {
+  over <- function(rows, max, nombre) {
+    if (!is.numeric(max) || length(max) != 1) return(character())
+    b <- rows & !is.na(m$w_in) & m$w_in > max + 1e-9
+    sprintf("fig %02d: w_in %s in > %s %s in", m$fig[b], format(m$w_in[b]), nombre, format(max))
+  }
+  bad <- is.na(m$w_in) | m$w_in <= 0
+  c(sprintf("fig %02d: w_in ausente o no positivo", m$fig[bad]),
+    over(m$callout, layout$max_w_callout_in, "max_w_callout_in (con recuadro)"),
+    over(!m$callout, layout$max_w_full_in, "max_w_full_in (página completa)"))
 }
 
 figure_file <- function(spec, cfg) file.path(cfg$paths$root, "figures", sprintf("fig_%02d_%s.R", spec$fig, spec$slug))
@@ -156,41 +313,135 @@ log_msg <- function(...) {
 }
 log_close <- function() invisible(NULL)               # sin conexión persistente; .sr$log se conserva para log_path()
 
+# Identificador de corrida: fecha-hora, milisegundos y PID. Con resolución de 1 s, dos corridas en el mismo segundo
+# compartían run_<id>.log (log_open lo trunca: se perdía la cabecera de la primera) y run_id en figures_status.csv.
+new_run_id <- function(t = Sys.time()) {
+  sprintf("%s-%03d-%d", format(t, "%Y%m%d-%H%M%S"), as.integer(floor(as.numeric(t) %% 1 * 1000)), Sys.getpid())
+}
+
 # Primera línea de un mensaje de error, recortada, para la columna verificacion (la usan 06, 07 y 08)
 first_line <- function(msg, n = 60) substr(trimws(strsplit(paste0(msg, "\n"), "\n", fixed = TRUE)[[1]][1]), 1, n)
 
-# Evalúa expr con la salida y los mensajes desviados a un temporal local, que se anexa al log con el prefijo " | "
+# Traza compacta (funciones de sys.calls(), sin la maquinaria de tryCatch/with_log) para el log de un error fatal
+call_trace <- function(calls) {
+  skip <- c("tryCatch", "tryCatchList", "tryCatchOne", "doTryCatch", "withCallingHandlers", "with_log", ".handleSimpleError",
+            "h", "stop", "eval", "withVisible", "source", "sys.source")
+  fn <- vapply(calls, function(cl) { f <- cl[[1]]; if (is.name(f)) as.character(f) else paste(deparse(f, nlines = 1L), collapse = "") }, "")
+  substr(paste(fn[!fn %in% skip], collapse = " → "), 1, 400)
+}
+
+# Evalúa expr con la salida y los mensajes desviados a un temporal local, que se anexa al log con el prefijo " | ".
+# Reentrante: dentro de otra captura evalúa expr sin sinks nuevos (sink(type = "message") no es una pila: el interno
+# devolvía los mensajes del externo a la consola) y al salir restaura la conexión de mensajes previa. Ante un error
+# (decisión 8) restaura los sinks, registra el mensaje y la traza en el log y lo relanza con e$en_log = TRUE: antes
+# el 'Error: …' de R se escribía en el temporal y en consola solo quedaba 'Ejecución interrumpida'.
 with_log <- function(expr) {
-  if (is.null(.sr$log)) return(expr)
+  if (is.null(.sr$log) || isTRUE(.sr$capturing)) return(expr)
   tmp <- tempfile("salida_", fileext = ".log"); con <- file(tmp, open = "wt")
-  sink(con, type = "output"); sink(con, type = "message")
-  on.exit({
-    sink(type = "message"); sink(type = "output"); close(con)
+  n_out <- sink.number(); msg_prev <- sink.number(type = "message")
+  sink(con, type = "output"); sink(con, type = "message"); .sr$capturing <- TRUE
+  restore <- function() {
+    if (!isTRUE(.sr$capturing)) return(invisible(NULL))
+    .sr$capturing <- FALSE
+    if (msg_prev == 2L) sink(type = "message") else sink(getConnection(msg_prev), type = "message")
+    while (sink.number() > n_out) sink()
+    close(con)
     out <- tryCatch(readLines(tmp, warn = FALSE), error = function(e) character())
     if (length(out) > 0) try(cat(paste0("         | ", out), file = .sr$log, sep = "\n", append = TRUE), silent = TRUE)
     unlink(tmp)
-  }, add = TRUE)
-  expr
+    invisible(NULL)
+  }
+  on.exit(restore(), add = TRUE)
+  calls <- NULL
+  tryCatch(
+    withCallingHandlers(expr, error = function(e) calls <<- sys.calls()),
+    error = function(e) {
+      restore()
+      log_msg("error: ", conditionMessage(e))
+      tr <- if (length(calls) > 0) call_trace(calls) else ""
+      if (nzchar(tr)) log_msg("traza: ", tr)
+      e$en_log <- TRUE
+      stop(e)
+    })
 }
 
 print_header <- function(cfg, stage, run_id, notes = NULL) {
-  cat(sprintf("%s | stage %s | %s | lib %s | renv %s | Chrome %s | locale %s%s\n",
+  cat(sprintf("%s | stage %s | %s | lib %s | renv %s | Chrome %s | locale %s/%s%s\n",
               cfg$country, stage, run_id, .libPaths()[1], if (nzchar(Sys.getenv("RENV_PROJECT"))) "sí" else "no",
-              if (is.na(cfg$paths$chrome)) "no" else "sí", Sys.getlocale("LC_COLLATE"),
+              if (is.na(cfg$paths$chrome)) "no" else "sí", Sys.getlocale("LC_COLLATE"), Sys.getlocale("LC_CTYPE"),
               if (length(notes)) paste0(" | ", paste(notes, collapse = " | ")) else ""))
   if (!is.null(.sr$deps_warning)) cat("aviso deps.csv:", .sr$deps_warning, "\n")
+  if (length(.sr$chrome_avisos)) cat("aviso Chrome:", paste(.sr$chrome_avisos, collapse = "; "), "\n")
 }
 
 # Filas de la tabla: tibble(fig, metodo, estado, verificacion, archivo). Se imprime la tabla más completa
-# disponible (verify > figures > compare), precedida por las filas de la etapa data.
+# disponible (verify > figures > compare), precedida por las filas de la etapa data. Columnas alineadas por
+# caracteres (formatC; sprintf rellenaba por bytes y 'caché', 'tamaño', '·', '×' las desplazaban) y verificacion tan
+# ancha como su texto más largo, hasta 70 (antes se cortaba a 44: la 'ok' de figures perdía '<text>').
+# Una figura con estado error en figures de esta corrida se muestra con ese error ("figures: <motivo>", decisión 2)
+# aunque verify diga otra cosa: su salida se borró al empezar y verify la daba 'sin salida' sin motivo (R5-07).
 print_rows <- function(rows) {
   tbl <- rows$verify %||% rows$figures %||% rows$compare
+  if (!is.null(rows$verify) && !is.null(rows$figures)) {
+    f <- rows$figures[rows$figures$estado == "error", , drop = FALSE]
+    i <- which(tbl$fig %in% f$fig & !tbl$estado %in% c("error", "omitida"))
+    j <- match(tbl$fig[i], f$fig)
+    tbl$estado[i] <- "error"; tbl$verificacion[i] <- paste0("figures: ", f$verificacion[j]); tbl$archivo[i] <- f$archivo[j]
+  }
   all <- bind_rows(rows$data, tbl)
   if (is.null(all) || nrow(all) == 0) return(invisible(NULL))
-  cat(sprintf("%-4s %-7s %-15s %-44s %s\n", "fig", "metodo", "estado", "verificacion", "archivo"))
-  for (i in seq_len(nrow(all))) {
-    cat(sprintf("%-4s %-7s %-15s %-44s %s\n", all$fig[i], substr(all$metodo[i], 1, 7), substr(all$estado[i], 1, 15),
-                substr(all$verificacion[i], 1, 44), all$archivo[i]))
+  cell <- function(x, w) {
+    x <- coalesce(as.character(x), "")
+    formatC(ifelse(nchar(x) > w, paste0(substr(x, 1, w - 1), "…"), x), width = -w)
   }
+  w_v <- min(70L, max(nchar("verificacion"), nchar(coalesce(all$verificacion, ""))))
+  cat(paste(cell("fig", 4), cell("metodo", 7), cell("estado", 15), cell("verificacion", w_v), "archivo"), sep = "\n")
+  cat(paste(cell(all$fig, 4), cell(all$metodo, 7), cell(all$estado, 15), cell(all$verificacion, w_v), coalesce(all$archivo, "")),
+      sep = "\n")
   invisible(all)
 }
+
+# Línea de cierre (decisión 9): con verify, "N/M verificadas · k conocidas · e errores · log: <ruta>", donde e = figuras
+# con estado error en figures o en verify (cada figura una vez); sin verify, el recuento de figures o de compare; la
+# ruta del log siempre (antes solo se imprimía si la corrida incluía verify). log = NULL: sin la ruta (para el log).
+closing_line <- function(rows, log = log_path()) {
+  sel <- function(t) if (is.null(t)) NULL else t[t$estado != "omitida", , drop = FALSE]
+  f <- sel(rows$figures); v <- sel(rows$verify); cmp <- sel(rows$compare)
+  n_err <- function(...) length(unique(unlist(lapply(list(...), function(t) t$fig[t$estado == "error"]))))
+  head <- if (!is.null(v)) {
+    sprintf("%d/%d verificadas · %d conocidas · %d errores", sum(v$estado == "ok"), nrow(v), sum(grepl("conocida", v$verificacion)), n_err(f, v))
+  } else if (!is.null(f)) {
+    sprintf("%d/%d figuras ok · %d errores", sum(f$estado == "ok"), nrow(f), n_err(f))
+  } else if (!is.null(cmp)) {
+    sprintf("%d/%d comparadas · %d errores", sum(cmp$estado == "ok"), nrow(cmp), n_err(cmp))
+  }
+  paste(c(head, if (!is.null(log)) paste0("log: ", log)), collapse = " · ")
+}
+
+
+## Prueba ----------------------------------------------------------------------------------------------------------
+## bash SCRATCH/fix/G1/pruebas/t/run_all.sh (mkroot.sh arma raíces ligeras: before = main.R y 00_setup.R originales,
+## after = estos; resumen en pruebas/out/00_resumen.txt). Antes → después:
+## - Locale C (env -u LANG -u LC_ALL -u LC_CTYPE): 'entrada inválida … hungary.yml' + 'argumento path inválido', exit 1 →
+##   nota 'LC_CTYPE C → C.UTF-8' y --stage all --figs 09,10,11 3/3 con tablas, drawn, SVG, PNG y 00-verificacion.csv
+##   idénticos (md5) a los de UTF-8; ensure_utf8("xx_XX.UTF-8") en C → error legible.
+## - local_path: '~/x' expandida, 'rel/a' → <raíz>/rel/a, '/abs' tal cual, ''/NULL → NA; cache_dir 'cache_local' y
+##   SRC_REPORTS_CACHE relativos → bajo la raíz (con dos cwd: dos carpetas cache_local, una por cwd → una).
+## - check_cfg/read_yml: yml sin slug, vacío o mal formado, local.yml escalar y 'access2info:' vacío en checks → "hungary.yml:
+##   faltan o no son válidas las claves …", "YAML inválido en hungary.yml: …" (antes dir.create, yaml.load, '$ operator
+##   is invalid' o 'valor ausente' en data_checks).
+## - find_chrome: CHROMOTE_CHROME y chrome de local.yml inexistentes → dos avisos (cabecera y log; antes ninguno); el
+##   log registra la ruta elegida y 'Chrome --version: Google Chrome 155.0.8059.86'.
+## - check_deps: 'deps.csv opcional: WJPr 1.1.0 (esperada 1.1.0)' y, con una fila WJPrFalso, '… ausente' en el log
+##   (antes 0 líneas); nota en cabecera si una figura seleccionada tiene wjpr = adoptada.
+## - setup_fonts: .ttf con chmod 000 → 'Fuentes de fonts/ que … no se pudieron leer …: InterTight-Medium.ttf' (antes
+##   'valor ausente donde TRUE/FALSE es necesario'); de 0 bytes → el mismo mensaje; un byte añadido → aviso md5 en el log.
+## - read_manifest: spec$country = "Hungary" (antes NULL); figures_hungary.csv sobrescribe h_in, nota y w_in (celda
+##   vacía conserva el valor); columna o figura ajenas, sin fig o fig repetido → error con el archivo; w_in 7.0 con
+##   recuadro → 'fig 09: w_in 7 in > max_w_callout_in (con recuadro) 6.5 in' (log; "avisos del manifiesto: 1" en cabecera).
+## - with_log anidado: el mensaje del externo tras el interno va al log (antes a consola); error → sinks restaurados,
+##   'error: …' (y la traza si la hay) en el log y relanzado con en_log = TRUE.
+## - new_run_id: verify y compare lanzados a la vez → dos logs con su cabecera (antes uno, con la cabecera truncada).
+## - print_rows: ancho antes de 'archivo' 82 en todas las líneas con 'caché', 'tamaño', '·', '×' (antes 74/70/74/68) y
+##   la 'ok' de figures entera ('98 <text>'); figura en error en figures → "error · figures: pendiente: fig_12 sin
+##   implementar" en vez de 'sin salida'. closing_line: ver la prueba de main.R.

@@ -1,79 +1,79 @@
-order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol,x,y
-1,node,,Consumer,40,NA,(40%),,NA,NA,0.6,1.018914466656493,0.23824179764993147
-2,node,,Land,18,NA,(18%),,NA,NA,0.6,0.3635197619410958,0.00848397680451729
-3,node,,Housing,10,NA,(10%),,NA,NA,0.6,0.30759568136731275,0.6130122844498704
-4,node,,Family,18,NA,(18%),,NA,NA,0.6,0.9309262169998475,0.5076503128338167
-5,node,,Education,9,NA,(9%),,NA,NA,0.6,0.6054198840225851,0.786730199908439
-6,node,,Accidental,21,NA,(21%),,NA,NA,0.6,0.7059172134900047,0.17220235006867102
-7,node,,Employment,19,NA,(19%),,NA,NA,0.6,0.09030833206165115,0.3078139020296048
-8,node,,Public Services,40,NA,(40%),,NA,NA,0.6,-0.014474515489088915,0.6143442698000916
-9,node,,Law Enforcement,2,NA,(2%),,NA,NA,0.6,0.4113554097359988,0.2854404089729896
-10,node,,Citizenship & ID,5,NA,(5%),,NA,NA,0.6,0.6088560201434458,0.5066851060582941
-11,node,,Money & Debt,22,NA,(22%),,NA,NA,0.6,0.32614695559285833,0.9262411872424844
-12,node,,Community,28,NA,(28%),,NA,NA,0.6,0.913784144666565,0.8675373111551962
-13,edge,,Consumer|Land,1.9602859646695265,NA,,,NA,NA,0.05,NA,NA
-14,edge,,Consumer|Housing,1.8553166366865,NA,,,NA,NA,0.05,NA,NA
-15,edge,,Consumer|Family,1.6453779807204465,NA,,,NA,NA,0.05,NA,NA
-16,edge,,Consumer|Education,1.9003034915363683,NA,,,NA,NA,0.05,NA,NA
-17,edge,,Consumer|Accidental,1.7428494995618284,NA,,,NA,NA,0.05,NA,NA
-18,edge,,Consumer|Employment,1.7372261427055948,NA,,,NA,NA,0.05,NA,NA
-19,edge,,Consumer|Public Services,1.5722743415894103,NA,,,NA,NA,0.05,NA,NA
-20,edge,,Consumer|Law Enforcement,2.0015239149485726,NA,,,NA,NA,0.05,NA,NA
-21,edge,,Consumer|Citizenship & ID,1.7634684747013516,NA,,,NA,NA,0.05,NA,NA
-22,edge,,Consumer|Money & Debt,1.6378801715788018,NA,,,NA,NA,0.05,NA,NA
-23,edge,,Consumer|Community,1.6528757898620912,NA,,,NA,NA,0.05,NA,NA
-24,edge,,Land|Housing,3.03809602878096,NA,,,NA,NA,0.05,NA,NA
-25,edge,,Land|Family,2.222709284627093,NA,,,NA,NA,0.05,NA,NA
-26,edge,,Land|Education,2.680075642267423,NA,,,NA,NA,0.05,NA,NA
-27,edge,,Land|Accidental,2.1908435957751027,NA,,,NA,NA,0.05,NA,NA
-28,edge,,Land|Employment,2.2770684009040174,NA,,,NA,NA,0.05,NA,NA
-29,edge,,Land|Public Services,1.6416290761496244,NA,,,NA,NA,0.05,NA,NA
-30,edge,,Land|Law Enforcement,3.834738250080716,NA,,,NA,NA,0.05,NA,NA
-31,edge,,Land|Citizenship & ID,3.9453309349199763,NA,,,NA,NA,0.05,NA,NA
-32,edge,,Land|Money & Debt,2.052134126654675,NA,,,NA,NA,0.05,NA,NA
-33,edge,,Land|Community,2.0708786495087868,NA,,,NA,NA,0.05,NA,NA
-34,edge,,Housing|Family,3.0418449333517827,NA,,,NA,NA,0.05,NA,NA
-35,edge,,Housing|Education,3.9359586734929204,NA,,,NA,NA,0.05,NA,NA
-36,edge,,Housing|Accidental,2.6369632397029656,NA,,,NA,NA,0.05,NA,NA
-37,edge,,Housing|Employment,2.576980766569808,NA,,,NA,NA,0.05,NA,NA
-38,edge,,Housing|Public Services,1.7409750472764172,NA,,,NA,NA,0.05,NA,NA
-39,edge,,Housing|Law Enforcement,5.128110327014437,NA,,,NA,NA,0.05,NA,NA
-40,edge,,Housing|Citizenship & ID,5.375538028688713,NA,,,NA,NA,0.05,NA,NA
-41,edge,,Housing|Money & Debt,2.7456814722568152,NA,,,NA,NA,0.05,NA,NA
-42,edge,,Housing|Community,2.052134126654675,NA,,,NA,NA,0.05,NA,NA
-43,edge,,Family|Education,2.95936903279369,NA,,,NA,NA,0.05,NA,NA
-44,edge,,Family|Accidental,2.3033107328997744,NA,,,NA,NA,0.05,NA,NA
-45,edge,,Family|Employment,2.2939384714727185,NA,,,NA,NA,0.05,NA,NA
-46,edge,,Family|Public Services,1.630382362437157,NA,,,NA,NA,0.05,NA,NA
-47,edge,,Family|Law Enforcement,4.211503159448364,NA,,,NA,NA,0.05,NA,NA
-48,edge,,Family|Citizenship & ID,3.3267616807342835,NA,,,NA,NA,0.05,NA,NA
-49,edge,,Family|Money & Debt,2.273319496333195,NA,,,NA,NA,0.05,NA,NA
-50,edge,,Family|Community,1.956537060098704,NA,,,NA,NA,0.05,NA,NA
-51,edge,,Education|Accidental,2.6369632397029656,NA,,,NA,NA,0.05,NA,NA
-52,edge,,Education|Employment,2.458890272588903,NA,,,NA,NA,0.05,NA,NA
-53,edge,,Education|Public Services,1.7709662838429963,NA,,,NA,NA,0.05,NA,NA
-54,edge,,Education|Law Enforcement,4.052174715188414,NA,,,NA,NA,0.05,NA,NA
-55,edge,,Education|Citizenship & ID,4.798206724782068,NA,,,NA,NA,0.05,NA,NA
-56,edge,,Education|Money & Debt,2.749430376827637,NA,,,NA,NA,0.05,NA,NA
-57,edge,,Education|Community,2.0652552926525534,NA,,,NA,NA,0.05,NA,NA
-58,edge,,Accidental|Employment,2.404531156311979,NA,,,NA,NA,0.05,NA,NA
-59,edge,,Accidental|Public Services,1.937792537244592,NA,,,NA,NA,0.05,NA,NA
-60,edge,,Accidental|Law Enforcement,3.3286361330196943,NA,,,NA,NA,0.05,NA,NA
-61,edge,,Accidental|Citizenship & ID,3.4860901249942344,NA,,,NA,NA,0.05,NA,NA
-62,edge,,Accidental|Money & Debt,2.15522900235229,NA,,,NA,NA,0.05,NA,NA
-63,edge,,Accidental|Community,1.9340436326737698,NA,,,NA,NA,0.05,NA,NA
-64,edge,,Employment|Public Services,1.806580877265809,NA,,,NA,NA,0.05,NA,NA
-65,edge,,Employment|Law Enforcement,3.7166477560998112,NA,,,NA,NA,0.05,NA,NA
-66,edge,,Employment|Citizenship & ID,2.8862653936626543,NA,,,NA,NA,0.05,NA,NA
-67,edge,,Employment|Money & Debt,2.308934089756008,NA,,,NA,NA,0.05,NA,NA
-68,edge,,Employment|Community,1.8553166366865,NA,,,NA,NA,0.05,NA,NA
-69,edge,,Public Services|Law Enforcement,1.8721867072552005,NA,,,NA,NA,0.05,NA,NA
-70,edge,,Public Services|Citizenship & ID,2.1720990729209912,NA,,,NA,NA,0.05,NA,NA
-71,edge,,Public Services|Money & Debt,1.6959881924265487,NA,,,NA,NA,0.05,NA,NA
-72,edge,,Public Services|Community,1.6172611964392787,NA,,,NA,NA,0.05,NA,NA
-73,edge,,Law Enforcement|Citizenship & ID,11.778667035653339,NA,,,NA,NA,0.05,NA,NA
-74,edge,,Law Enforcement|Money & Debt,3.1393164521931647,NA,,,NA,NA,0.05,NA,NA
-75,edge,,Law Enforcement|Community,1.915299109819658,NA,,,NA,NA,0.05,NA,NA
-76,edge,,Citizenship & ID|Money & Debt,2.8337807296711404,NA,,,NA,NA,0.05,NA,NA
-77,edge,,Citizenship & ID|Community,1.956537060098704,NA,,,NA,NA,0.05,NA,NA
-78,edge,,Money & Debt|Community,1.6866159309994928,NA,,,NA,NA,0.05,NA,NA
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol,tol_xy,x,y
+1,node,,Consumer,40,NA,(40%),,NA,NA,0.6,0.01,1.018914466656493,0.23824179764993147
+2,node,,Land,18,NA,(18%),,NA,NA,0.6,0.01,0.3635197619410958,0.00848397680451729
+3,node,,Housing,10,NA,(10%),,NA,NA,0.6,0.01,0.30759568136731275,0.6130122844498704
+4,node,,Family,18,NA,(18%),,NA,NA,0.6,0.01,0.9309262169998475,0.5076503128338167
+5,node,,Education,9,NA,(9%),,NA,NA,0.6,0.01,0.6054198840225851,0.786730199908439
+6,node,,Accidental,21,NA,(21%),,NA,NA,0.6,0.01,0.7059172134900047,0.17220235006867102
+7,node,,Employment,19,NA,(19%),,NA,NA,0.6,0.01,0.09030833206165115,0.3078139020296048
+8,node,,Public Services,40,NA,(40%),,NA,NA,0.6,0.01,-0.014474515489088915,0.6143442698000916
+9,node,,Law Enforcement,2,NA,(2%),,NA,NA,0.6,0.01,0.4113554097359988,0.2854404089729896
+10,node,,Citizenship & ID,5,NA,(5%),,NA,NA,0.6,0.01,0.6088560201434458,0.5066851060582941
+11,node,,Money & Debt,22,NA,(22%),,NA,NA,0.6,0.01,0.32614695559285833,0.9262411872424844
+12,node,,Community,28,NA,(28%),,NA,NA,0.6,0.01,0.913784144666565,0.8675373111551962
+13,edge,,Consumer|Land,1.9602859646695265,NA,,,NA,NA,0.05,NA,NA,NA
+14,edge,,Consumer|Housing,1.8553166366865,NA,,,NA,NA,0.05,NA,NA,NA
+15,edge,,Consumer|Family,1.6453779807204465,NA,,,NA,NA,0.05,NA,NA,NA
+16,edge,,Consumer|Education,1.9003034915363683,NA,,,NA,NA,0.05,NA,NA,NA
+17,edge,,Consumer|Accidental,1.7428494995618284,NA,,,NA,NA,0.05,NA,NA,NA
+18,edge,,Consumer|Employment,1.7372261427055948,NA,,,NA,NA,0.05,NA,NA,NA
+19,edge,,Consumer|Public Services,1.5722743415894103,NA,,,NA,NA,0.05,NA,NA,NA
+20,edge,,Consumer|Law Enforcement,2.0015239149485726,NA,,,NA,NA,0.05,NA,NA,NA
+21,edge,,Consumer|Citizenship & ID,1.7634684747013516,NA,,,NA,NA,0.05,NA,NA,NA
+22,edge,,Consumer|Money & Debt,1.6378801715788018,NA,,,NA,NA,0.05,NA,NA,NA
+23,edge,,Consumer|Community,1.6528757898620912,NA,,,NA,NA,0.05,NA,NA,NA
+24,edge,,Land|Housing,3.03809602878096,NA,,,NA,NA,0.05,NA,NA,NA
+25,edge,,Land|Family,2.222709284627093,NA,,,NA,NA,0.05,NA,NA,NA
+26,edge,,Land|Education,2.680075642267423,NA,,,NA,NA,0.05,NA,NA,NA
+27,edge,,Land|Accidental,2.1908435957751027,NA,,,NA,NA,0.05,NA,NA,NA
+28,edge,,Land|Employment,2.2770684009040174,NA,,,NA,NA,0.05,NA,NA,NA
+29,edge,,Land|Public Services,1.6416290761496244,NA,,,NA,NA,0.05,NA,NA,NA
+30,edge,,Land|Law Enforcement,3.834738250080716,NA,,,NA,NA,0.05,NA,NA,NA
+31,edge,,Land|Citizenship & ID,3.9453309349199763,NA,,,NA,NA,0.05,NA,NA,NA
+32,edge,,Land|Money & Debt,2.052134126654675,NA,,,NA,NA,0.05,NA,NA,NA
+33,edge,,Land|Community,2.0708786495087868,NA,,,NA,NA,0.05,NA,NA,NA
+34,edge,,Housing|Family,3.0418449333517827,NA,,,NA,NA,0.05,NA,NA,NA
+35,edge,,Housing|Education,3.9359586734929204,NA,,,NA,NA,0.05,NA,NA,NA
+36,edge,,Housing|Accidental,2.6369632397029656,NA,,,NA,NA,0.05,NA,NA,NA
+37,edge,,Housing|Employment,2.576980766569808,NA,,,NA,NA,0.05,NA,NA,NA
+38,edge,,Housing|Public Services,1.7409750472764172,NA,,,NA,NA,0.05,NA,NA,NA
+39,edge,,Housing|Law Enforcement,5.128110327014437,NA,,,NA,NA,0.05,NA,NA,NA
+40,edge,,Housing|Citizenship & ID,5.375538028688713,NA,,,NA,NA,0.05,NA,NA,NA
+41,edge,,Housing|Money & Debt,2.7456814722568152,NA,,,NA,NA,0.05,NA,NA,NA
+42,edge,,Housing|Community,2.052134126654675,NA,,,NA,NA,0.05,NA,NA,NA
+43,edge,,Family|Education,2.95936903279369,NA,,,NA,NA,0.05,NA,NA,NA
+44,edge,,Family|Accidental,2.3033107328997744,NA,,,NA,NA,0.05,NA,NA,NA
+45,edge,,Family|Employment,2.2939384714727185,NA,,,NA,NA,0.05,NA,NA,NA
+46,edge,,Family|Public Services,1.630382362437157,NA,,,NA,NA,0.05,NA,NA,NA
+47,edge,,Family|Law Enforcement,4.211503159448364,NA,,,NA,NA,0.05,NA,NA,NA
+48,edge,,Family|Citizenship & ID,3.3267616807342835,NA,,,NA,NA,0.05,NA,NA,NA
+49,edge,,Family|Money & Debt,2.273319496333195,NA,,,NA,NA,0.05,NA,NA,NA
+50,edge,,Family|Community,1.956537060098704,NA,,,NA,NA,0.05,NA,NA,NA
+51,edge,,Education|Accidental,2.6369632397029656,NA,,,NA,NA,0.05,NA,NA,NA
+52,edge,,Education|Employment,2.458890272588903,NA,,,NA,NA,0.05,NA,NA,NA
+53,edge,,Education|Public Services,1.7709662838429963,NA,,,NA,NA,0.05,NA,NA,NA
+54,edge,,Education|Law Enforcement,4.052174715188414,NA,,,NA,NA,0.05,NA,NA,NA
+55,edge,,Education|Citizenship & ID,4.798206724782068,NA,,,NA,NA,0.05,NA,NA,NA
+56,edge,,Education|Money & Debt,2.749430376827637,NA,,,NA,NA,0.05,NA,NA,NA
+57,edge,,Education|Community,2.0652552926525534,NA,,,NA,NA,0.05,NA,NA,NA
+58,edge,,Accidental|Employment,2.404531156311979,NA,,,NA,NA,0.05,NA,NA,NA
+59,edge,,Accidental|Public Services,1.937792537244592,NA,,,NA,NA,0.05,NA,NA,NA
+60,edge,,Accidental|Law Enforcement,3.3286361330196943,NA,,,NA,NA,0.05,NA,NA,NA
+61,edge,,Accidental|Citizenship & ID,3.4860901249942344,NA,,,NA,NA,0.05,NA,NA,NA
+62,edge,,Accidental|Money & Debt,2.15522900235229,NA,,,NA,NA,0.05,NA,NA,NA
+63,edge,,Accidental|Community,1.9340436326737698,NA,,,NA,NA,0.05,NA,NA,NA
+64,edge,,Employment|Public Services,1.806580877265809,NA,,,NA,NA,0.05,NA,NA,NA
+65,edge,,Employment|Law Enforcement,3.7166477560998112,NA,,,NA,NA,0.05,NA,NA,NA
+66,edge,,Employment|Citizenship & ID,2.8862653936626543,NA,,,NA,NA,0.05,NA,NA,NA
+67,edge,,Employment|Money & Debt,2.308934089756008,NA,,,NA,NA,0.05,NA,NA,NA
+68,edge,,Employment|Community,1.8553166366865,NA,,,NA,NA,0.05,NA,NA,NA
+69,edge,,Public Services|Law Enforcement,1.8721867072552005,NA,,,NA,NA,0.05,NA,NA,NA
+70,edge,,Public Services|Citizenship & ID,2.1720990729209912,NA,,,NA,NA,0.05,NA,NA,NA
+71,edge,,Public Services|Money & Debt,1.6959881924265487,NA,,,NA,NA,0.05,NA,NA,NA
+72,edge,,Public Services|Community,1.6172611964392787,NA,,,NA,NA,0.05,NA,NA,NA
+73,edge,,Law Enforcement|Citizenship & ID,11.778667035653339,NA,,,NA,NA,0.05,NA,NA,NA
+74,edge,,Law Enforcement|Money & Debt,3.1393164521931647,NA,,,NA,NA,0.05,NA,NA,NA
+75,edge,,Law Enforcement|Community,1.915299109819658,NA,,,NA,NA,0.05,NA,NA,NA
+76,edge,,Citizenship & ID|Money & Debt,2.8337807296711404,NA,,,NA,NA,0.05,NA,NA,NA
+77,edge,,Citizenship & ID|Community,1.956537060098704,NA,,,NA,NA,0.05,NA,NA,NA
+78,edge,,Money & Debt|Community,1.6866159309994928,NA,,,NA,NA,0.05,NA,NA,NA

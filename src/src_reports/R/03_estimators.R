@@ -303,12 +303,12 @@ get_results_table <- function(
 ## 3. Estimadores nacionales y media UE ---------------------------------------------------------------------------
 
 # origen: setup.R:125-139 — adaptada: `regions` global → ctx$regions; `pct` → `value`; df por defecto ctx$national
-# (con journey_vars() si target es una variable del recorrido). Devuelve tibble(country_name_ltn, <by>, value, n): una
+# (with_journey() añade target o by si son del recorrido y df no los trae). Devuelve tibble(country_name_ltn, <by>, value, n): una
 # fila por país presente en df (varios solo si se pasa df = ctx$master, como hace eu_est); by = NULL → una fila.
 # n = encuestados con dato (sin ponderar, sin suprimir).
 nat_est <- function(ctx, target, transform = NULL, by = NULL, df = NULL) {
   if (is.null(df)) df <- ctx$national
-  df <- with_journey(df, target)
+  df <- with_journey(df, c(target, by))
   regions <- ctx$regions
   df <- df %>% mutate(.t = .data[[target]])
   if (!is.null(transform)) df <- df %>% mutate(.t = transform(.t))
@@ -437,7 +437,7 @@ journey <- function(ctx) {
 # experience, n_p, n_e) con los cortes Gender, Age Group, Financial Situation, Area of Residence.
 perception_experience <- function(ctx, jse, exp, df = NULL) {
   if (is.null(df)) df <- ctx$national
-  df <- with_journey(df, exp)
+  df <- with_journey(df, c(jse, exp))
   cuts <- c("Gender" = "gender", "Age Group" = "age_group", "Financial Situation" = "financial", "Area of Residence" = "residence")
   p <- nat_est(ctx, jse, binary_agree, df = df)
   e <- nat_est(ctx, exp, df = df)
@@ -460,7 +460,7 @@ perception_experience <- function(ctx, jse, exp, df = NULL) {
 # salida conserva los nombres originales: desenlace, corte, grupo, pct, n, n_menor_30.
 xt <- function(ctx, outcome, group, label_outcome = outcome, label_group = group, df = NULL) {
   if (is.null(df)) df <- ctx$national
-  df <- with_journey(df, outcome)
+  df <- with_journey(df, c(outcome, group))              # también si el grupo es del recorrido (adv, drm, …)
   nat_est(ctx, outcome, by = ".g", df = df %>% mutate(.g = as.character(.data[[group]]))) %>%
     transmute(desenlace = label_outcome, corte = label_group, grupo = .g, pct = value, n, n_menor_30 = n < 30)
 }
@@ -471,7 +471,7 @@ xt_nat <- xt
 # por estrato ponderadas por su tamaño.
 diff_stratified <- function(ctx, outcome, exposure, strata = NULL, df = NULL) {
   if (is.null(df)) df <- ctx$national
-  df <- with_journey(df, outcome)
+  df <- with_journey(df, c(outcome, exposure, strata))   # también si la exposición o el estrato son del recorrido
   est <- function(d) {
     r <- nat_est(ctx, outcome, by = ".e", df = d %>% mutate(.e = as.character(.data[[exposure]])))
     pick <- function(col, lev, default) { v <- r[[col]][r$.e == lev]; if (length(v) == 0) default else v }
@@ -499,10 +499,13 @@ diff_stratified <- function(ctx, outcome, exposure, strata = NULL, df = NULL) {
 
 ## 7. Memo, media UE declarada y auxiliares -----------------------------------------------------------------------
 
-# Nuevo: evalúa expr una vez por clave y la guarda en .sr$memo[[ctx$meta$key|key]] (load_ctx() vacía .sr$memo al
-# reconstruir ctx; la clave del caché distingue .dta, regions.csv, código y país). Un resultado NULL no se guarda.
+# Nuevo: evalúa expr una vez por clave y la guarda en .sr$memo. La clave lleva ctx$meta$ctx_key (= cache/ctx_<slug>.key:
+# .dta, regions.csv, código, eu_values, slug y país; si falta, meta$key), ctx$country y nrow(ctx$national): un ctx de
+# otro país o con national = subgrupo no recibe los resultados de otro (antes meta$key no distinguía el país). Un
+# national modificado con las mismas filas sí comparte clave: vacíe .sr$memo. load_ctx() lo vacía. NULL no se guarda.
 memo <- function(ctx, key, expr) {
-  k <- paste(ctx$meta$key %||% "sin-clave", key, sep = "|")
+  k <- paste(ctx$meta$ctx_key %||% ctx$meta$key %||% "sin-clave", ctx$country %||% "", nrow(ctx$national %||% data.frame()),
+             key, sep = "|")
   if (!is.list(.sr$memo)) .sr$memo <- list()
   if (!is.null(.sr$memo[[k]])) return(.sr$memo[[k]])
   val <- expr
@@ -511,16 +514,31 @@ memo <- function(ctx, key, expr) {
 }
 
 # Nuevo: media UE que declara cada figura (columna metodo_ue del manifiesto). source = "data4web": escalar de
-# ctx$eu_values (reference/<slug>/eu_values.csv, escrito por tools/build_reference.R); source = "eu_est": eu_est(ctx, id)
-# sobre ctx$master. Error legible si el id no está.
-eu_value <- function(ctx, source = "data4web", id) {
+# ctx$eu_values (reference/<slug>/eu_values.csv, escrito por tools/build_reference.R; sin transform). source = "eu_est":
+# eu_est(ctx, id, transform) sobre ctx$master, que debe caer en 0-100: fuera de ese rango la variable no es binaria y
+# falta transform (p. ej. binary_agree; para escalas use eu_est() directamente). Errores legibles si el id no está, si
+# está sin valor (NA) o si ningún país tiene dato.
+eu_value <- function(ctx, source = "data4web", id, transform = NULL) {
   source <- match.arg(source, c("data4web", "eu_est"))
-  if (source == "eu_est") return(eu_est(ctx, id))
+  if (source == "eu_est") {
+    v <- eu_est(ctx, id, transform)
+    if (!is.finite(v)) stop(sprintf("Media UE '%s' (eu_est): ningún país de ctx$master tiene dato", id), call. = FALSE)
+    if (v < 0 || v > 100) {
+      stop(sprintf("Media UE '%s' (eu_est) = %.1f, fuera de 0-100: la variable no es binaria; pase transform (p. ej. binary_agree)",
+                   id, v), call. = FALSE)
+    }
+    return(v)
+  }
+  if (!is.null(transform)) stop("eu_value: transform solo se usa con source = 'eu_est' (data4web ya trae la media)", call. = FALSE)
   v <- ctx$eu_values
-  hit <- if (is.data.frame(v) && all(c("id", "value") %in% names(v))) v$value[!is.na(v$id) & v$id == id] else numeric()
-  hit <- unique(as.numeric(hit[!is.na(hit)]))
+  rows <- if (is.data.frame(v) && all(c("id", "value") %in% names(v))) v$value[!is.na(v$id) & v$id == id] else numeric()
+  if (length(rows) == 0) {
+    stop(sprintf("Media UE '%s' no está en reference/%s/eu_values.csv; declare el id en la columna eu_id del manifiesto y corra tools/build_reference.R", id, ctx$slug), call. = FALSE)
+  }
+  hit <- unique(as.numeric(rows[!is.na(rows)]))
   if (length(hit) == 0) {
-    stop(sprintf("Media UE '%s' no está en reference/%s/eu_values.csv; corra tools/build_reference.R", id, ctx$slug), call. = FALSE)
+    stop(sprintf("Media UE '%s' está en reference/%s/eu_values.csv pero sin valor (NA); revise tools/build_reference.R",
+                 id, ctx$slug), call. = FALSE)
   }
   if (length(hit) > 1) {
     stop(sprintf("Media UE '%s' repetida con valores distintos en reference/%s/eu_values.csv", id, ctx$slug), call. = FALSE)
@@ -528,13 +546,31 @@ eu_value <- function(ctx, source = "data4web", id) {
   hit
 }
 
-# Añade las variables del recorrido cuando target es una de JOURNEY_VARS y df no la trae
+# Añade a df las variables del recorrido (adv, drm y JOURNEY_VARS, de journey_vars()) que falten cuando alguna de las
+# pedidas en target (uno o varios nombres: desenlace, exposición, estrato, grupo, by) es del recorrido; las columnas
+# que df ya trae no se tocan. Antes solo miraba el desenlace y fallaba si la exposición o el grupo eran del recorrido.
 with_journey <- function(df, target) {
-  if (!target %in% names(df) && target %in% JOURNEY_VARS) journey_vars(df) else df
+  miss <- setdiff(intersect(target, c("adv", "drm", JOURNEY_VARS)), names(df))
+  if (length(miss) == 0) return(df)
+  df[miss] <- journey_vars(df)[miss]
+  df
 }
 
-# Identificador textual de una función de transformación para las claves de memo ("" si NULL)
-fn_id <- function(f) if (is.null(f)) "" else paste(trimws(deparse(f)), collapse = " ")
+# Identificador de una función de transformación para las claves de memo ("" si NULL): su texto y, si es una closure
+# (entorno que no es el global ni un namespace), la dirección de su entorno: dos closures de una misma fábrica tienen el
+# mismo texto. El entorno se guarda en .sr$fn_envs para que R no reutilice su dirección tras un gc() mientras viva la
+# entrada de memo (load_ctx() vacía ambos).
+fn_id <- function(f) {
+  if (is.null(f)) return("")
+  id <- paste(trimws(deparse(f)), collapse = " ")
+  env <- environment(f)
+  if (is.environment(env) && !identical(env, globalenv()) && !isNamespace(env)) {
+    if (!is.list(.sr$fn_envs)) .sr$fn_envs <- list()
+    .sr$fn_envs[[format(env)]] <- env
+    id <- paste(id, format(env))
+  }
+  id
+}
 
 
 ## Prueba ---------------------------------------------------------------------------------------------------------
@@ -559,4 +595,17 @@ fn_id <- function(f) if (is.null(f)) "" else paste(trimws(deparse(f)), collapse 
 ##    eu_value(ctx, "data4web", "access2info") = 61; id ausente → "Media UE 'zzz' no está en reference/hungary/...".
 ##  - xt → columnas originales (pct Male 60.5); diff_stratified(strata = "residence") → 4 filas; nuts_mean_long sobre
 ##    AJP_*_sev en largo → est 5.552 (n 8287), por grupo 12 filas.
-##  - data_checks(ctx, cfg) con este ctx: 3/5 (difieren ncol_master_csv = 200 ≠ 199 y eu_est con 4 países; esperable).
+##  - data_checks(ctx, cfg) con este ctx: 4/5 (difiere eu_est con 4 países; esperable; ncol_master_csv = 200 ok).
+## Correcciones de la revisión (2026-10-23): cd /tmp && Rscript --vanilla G2/pruebas/t03_memo.R, t06_eu_value.R y
+## t07_with_journey.R (G2 = SCRATCH/fix/G2; ctx reales de cache/ y una copia con config/poland.yml). Antes → ahora:
+##  - memo(): con el ctx del reporte y uno de Poland en la misma sesión, journey(ctx_pl)$adv_contacted daba 29.17 (el del
+##    reporte); ahora 30.22 = nat_est sin memo, y el del reporte sigue en 29.17. Con national = mujeres,
+##    journey(sub)$rep_c_published daba 31.93 (el nacional); ahora 30.83 = nat_est del subgrupo.
+##  - fn_id(): eu_est(ctx, "nproblems", thr(4)) tras thr(2) (closures de una misma fábrica) daba 32.43; ahora 16.12.
+##    200 closures → 200 huellas; una función del global no lleva dirección.
+##  - eu_value(): data4web igual (10 ids: 49 61 40 74 54 82 72 57 57 52). eu_est sin transform daba 1093.2 para
+##    AJE_legalrights; ahora error legible (fuera de 0-100) y con binary_agree 72.6. Id con value NA: el mensaje decía que
+##    no estaba; ahora "está … pero sin valor (NA)".
+##  - with_journey(): sobre master.csv (sin variables del recorrido), xt con grupo adv, diff_stratified con exposición
+##    rep_c_published o estrato drm y nat_est(by = "drm") daban error; ahora dan lo mismo que con df = journey_vars(df).
+##    Con el ctx real, xt, diff_stratified, get_results_table y perception_experience son idénticos a los de antes.

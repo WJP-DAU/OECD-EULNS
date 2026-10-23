@@ -7,6 +7,10 @@
 ##                                                 value_el, layout_rows
 ##   src/hungary/finales/standard_figures.R:38-45  ST_DUMB … ST_CARDS; 403-429 svg_viewbox, set_size, live_texts
 ## Sin el source(config.R) ni el FONT_DIR de svg_text.R:10-12: FONT_DIR lo define setup_fonts() (00_setup.R) = ROOT/fonts.
+## Correcciones de la revisión (23-oct; # corregido: en cada sitio): font_file() pide setup_fonts() con un mensaje
+## claro; el caché de glifos va por ruta completa; shape_ref() da error si Inter Tight no tiene un glifo (textshaping lo
+## formaría con otra fuente del sistema) o si el texto trae un salto de línea; outline_svg_text() rechaza <tspan> y
+## <textPath> a cualquier profundidad y da error, sin escribir nada, si un texto visible queda sin contorno.
 ## Contrato §5.C (nombres obligatorios): chart_out(W, H, els, drawn, text_pt) → objeto de clase "chart_out" (§4.5);
 ## svg_size(path); outline_svg_text(path_in, path_out = path_in); set_size(path, width_in, height_in = NULL);
 ## count_live_text(path); LABEL_COL. Unidades: puntos; el <svg> declara width/height en pulgadas (pt / 72) y el
@@ -19,22 +23,30 @@
 ## igual en máquinas sin Inter Tight. text_path(): cadena → <path>; text_width(): avance de una cadena (maquetación).
 
 # origen: svg_text.R:14-23. Archivos estáticos de Inter Tight por peso. El pipeline registra bold.italic como
-# SemiBoldItalic (setup.R y utils.R) y svglite escribe esa cara como font-weight 600. FONT_DIR: setup_fonts(), que ya
-# comprueba los 8 archivos (el mensaje de error original queda tal cual).
+# SemiBoldItalic (setup.R y utils.R) y svglite escribe esa cara como font-weight 600. FONT_DIR: la carpeta fonts/ que
+# fija setup_fonts(cfg) (00_setup.R), que ya comprueba los 8 archivos.
 font_file <- function(weight = 400, italic = FALSE) {
   weight <- if (is.character(weight)) c(normal = 400, bold = 700, bolder = 700)[[weight]] else weight
   face <- if (weight >= 650) "Bold" else if (weight >= 550) "SemiBold" else if (weight >= 450) "Medium" else ""
   name <- paste0("InterTight-", if (face == "" && !italic) "Regular" else paste0(face, if (italic) "Italic"), ".ttf")
-  path <- file.path(FONT_DIR, name)
+  # corregido: FONT_DIR solo existe tras setup_fonts(cfg) (<<-); sin él, este mensaje y no "objeto 'FONT_DIR' no
+  # encontrado" (búsqueda léxica, como la variable libre del original)
+  font_dir <- get0("FONT_DIR", envir = environment(), inherits = TRUE)
+  if (!is.character(font_dir) || length(font_dir) != 1 || is.na(font_dir) || !nzchar(font_dir)) {
+    stop("FONT_DIR no está definido: llame a setup_fonts(cfg) antes de medir o dibujar texto", call. = FALSE)
+  }
+  path <- file.path(font_dir, name)
   if (!file.exists(path)) stop("No existe la fuente ", path, " (revise fonts/ y setup_fonts())", call. = FALSE)   # corregido: mensaje
   path
 }
 
-# origen: svg_text.R:25-41. Los contornos se calculan una vez por fuente y glifo a tamaño 100 y se escalan después
+# origen: svg_text.R:25-36. Los contornos se calculan una vez por fuente y glifo a tamaño 100 y se escalan después
 .glyph_cache <- new.env(parent = emptyenv())
 .REF_SIZE <- 100
 glyph_contours <- function(path, index) {
-  key <- paste(basename(path), index)
+  # corregido: clave = ruta completa + índice (el original: basename(path)): con otra carpeta de fuentes en la misma
+  # sesión devolvía los contornos de la anterior junto con las métricas de la nueva
+  key <- paste(normalizePath(path, mustWork = FALSE), index)
   hit <- .glyph_cache[[key]]
   if (!is.null(hit)) return(hit)
   g <- systemfonts::glyph_outline(index, path = path, size = .REF_SIZE, tolerance = 1)
@@ -43,8 +55,27 @@ glyph_contours <- function(path, index) {
   out
 }
 
+# origen: svg_text.R:38-41 (shape_ref) + corregido: textshaping forma con otra fuente del sistema (o con el glifo 0) un
+# carácter que Inter Tight no tiene, y glyph_contours() dibujaba el glifo de Inter con ese índice: un glifo equivocado
+# o nada, sin aviso y según las fuentes de la máquina. Ahora, error con los caracteres. También ante un salto de línea:
+# textshaping lo maqueta en otra línea y aquí esa línea se perdería (las etiquetas con "\n", como las del embudo, se
+# dividen antes de medir o dibujar). textshaping corta la línea en \n, \r, \v, \f, U+0085, U+2028 y U+2029.
 shape_ref <- function(string, path) {
+  if (grepl("[\n\r\v\f\u0085  ]", string)) {
+    stop("Texto con salto de línea (divida las líneas antes de medir o dibujar): ", encodeString(string, quote = "\""),
+         call. = FALSE)
+  }
   s <- textshaping::shape_text(string, path = path, size = .REF_SIZE, res = 72)
+  font <- s$shape$font_path %||% rep(path, nrow(s$shape))
+  other <- font != path
+  if (any(other)) other[other] <- normalizePath(font[other], mustWork = FALSE) != normalizePath(path, mustWork = FALSE)
+  bad <- s$shape$index == 0 | other
+  if (any(bad)) {
+    ch <- unique(substring(string, s$shape$glyph[bad], s$shape$glyph[bad]))
+    cp <- vapply(ch, function(chr) paste(sprintf("U+%04X", utf8ToInt(chr)), collapse = " "), "")
+    stop(basename(path), " no tiene glifo para ", paste0("'", ch, "' (", cp, ")", collapse = ", "), " en el texto ",
+         encodeString(string, quote = "\""), call. = FALSE)
+  }
   list(index = s$shape$index, x = s$shape$x_offset, width = s$metrics$width[1])
 }
 
@@ -116,20 +147,29 @@ text_prop <- function(node, prop) {
 }
 
 # origen: svg_text.R:109-157 (cuerpo literal). Firma del contrato §5.C: path_in, path_out = path_in (el original:
-# svg_in, svg_out). Sustituye cada <text> por su contorno; error si hay <tspan> o si al terminar queda algún <text>.
+# svg_in, svg_out). Sustituye cada <text> por su contorno y quita el texto en blanco (espacios, separadores, controles y
+# caracteres de formato: no se mide ni se dibuja). Error, sin escribir nada, si un <text> lleva <tspan> o
+# <textPath> (a cualquier profundidad), si Inter Tight no tiene alguno de sus glifos o trae un salto de línea
+# (shape_ref) o si un texto visible queda sin contorno; tras escribir, error si queda algún <text> (red de seguridad).
 # svglite da el ancho que midió (textLength): se respeta, como haría un navegador, cuando coincide con Inter Tight
 # (±max_stretch); una diferencia mayor indica que el SVG se midió con otra fuente y el texto se marca doubtful en el
 # log devuelto (tibble text, size, weight, italic, family, textlength_ratio, doubtful), igual que toda familia que no
 # sea Inter. Devuelve el log de forma invisible.
 outline_svg_text <- function(path_in, path_out = path_in, max_stretch = 0.03) {
   svg_in <- path_in; svg_out <- path_out
+  # corregido: el error de un texto (glifo ausente, salto de línea) dice de qué archivo viene
+  in_file <- function(expr) {
+    tryCatch(expr, error = function(e) stop("outline_svg_text: ", conditionMessage(e), " (", svg_in, ")", call. = FALSE))
+  }
   doc <- xml2::read_xml(svg_in)
   texts <- xml2::xml_find_all(doc, "//*[local-name()='text']")
   log <- vector("list", length(texts))
   for (i in seq_along(texts)) {
     node <- texts[[i]]
-    if (length(xml2::xml_find_all(node, "./*[local-name()='tspan']")) > 0) {
-      stop("outline_svg_text: <tspan> no soportado en ", svg_in, call. = FALSE)
+    # corregido: <tspan> o <textPath> a cualquier profundidad (el original miraba solo los hijos directos: un <tspan>
+    # dentro de <a> pasaba y su texto se dibujaba en el x/y del <text>, sin su posición)
+    if (length(xml2::xml_find_all(node, ".//*[local-name()='tspan' or local-name()='textPath']")) > 0) {
+      stop("outline_svg_text: <tspan> o <textPath> no soportado en ", svg_in, call. = FALSE)
     }
     string <- xml2::xml_text(node)
     num <- function(v, default) if (is.na(v)) default else as.numeric(sub("px$", "", v))
@@ -144,17 +184,25 @@ outline_svg_text <- function(path_in, path_out = path_in, max_stretch = 0.03) {
     opacity <- text_prop(node, "fill-opacity")
     tr <- xml2::xml_attr(node, "transform")
     stretch <- 1
-    w_inter <- text_width(string, size, weight, italic)
+    # corregido: un solo criterio de texto en blanco para medir, dibujar y quitar (antes trimws() al medir: un control
+    # C1 como U+0090 daba "sin glifo" aunque luego se habría quitado); tabuladores y controles no tienen glifo en Inter
+    visible <- grepl("[^\\s\\p{Z}\\p{Cc}\\p{Cf}]", string, perl = TRUE)
+    w_inter <- if (visible) in_file(text_width(string, size, weight, italic)) else 0
     tl <- xml2::xml_attr(node, "textLength")
     ratio <- if (!is.na(tl) && w_inter > 0) as.numeric(sub("px$", "", tl)) / w_inter else NA_real_
     if (!is.na(ratio) && abs(ratio - 1) <= max_stretch) stretch <- ratio
-    d <- text_d(string, x, y, size, weight, italic, anchor, stretch)
+    d <- if (visible) in_file(text_d(string, x, y, size, weight, italic, anchor, stretch)) else ""
     family <- text_prop(node, "font-family")
     log[[i]] <- tibble::tibble(text = string, size = size, weight = as.character(weight), italic = italic,
                                family = family, textlength_ratio = ratio,
                                doubtful = (!is.na(ratio) && abs(ratio - 1) > max_stretch) ||
                                  (!is.na(family) && !grepl("inter", family, ignore.case = TRUE)))
     if (!nzchar(d)) {
+      # corregido: un texto visible sin contorno es un error (el original lo borraba sin aviso); solo se quita el blanco
+      if (visible) {
+        stop("outline_svg_text: sin contorno para el texto ", encodeString(string, quote = "\""), " en ", svg_in,
+             call. = FALSE)
+      }
       xml2::xml_remove(node)
       next
     }
@@ -166,7 +214,7 @@ outline_svg_text <- function(path_in, path_out = path_in, max_stretch = 0.03) {
     xml2::xml_remove(node)
   }
   xml2::write_xml(doc, svg_out, options = c("format", "no_declaration"))
-  n_left <- count_live_text(svg_out)                  # comprobación final (contrato §5.C): texto sin contornear
+  n_left <- count_live_text(svg_out)                  # comprobación final (contrato §5.C): red de seguridad
   if (n_left > 0) stop("outline_svg_text: quedan ", n_left, " <text> sin contornear en ", svg_out, call. = FALSE)
   invisible(dplyr::bind_rows(log))
 }
@@ -398,3 +446,11 @@ count_live_text <- function(path) {
 ##    "Inter Tight"); set_size(path, 6.069) → 6.069 x 4.552 in con el viewBox 0 0 288 216 intacto; set_size(path,
 ##    6.069, 4) → 6.069 x 4.000 in; path_out distinto no toca el original; <tspan> → error "no soportado"; svg_size()
 ##    acepta in, pt y px / sin unidad (8.268 in para width="793.707").
+##  - Revisión del 23-oct (grupo G3): cd /tmp && Rscript --vanilla SCRATCH/fix/G3/pruebas/prueba_G3.R → 67/67 ok (antes
+##    = G3/antes/; en la 2.ª sesión también G3/parcial/). Glifo que Inter Tight no tiene ('ก', '中文', emoji, tabulador)
+##    → error con los caracteres y el archivo intacto (antes: glifo equivocado o texto borrado sin aviso); salto de
+##    línea (\n, \r, \v, \f, U+0085, U+2028, U+2029) → error; acentos HU/PL, griego, cirílico, − ± – ≥ ✓ € ’ →
+##    mismo contorno; texto en blanco (espacios, NBSP, tabulador, ZWSP, U+0090, U+2028 solo) → se quita sin error;
+##    <tspan> o <textPath> a cualquier profundidad → error; sin setup_fonts() → "FONT_DIR no está definido…"; otra
+##    carpeta de fuentes ya no devuelve contornos del caché; svglite real → el mismo SVG contorneado. main.R --stage all
+##    --figs 09,10,11 → 3/3 verificadas, SVG y tablas idénticos (md5) a los de ROOT; --stage verify y compare sin error.
