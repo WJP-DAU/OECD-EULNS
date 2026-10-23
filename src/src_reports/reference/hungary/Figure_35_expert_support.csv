@@ -1,0 +1,19 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,avg,,National Average,47,NA,47%,,0.4687104553159993,NA,0.6
+2,avg,,EU Average,49,NA,49%,,0.49428168946828066,NA,0.6
+3,header,Gender,Gender,NA,NA,,,NA,NA,0.6
+4,row,Gender,Male,44,NA,44%,,0.4443807750161163,NA,0.6
+5,row,Gender,Female,49,NA,49%,,0.487596399493828,NA,0.6
+6,header,Age Group,Age Group,NA,NA,,,NA,NA,0.6
+7,row,Age Group,65-100,51,NA,51%,,0.5079387818446625,NA,0.6
+8,row,Age Group,55-64,47,NA,47%,,0.4698087529546594,NA,0.6
+9,row,Age Group,45-54,42,NA,42%,,0.420982260105532,NA,0.6
+10,row,Age Group,35-44,43,NA,43%,,0.42972088914356654,NA,0.6
+11,row,Age Group,25-34,50,NA,50%,,0.5041902442518443,NA,0.6
+12,row,Age Group,18-24,48,NA,48%,,0.4776162166033951,NA,0.6
+13,header,Financial Situation,Financial Situation,NA,NA,,,NA,NA,0.6
+14,row,Financial Situation,Unconstrained,50,NA,50%,,0.5037843516462526,NA,0.6
+15,row,Financial Situation,Constrained,38,NA,38%,,0.3845235537091421,NA,0.6
+16,header,Area of Residence,Area of Residence,NA,NA,,,NA,NA,0.6
+17,row,Area of Residence,Urban,47,NA,47%,,0.46572595086311863,NA,0.6
+18,row,Area of Residence,Rural,49,NA,49%,,0.49077191223169303,NA,0.6

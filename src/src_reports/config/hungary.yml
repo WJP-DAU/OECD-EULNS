@@ -1,0 +1,30 @@
+# config/hungary.yml — lo que cambia entre países y lo que pide el encargo. Rutas de la máquina: config/local.yml.
+country: "Hungary"          # country_name_ltn en el .dta y en regions$country
+slug: "hungary"             # reference/<slug>/, output/<slug>/, cache/ctx_<slug>.rds
+report:
+  title: "Paths to Justice in Hungary"
+  reference_version: "OCT15_v9 / figuras finales 2026-10-16"
+data:
+  dta: "eu-gpp/1. Data/3. Merge/EU_GPP_2024.dta"      # relativo a path2EU (local.yml)
+  dta_md5: ""                                          # opcional: aviso en el log si el .dta difiere
+  regions: "data/regions.csv"                          # relativo a la carpeta; define los 27 países y regionpoppct
+  eu_values: "reference/hungary/eu_values.csv"         # medias UE de data4web cacheadas (10 ids)
+  data4web: "reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv"   # relativo a path2EU; solo tools/build_reference.R
+layout:
+  text_pt: 10                # tamaño del texto en las figuras svg_r
+  max_w_callout_in: 6.5      # ancho máximo con recuadro
+  max_w_full_in: 8.4         # ancho máximo a página completa
+  dpi: 300
+verify:
+  tol_pp: 0.6                # puntos porcentuales (valor crudo vs referencia)
+  tol_frac: 0.006            # fracción de barra dibujada vs publicada
+  size_tol_in: 0.01          # alto del SVG vs manifiesto
+checks:                      # comprobaciones de --stage data: se registran en el log, no detienen (tolerancia 0.01)
+  ncol_master_csv: 200       # columnas de master equivalentes a data/master.csv (53 study_vars + 147 AJP_/AJD_/AJR_/AJE_)
+  national:                  # nat_est(ctx, var): promedio nacional ponderado por NUTS
+    access2info: 61.46
+    inside_justice_gap_keepdk: 47.84
+  eu:                        # eu_est(ctx, var): media simple de las estimaciones nacionales de los 27 países
+    access2rep: 37.68
+  journey:                   # journey(ctx)$<campo>
+    adv_contacted: 29.17

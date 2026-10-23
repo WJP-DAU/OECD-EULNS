@@ -1,0 +1,11 @@
+id,value,fuente,archivo,md5,fecha,nota
+prevalence2,49.152136420299804,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+access2info,61.129731955400004,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+access2drm,40.1828597525198,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+rp_time,73.9550467659911,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100; fila duplicada en el origen (distinct)"
+rp_fair,53.522869970169296,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+rp_cost,82.1040328496242,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+rp_outcome,72.0025843845758,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+TRT_judges,57.20534443155601,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+TRT_prosecutors,57.422608510299696,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"
+TRT_pda,51.988957878369305,data4web,reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv,1c9cd88849b1a992e11f23639988d257,2025-08-20,"level = eu (European Union), demographic = Total Sample; valor del CSV (0-1) x 100"

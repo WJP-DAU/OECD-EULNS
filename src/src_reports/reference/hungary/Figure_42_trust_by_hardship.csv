@@ -1,0 +1,10 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol,lo,hi
+1,card,Without a non-trivial problem,Judges,47.66862217949175,NA,48%,,NA,NA,0.6,30,55
+2,card,Without a non-trivial problem,Prosecutors,54.92056928337084,NA,55%,,NA,NA,0.6,30,55
+3,card,Without a non-trivial problem,Public defense attorneys,41.801202670767886,NA,42%,,NA,NA,0.6,30,55
+4,card,"Problem, no hardship",Judges,44.685661434008814,47.66862217949175,45%,−3 points,NA,NA,0.6,30,55
+5,card,"Problem, no hardship",Prosecutors,49.99493686269667,54.92056928337084,50%,−5 points,NA,NA,0.6,30,55
+6,card,"Problem, no hardship",Public defense attorneys,36.41177219832991,41.801202670767886,36%,−6 points,NA,NA,0.6,30,55
+7,card,"Problem, with hardship",Judges,36.38910675456698,47.66862217949175,36%,−12 points,NA,NA,0.6,30,55
+8,card,"Problem, with hardship",Prosecutors,40.07122804731766,54.92056928337084,40%,−15 points,NA,NA,0.6,30,55
+9,card,"Problem, with hardship",Public defense attorneys,29.82046736172658,41.801202670767886,30%,−12 points,NA,NA,0.6,30,55

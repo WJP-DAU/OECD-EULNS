@@ -1,0 +1,8 @@
+886a71d334f4de74f71c5c4fca4a4eea InterTight-Bold.ttf
+fd1bdef2f464dd08898dd4c90bfcdef8 InterTight-BoldItalic.ttf
+d04ec3b5d08b8f40af3c023fdaf55a1e InterTight-Italic.ttf
+75a73cb8c6191b0eac34a1faff0ce9b8 InterTight-Medium.ttf
+fdaf3313a9a2096d09d1e4be0364fd58 InterTight-MediumItalic.ttf
+817287aa766c0eab33f1147431cfd0d9 InterTight-Regular.ttf
+ebe29cd6717bf01458d24f484102bcd7 InterTight-SemiBold.ttf
+23f7217cf8bcd90dad49d2f12e13bfb2 InterTight-SemiBoldItalic.ttf
