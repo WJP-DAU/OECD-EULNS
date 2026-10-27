@@ -2,10 +2,15 @@
 ## Origen: src/utils/utils.R:19-150 (get_nuts_avg, get_wgt_national_avg; literales); utils.R:203-335 (get_results_table;
 ## adaptada a ctx); src/hungary/setup.R:125-166 (nat_est, eu_est, nuts_mean_long; adaptadas a ctx); src/hungary/R03.R:4-38
 ## (journey_vars; literal); src/hungary/F06.R:3-15 (perception_experience; adaptada a ctx); src/hungary/analysis_helpers.R:20-51
-## (xt, xt_nat, diff_stratified; adaptadas a ctx). Nuevas: memo(), eu_value(), journey(), JOURNEY_VARS, with_journey(), fn_id().
+## (xt, xt_nat, diff_stratified; adaptadas a ctx); src/hungary/F02.R:3-12 (problems_long, figuras 3 y 7; literal, al
+## final); src/hungary/F01.R:6-7 (cooc_flags, figuras 5 y 6; adaptada a ctx, al final). Nuevas: memo(), eu_value(),
+## journey(), JOURNEY_VARS, with_journey(), fn_id().
 ## Adaptación común a ctx: `regions` global → ctx$regions; `hu`/`master` → df (por defecto ctx$national); `pct` → `value`;
 ## el país es ctx$country (sin study_countries). Sin efectos secundarios: nada escribe ni imprime (log_msg solo agregados).
-## Usa de 02_variables.R: binary_agree() (perception_experience; se resuelve al llamar, no al cargar).
+## Firma: ctx primero en todo, salvo problems_long(df, extra), que es literal y no estima: solo pasa a formato largo el
+## df de encuestados que recibe (ctx$national en la fig 3, ctx$master en la 7).
+## Usa de 02_variables.R: binary_agree() (perception_experience), problem_flags() (cooc_flags) y problem_map
+## (problems_long); se resuelven al llamar.
 ## Lo consumen 01_load.R (data_checks: nat_est, eu_est, journey) y figures/*.R (data(ctx)): ver figures/_template.R.
 ## Convención: todas las estimaciones son promedios de las regiones NUTS ponderados por regionpoppct, con regiones
 ## de n < 30 suprimidas (NA); value en % 0-100 (o media 0-10 si target ya es una escala). Nada se redondea aquí.
@@ -609,3 +614,43 @@ fn_id <- function(f) {
 ##  - with_journey(): sobre master.csv (sin variables del recorrido), xt con grupo adv, diff_stratified con exposición
 ##    rep_c_published o estrato drm y nat_est(by = "drm") daban error; ahora dan lo mismo que con df = journey_vars(df).
 ##    Con el ctx real, xt, diff_stratified, get_results_table y perception_experience son idénticos a los de antes.
+
+
+
+## Problemas en formato largo (figuras 3 y 7) ------------------------------------------------------------------
+
+# origen: src/hungary/F02.R:3-12 (problems_long, literal): una fila por problema declarado (AJP_<código>_bin == 1) con
+# su severidad 0-10 (98/99 fuera) y su categoría (problem_map, 02_variables.R); extra = columna del encuestado que se
+# arrastra (p. ej. residence). La usan fig_03 (severidad media por categoría × área) y fig_07 (distribución de la
+# severidad). Firma (df, extra) del original, sin ctx: no pondera ni usa regions, solo cambia la forma del df que
+# recibe (ctx$national en la 3, ctx$master filtrado a los países en la 7); pondera después nuts_mean_long(ctx, …).
+problems_long <- function(df, extra = NULL) {
+  map_dfr(names(problem_map), function(code) {
+    b <- df[[paste0("AJP_", code, "_bin")]]; s <- df[[paste0("AJP_", code, "_sev")]]
+    keep <- !is.na(b) & b == 1 & !is.na(s) & s <= 10
+    out <- tibble(country_name_ltn = df$country_name_ltn, nuts_id = df$nuts_id, sev = s, category = problem_map[[code]])
+    if (!is.null(extra)) out[[extra]] <- as.character(df[[extra]])
+    out[keep, ]
+  })
+}
+
+## Coocurrencia de problemas (figuras 5 y 6) ----------------------------------------------------------------------
+
+# origen: F01.R:6-7 — adaptada: `hu` → ctx$national. Una fila por encuestado del país: country_name_ltn, nuts_id y una
+# columna 0/1 por categoría (`categories`, orden alfabético) = al menos un problema no trivial en ella (AJP_*_bin = 1 y
+# 4 <= sev < 98: problem_flags() de 02_variables.R, quality check ya aplicado). La 6 la estima con nat_est (P(fila |
+# columna), F01.R:8-19); la 5 la cuenta sin ponderar. Es la misma bandera que la red obtiene recodificando AJP_*_bin
+# (F01.R:46-50: 1 solo si es no trivial) y agregando por categoría (network_graph.R:35-56): las 12 columnas son
+# idénticas en el país del reporte (1750 encuestados; comprobado el 2026-10-23). Memorizada por ctx (la usan la 5 y la 6).
+cooc_flags <- function(ctx) {
+  memo(ctx, "cooc_flags", {
+    nt <- problem_flags(ctx$national)
+    bind_cols(ctx$national %>% select(country_name_ltn, nuts_id), nt %>% mutate(across(everything(), as.numeric)))
+  })
+}
+## Prueba (2026-10-23): cd /tmp && Rscript SCRATCH/e3_L3/pruebas/p01_explorar.R y p05_contraste.R (ctx real de cache/):
+## cooc_flags(ctx) 1750 × 14; sus 12 columnas = recodificación F01.R:46-50 + network_graph.R:35-56 (identical 12/12);
+## fig 6 = analisis adicionales/F01.csv (144 celdas, |Δ| ≤ 7e-15, mismas N/A); fig 5: lifts = tabs/csv/
+## 1_5_lift_matrix_<país>.csv (66 parejas, |Δ| ≤ 2e-15) y prevalencias = P_A/P_B de 1_5_lift_top_pairs.csv.
+## Revisión 3 (grupo F2, 2026-10-23): solo comentarios (encabezado y estas dos secciones); problems_long y cooc_flags
+## sin cambios de código (las tablas de 3, 5, 6 y 7 del país del reporte son las de antes).

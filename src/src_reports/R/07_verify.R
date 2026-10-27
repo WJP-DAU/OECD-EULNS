@@ -3,7 +3,7 @@
 ## (check_spec: texto impreso exacto; barra dentro de tol puntos de la escala; "suprimido" = ni dato ni texto).
 ## Usa de 00_setup.R: figure_stem(), figure_file(), log_msg(), first_line(), deps_exact_mismatch(); de 01_load.R:
 ## rel_path(), read_key(), secs(); de 04_svg.R: svg_size(path) → list(width_in, height_in) y count_live_text(path) → n
-## de <text>; de 09_wjpr.R: wjpr_similarity() (metodo wjpr).
+## de <text>; de 09_wjpr.R: wjpr_similarity() (metodo wjpr), wjpr_norm_text() y WJPR_DRAWN_OPT (contrato por fila).
 ##
 ##   run_verify(specs, cfg)           → tibble(fig, metodo, estado, verificacion, archivo) (§4.7), una fila por spec en
 ##                                      el orden del manifiesto; actualiza output/<slug>/tables/00-verificacion.csv (fig,
@@ -14,22 +14,33 @@
 ##   verify_figure(spec, cfg, status) → list(estado, verificacion, archivo, detalle); status = última fila de
 ##                                      log/figures_status.csv para la figura (lista) o NULL.
 ##
-## Estados de la figura: ok | fallo | error | sin salida | sin referencia | desactualizada | estatica | omitida.
+## Estados de la figura: ok | fallo | sin dibujo | error | sin salida | sin referencia | desactualizada | estatica |
+## omitida. "sin dibujo" (metodo wjpr): nada falla pero el parecido con la publicada no se pudo medir (sin PNG nuevo
+## por --no-png o sin Chrome, o sin PNG publicado): el dibujo no está verificado, no cuenta como verificada en la
+## línea de cierre y --strict sale con 1.
 ## Resultado por fila del detalle: ok | fallo | conocida | suprimido | faltante | extra.
-## Campos: text | text2 | value | value2 | x | y | lo | hi | n | frac | frac2 | orden | parecido | textos | ancho | alto |
-## png | texto_vivo | entorno.
+## Campos: figures | text | text2 | value | value2 | x | y | lo | hi | n | frac | frac2 | label_drawn | grouping_drawn |
+## val | val2 | orden | parecido | parecido_local | textos | ancho | alto | png | texto_vivo | entorno.
 ## Pasos de verify_figure: (1) estados previos: figures dio "error" (verificacion "figures: <motivo de figures_status>"),
-## sin tabla, static, sin referencia, desactualizada; (2) unión por (kind, grouping, label): faltante / extra; (3) orden
+## sin tabla, static, sin referencia, desactualizada (también, con metodo wjpr, figures_status.csv sin wjpr_drawn o
+## drawn.csv sin las columnas del contrato extendido: «corra --stage figures: … anteriores al contrato por fila»);
+## (2) unión por (kind, grouping, label): faltante / extra; (3) orden
 ## de las filas comunes; (4) por fila: text/text2 exactos si la referencia los trae, en la tabla y en drawn.csv (lo
-## dibujado, svg_r); |value − ref| ≤ tol (tol de la fila o cfg$verify$tol_pp; ambos NA → suprimido); value2 con tol2 de
-## la fila (NA → la de value); x, y con tol_xy de la fila (NA → 0.01) y lo, hi, n exactos (|Δ| ≤ 1e-9) cuando la
-## referencia los trae (decisión 1 de la revisión); (5) drawn.csv: frac/frac2 con cfg$verify$tol_frac y mismo orden;
-## con metodo wjpr, en su lugar (WJPr no expone las barras dibujadas): parecido = f1 de tinta del PNG nuevo frente a
-## reference/<slug>/published/Figure_NN_slug.png ≥ cfg$verify$min_f1 (wjpr_similarity a 96 dpi; sin uno de los dos
-## PNG, suprimido) y textos = la comparación de los textos dibujados con df que hizo figures (wjpr_textos en
-## figures_status); una salida sin wjpr_build en figures_status (dibujada con otro metodo) está desactualizada;
+## dibujado: svg_r, y wjpr cuando el adaptador lo expone); |value − ref| ≤ tol (tol de la fila o cfg$verify$tol_pp;
+## ambos NA → suprimido); value2 con tol2 de la fila (NA → la de value); x, y con tol_xy de la fila (NA → 0.01) y lo, hi,
+## n exactos (|Δ| ≤ 1e-9) cuando la referencia los trae (decisión 1 de la revisión); (5) drawn.csv (drawn_ref_rows):
+## frac/frac2 con cfg$verify$tol_frac y mismo orden (svg_r: drawn de chart_out; wjpr: attr(p, "wjpr")$drawn leído de
+## ggplot_build, con order = posición visual; en los adaptadores wjpr que no lo exponen, fila frac "suprimido") y, con el
+## contrato extendido, label_drawn/grouping_drawn exactos frente a label/grouping de la referencia y val/val2 frente a
+## value/value2 con la tol de la fila (lo que drawn.csv trae NA no se compara);
+## con metodo wjpr además: parecido = f1 de tinta del PNG nuevo frente a reference/<slug>/published/Figure_NN_slug.png
+## ≥ cfg$verify$min_f1 y parecido_local = peor ventana de local_block_px px con píxeles distintos ≤ cfg$verify$max_local
+## (wjpr_similarity a 96 dpi; sin uno de los dos PNG, suprimidos y la figura "sin dibujo") y textos = la comparación de
+## los textos dibujados con df que hizo figures (wjpr_textos en figures_status; "sin textos que comparar" →
+## suprimido); una salida sin wjpr_build en figures_status (dibujada con otro metodo) está desactualizada;
 ## (6) archivo: ancho exacto (±0.001) y alto ± size_tol_in, PNG = round(w_in·dpi) × round(h_in·dpi), 0 <text>,
-## versiones 'exacta' de deps.csv (aviso, campo entorno); (7) conocida: una fila fallida cuyo label y text obtenido
+## versiones 'exacta' de deps.csv (aviso, campo entorno); un PNG que falta da obtenido "ausente"; figures en texto,
+## dibujo, tamaño o png → fila "figures" fallida y verificacion "figures: <motivo>"; (7) conocida: una fila fallida cuyo label y text obtenido
 ## aparezcan en spec$nota como [conocida: <label>=<text>] pasa a "conocida" (ni ok ni fallo; una figura solo con
 ## conocidas queda "ok" y su verificacion empieza por "conocida").
 ## Decisiones: value2, x, y, lo, hi, n y frac/frac2 solo se comparan en una fila cuando alguna de las dos tablas trae el
@@ -45,6 +56,11 @@
 KEY_COLS <- c("kind", "grouping", "label", ".dup")   # clave de unión (+ índice de repetición)
 XY_TOL   <- 0.01                                     # tol de x, y cuando la referencia no trae tol_xy (decisión 1)
 MIN_F1   <- 0.995                                    # parecido mínimo (metodo wjpr) si el yml no trae verify$min_f1
+# Diferencia local máxima con la publicada (metodo wjpr) y parámetros de wjpr_similarity() si el yml no los trae
+# (calibrados el 23-oct: ver config/hungary.yml, verify$max_local)
+VERIFY_LOCAL <- list(max_local = 0.5, local_block_px = 12, local_delta = 0.2, local_delta_flat = 0.05)
+# Estados de figures que no son ok ni error: verify da "fallo · figures: <motivo>" aunque lo demás pase (revisión 4)
+FIGURES_NOT_OK <- c("texto", "dibujo", "tamaño", "png")
 
 
 ## Utilidades ------------------------------------------------------------------------------------------------------
@@ -75,15 +91,75 @@ within_tol <- function(a, b, tol) isTRUE(abs(as.numeric(a) - as.numeric(b)) <= a
 
 # Lee una tabla (salida, drawn o referencia) como texto y asegura las columnas del contrato: faltantes → NA / "".
 # Numéricas: value, value2, frac, frac2, tol y (decisión 1 de la revisión) tol2, tol_xy, x, y, lo, hi, n.
+# corregido (revisión 4): también las columnas opcionales de drawn.csv (contrato extendido): val, val2 numéricas y
+# label_drawn, grouping_drawn texto con NA (ausentes o escritas "NA" = no expuestas; "" = nada impreso)
 read_table_csv <- function(f) {
-  num <- c("value", "value2", "frac", "frac2", "tol", "tol2", "tol_xy", "x", "y", "lo", "hi", "n")
+  num <- c("value", "value2", "frac", "frac2", "tol", "tol2", "tol_xy", "x", "y", "lo", "hi", "n", "val", "val2")
   chr <- c("kind", "grouping", "label", "text", "text2")
+  opt <- c("label_drawn", "grouping_drawn")
   x <- read_csv(f, col_types = cols(.default = col_character()), na = character(), show_col_types = FALSE, progress = FALSE)
-  for (c in c("order", num)) if (!c %in% names(x)) x[[c]] <- NA_character_
+  for (c in c("order", num, opt)) if (!c %in% names(x)) x[[c]] <- NA_character_
   for (c in chr) if (!c %in% names(x)) x[[c]] <- ""
   x %>% mutate(order = suppressWarnings(as.integer(order)),
                across(all_of(num), ~ suppressWarnings(as.numeric(.x))),
-               across(all_of(chr), ~ coalesce(.x, "")))
+               across(all_of(chr), ~ coalesce(.x, "")),
+               across(all_of(opt), ~ if_else(.x %in% "NA", NA_character_, .x)))
+}
+
+# ¿drawn.csv escrito con el contrato extendido (revisión 4)? Su encabezado trae las columnas opcionales
+# (WJPR_DRAWN_OPT, 09_wjpr.R), que figures escribe siempre (NA si no se exponen)
+drawn_has_contract <- function(f) {
+  hdr <- tryCatch(names(read_csv(f, n_max = 0, col_types = cols(.default = col_character()), show_col_types = FALSE,
+                                 progress = FALSE)), error = function(e) character())
+  all(WJPR_DRAWN_OPT %in% hdr)
+}
+
+# Filas del detalle de lo dibujado por fila frente a la referencia (sección 5 de verify_figure; la galería usa las
+# mismas): orden visual, frac/frac2 ± tol_frac donde la referencia trae barra (has_frac) y, con el contrato extendido,
+# label_drawn y grouping_drawn exactos (wjpr_norm_text) frente a label y grouping de la referencia, val ± la tol de la
+# fila (o tol_pp) frente a value y val2 ± tol2 (o la de value) frente a value2; lo que drawn.csv trae NA no se compara
+# y un val finito donde la referencia trae NA es fallo. ref_k y d_k con add_key().
+drawn_ref_rows <- function(ref_k, d_k, tol_frac, tol_pp, has_frac) {
+  out <- list(); add <- function(r) out[[length(out) + 1L]] <<- r
+  # sufijo _dib: con _drawn, dplyr nombraba label_drawn de drawn.csv "label_drawn_drawn_drawn"
+  bd <- inner_join(ref_k, d_k, by = KEY_COLS, suffix = c("_ref", "_dib")) %>% arrange(order_ref)
+  if (nrow(bd) > 1) add(order_row(bd$order_ref, bd$order_dib, bd, nota = "drawn.csv"))
+  txt_row <- function(campo, esperado, obtenido, meta) {
+    vrow(campo, esperado, obtenido, if (identical(wjpr_norm_text(esperado), wjpr_norm_text(obtenido))) "ok" else "fallo", tol = 0,
+         kind = meta$kind, grouping = meta$grouping, label = meta$label,
+         nota = paste0("drawn.csv: nombre impreso en la posición de la fila (", if (campo == "label_drawn") "etiqueta" else "encabezado", ")"))
+  }
+  num_row <- function(campo, esperado, obtenido, tol, meta) {
+    if (is.na(obtenido)) return(NULL)                    # no codificado o no expuesto
+    cmp_num(campo, esperado, obtenido, tol, meta, nota = "drawn.csv: valor que codifica la geometría")
+  }
+  for (i in seq_len(nrow(bd))) {
+    b <- bd[i, ]; meta <- list(kind = b$kind, grouping = b$grouping, label = b$label)
+    tol_i <- if (is.na(b$tol_ref)) tol_pp else b$tol_ref
+    tol2_i <- if (is.na(b$tol2_ref)) tol_i else b$tol2_ref
+    if (has_frac && (!is.na(b$frac_ref) || !is.na(b$frac_dib))) add(cmp_num("frac", b$frac_ref, b$frac_dib, tol_frac, meta, nota = "drawn.csv"))
+    if (has_frac && (!is.na(b$frac2_ref) || !is.na(b$frac2_dib))) add(cmp_num("frac2", b$frac2_ref, b$frac2_dib, tol_frac, meta, nota = "drawn.csv"))
+    if (!is.na(b$label_drawn_dib)) add(txt_row("label_drawn", b$label, b$label_drawn_dib, meta))
+    if (!is.na(b$grouping_drawn_dib)) add(txt_row("grouping_drawn", b$grouping, b$grouping_drawn_dib, meta))
+    add(num_row("val", b$value_ref, b$val_dib, tol_i, meta))
+    add(num_row("val2", b$value2_ref, b$val2_dib, tol2_i, meta))
+  }
+  md <- anti_join(filter(ref_k, !is.na(frac) | !is.na(frac2)), d_k, by = KEY_COLS) %>% arrange(order)
+  for (i in seq_len(nrow(md))) {
+    add(vrow("frac", fmt_val(coalesce(md$frac[i], md$frac2[i])), "", "fallo", tol = tol_frac, kind = md$kind[i],
+             grouping = md$grouping[i], label = md$label[i], nota = "barra de la referencia sin fila en drawn.csv"))
+  }
+  # corregido (revisión 4, G3): una marca dibujada sin fila en la referencia (un nodo o una arista de más, un rótulo sin
+  # punto, una barra en una posición sin categoría) da su propia fila "extra"; antes solo la veía figures y verify
+  # fallaba por la fila «figures». Cuenta si codifica un valor o imprime algo (texto o nombre)
+  ex <- anti_join(filter(d_k, is.finite(val) | is.finite(val2) | nzchar(text) | nzchar(text2) |
+                            (!is.na(label_drawn) & nzchar(label_drawn))), ref_k, by = KEY_COLS) %>% arrange(order)
+  for (i in seq_len(nrow(ex))) {
+    shown <- c(fmt_val(coalesce(ex$val[i], ex$val2[i])), ex$text[i], ex$label_drawn[i])
+    add(vrow("val", "", paste(shown[!is.na(shown) & nzchar(shown) & shown != "NA"], collapse = " · "), "extra",
+             kind = ex$kind[i], grouping = ex$grouping[i], label = ex$label[i], nota = "drawn.csv: marca dibujada sin fila en la referencia"))
+  }
+  Filter(Negate(is.null), out)
 }
 
 # Clave (kind, grouping, label) + índice de repetición. Las claves duplicadas se numeran en el orden de `order`: en el
@@ -163,11 +239,12 @@ sfield <- function(status, name) {
   if (is.null(v) || length(v) == 0 || is.na(v[1]) || v[1] %in% c("", "NA")) NA_character_ else as.character(v[1])
 }
 
-# "desactualizada": md5 de la tabla o del SVG ≠ figures_status, o ctx_key ≠ cache/ctx_<slug>.key (si existe).
-# figures_status guarda la clave del ctx (decisión 6 de la revisión: ctx$meta$ctx_key = ctx_key(cfg, master_key), el
-# contenido de ctx_<slug>.key); se acepta además la igualdad con master.key o como prefijo de ctx_<slug>.key
-# (filas escritas con la clave del master).
-is_stale <- function(status, f_table, f_svg, cfg) {
+# "desactualizada": md5 de la tabla, del SVG o de drawn.csv ≠ figures_status, o ctx_key ≠ cache/ctx_<slug>.key (si
+# existe). figures_status guarda la clave del ctx (decisión 6 de la revisión: ctx$meta$ctx_key = ctx_key(cfg,
+# master_key), el contenido de ctx_<slug>.key); se acepta además la igualdad con master.key o como prefijo de
+# ctx_<slug>.key (filas escritas con la clave del master). corregido (V3-02): drawn.csv entra porque verify compara con
+# él lo dibujado por fila también en metodo wjpr; un drawn.csv tocado después de figures ya no pasa por bueno.
+is_stale <- function(status, f_table, f_svg, cfg, f_drawn = NULL) {
   no <- list(stale = FALSE, why = "")
   if (is.null(status)) return(no)
   md5 <- function(f) unname(tools::md5sum(f))
@@ -175,6 +252,10 @@ is_stale <- function(status, f_table, f_svg, cfg) {
   if (!is.na(m_t) && !identical(md5(f_table), m_t)) return(list(stale = TRUE, why = "md5 de la tabla ≠ figures_status"))
   m_s <- sfield(status, "md5_svg")
   if (!is.na(m_s) && file.exists(f_svg) && !identical(md5(f_svg), m_s)) return(list(stale = TRUE, why = "md5 del SVG ≠ figures_status"))
+  m_d <- sfield(status, "md5_drawn")
+  if (!is.null(f_drawn) && !is.na(m_d) && file.exists(f_drawn) && !identical(md5(f_drawn), m_d)) {
+    return(list(stale = TRUE, why = "md5 de drawn.csv ≠ figures_status"))
+  }
   sk <- sfield(status, "ctx_key")
   f_ckey <- file.path(cfg$paths$cache, paste0("ctx_", cfg$slug, ".key"))
   if (!is.na(sk) && file.exists(f_ckey)) {
@@ -197,31 +278,68 @@ deps_mismatch <- function(cfg) {
   if (nrow(dm) == 0) NULL else transmute(dm, paquete, version = esperada, instalada = coalesce(instalada, "-"))
 }
 
-# metodo wjpr, en lugar de drawn.csv: parecido del PNG nuevo con el publicado (wjpr_similarity, 09_wjpr.R: f1 de tinta
-# a 96 dpi, 1 = mismo dibujo) ≥ min_f1. Una build de WJPr que cambia el dibujo (orden de las categorías, una leyenda
-# por defecto) lo baja aunque la tabla y los textos sean los mismos. Sin PNG nuevo o sin publicada: suprimido.
-parecido_row <- function(f_png, f_pub, min_f1, status, root) {
-  esp <- paste0("≥ ", fmt_val(min_f1))
-  dib <- if (is.na(sfield(status, "wjpr_build"))) "" else paste0("; dibujada con WJPr ", sfield(status, "wjpr_build"))
-  none <- function(why) vrow("parecido", esp, "", "suprimido", nota = paste0(why, ": no se mide", dib))
-  if (!file.exists(f_png)) return(none("sin PNG nuevo (--no-png o sin Chrome)"))
-  if (!file.exists(f_pub)) return(none(paste0("sin PNG publicado (", rel_path(f_pub, root), ")")))
-  sm <- tryCatch(wjpr_similarity(f_png, f_pub), error = function(e) e)
-  if (inherits(sm, "error")) {
-    return(vrow("parecido", esp, "", "fallo", nota = paste("wjpr_similarity:", first_line(conditionMessage(sm)))))
-  }
-  vrow("parecido", esp, sprintf("%.4f", sm$f1), if (isTRUE(sm$f1 >= min_f1 - 1e-9)) "ok" else "fallo",
-       nota = sprintf("f1 de tinta a 96 dpi frente a %s (precision %.4f, recall %.4f, mad %.4f)%s", rel_path(f_pub, root),
-                      sm$precision, sm$recall, sm$mad, dib))
+# Umbral y parámetros de la diferencia local (metodo wjpr) de cfg$verify, con los defectos de VERIFY_LOCAL; error
+# legible si uno no es válido (check_cfg, 00_setup.R, no los conoce: un umbral mal escrito no se cambia en silencio)
+verify_local_params <- function(cfg) {
+  v <- cfg$verify %||% list()
+  p <- setNames(lapply(names(VERIFY_LOCAL), function(k) v[[k]] %||% VERIFY_LOCAL[[k]]), names(VERIFY_LOCAL))
+  num <- function(x, lo, hi) is.numeric(x) && length(x) == 1 && !is.na(x) && x >= lo && x <= hi
+  bad <- c(if (!num(p$max_local, 0, 1)) "verify$max_local (entre 0 y 1)",
+           if (!num(p$local_block_px, 2, 200) || p$local_block_px != round(p$local_block_px)) "verify$local_block_px (entero de 2 a 200)",
+           if (!num(p$local_delta, 0, 1)) "verify$local_delta (entre 0 y 1)",
+           if (!num(p$local_delta_flat, 0, 1)) "verify$local_delta_flat (entre 0 y 1)")
+  if (length(bad)) stop(cfg$slug %||% "config", ".yml: no son válidas las claves ", paste(bad, collapse = ", "), call. = FALSE)
+  p
 }
 
-# metodo wjpr: textos dibujados frente a df (columnas attr(p, "wjpr")$compara), comparados en figures con el plot vivo
-# (drawn_text_diff_wjpr, 06_export.R) y guardados en figures_status (wjpr_textos)
-textos_row <- function(status) {
+# metodo wjpr: parecido del PNG nuevo con el publicado (wjpr_similarity, 09_wjpr.R, a 96 dpi) en dos filas: parecido =
+# f1 de tinta (global; 1 = mismo dibujo) ≥ min_f1, y parecido_local = la peor ventana de lp$local_block_px px (fracción
+# de píxeles distintos; 0 = igual) ≤ lp$max_local. Una build de WJPr que cambia el dibujo (orden de las categorías, una
+# leyenda por defecto) baja el f1 aunque la tabla y los textos sean los mismos; un error localizado (una barra más
+# larga, colores de banda cambiados) apenas mueve el f1 y lo ve parecido_local. Sin PNG nuevo o sin publicada: las dos
+# suprimidas (verify_figure deja la figura "sin dibujo").
+# corregido (V3-01): antes solo el f1, que daba ok con una barra 10 pp más larga o los colores de banda invertidos.
+parecido_rows <- function(f_png, f_pub, min_f1, lp, status, root) {
+  esp <- paste0("≥ ", fmt_val(min_f1)); esp_l <- paste0("≤ ", fmt_val(lp$max_local))
+  dib <- if (is.na(sfield(status, "wjpr_build"))) "" else paste0("; dibujada con WJPr ", sfield(status, "wjpr_build"))
+  none <- function(why) list(vrow("parecido", esp, "", "suprimido", nota = paste0(why, ": no se mide", dib)),
+                             vrow("parecido_local", esp_l, "", "suprimido", nota = paste0(why, ": no se mide")))
+  if (!file.exists(f_png)) return(none("sin PNG nuevo (--no-png o sin Chrome)"))
+  if (!file.exists(f_pub)) return(none(paste0("sin PNG publicado (", rel_path(f_pub, root), ")")))
+  sm <- tryCatch(wjpr_similarity(f_png, f_pub, block = lp$local_block_px, delta = lp$local_delta,
+                                 delta_flat = lp$local_delta_flat), error = function(e) e)
+  if (inherits(sm, "error")) {
+    why <- paste("wjpr_similarity:", first_line(conditionMessage(sm)))
+    return(list(vrow("parecido", esp, "", "fallo", nota = why), vrow("parecido_local", esp_l, "", "fallo", nota = why)))
+  }
+  list(
+    vrow("parecido", esp, sprintf("%.4f", sm$f1), if (isTRUE(sm$f1 >= min_f1 - 1e-9)) "ok" else "fallo",
+         nota = sprintf("f1 de tinta a 96 dpi frente a %s (precision %.4f, recall %.4f, mad %.4f)%s", rel_path(f_pub, root),
+                        sm$precision, sm$recall, sm$mad, dib)),
+    vrow("parecido_local", esp_l, sprintf("%.3f", sm$local), if (isTRUE(sm$local <= lp$max_local + 1e-9)) "ok" else "fallo",
+         nota = paste0(sprintf("fracción de píxeles distintos (|Δ| RGB > %s tolerando 1 px, o > %s donde las dos son planas) en la peor ventana de %d×%d px a 96 dpi",
+                               fmt_val(lp$local_delta), fmt_val(lp$local_delta_flat), as.integer(lp$local_block_px), as.integer(lp$local_block_px)),
+                       if (sm$local_px > 0) sprintf(", centrada en (%.2f, %.2f) in desde arriba a la izquierda; %d px distintos en la figura",
+                                                    sm$local_x_in, sm$local_y_in, sm$local_px) else "; ningún píxel distinto"))
+  )
+}
+
+# metodo wjpr: textos dibujados frente a df (columnas attr(p, "wjpr")$compara y rótulos del adaptador), comparados en
+# figures con el plot vivo (drawn_text_diff_wjpr, 06_export.R) y guardados en figures_status (wjpr_textos). Es el
+# multiconjunto: con lo dibujado por fila (por_fila) el texto de cada fila ya se compara en las filas text/text2.
+# corregido (V3-07): "sin textos que comparar" (df sin textos impresos y ningún valor dibujado: figs 3 y 7) era
+# "iguales" y contaba como comprobado; ahora es suprimido con su nota
+textos_row <- function(status, por_fila = FALSE) {
   t <- sfield(status, "wjpr_textos")
   if (is.na(t)) return(vrow("textos", "iguales", "", "suprimido", nota = "sin wjpr_textos en figures_status: no se comprueba"))
+  if (identical(t, "sin textos que comparar")) {
+    return(vrow("textos", "iguales", t, "suprimido",
+                nota = "sin textos que comparar: df no trae textos impresos (columnas compara), el adaptador no declara rótulos y no se dibuja ningún valor"))
+  }
   vrow("textos", "iguales", t, if (identical(t, "iguales")) "ok" else "fallo",
-       nota = "textos dibujados (wjpr_texts) frente a df$text/text2, medidos en figures")
+       nota = paste0("multiconjunto de textos dibujados (wjpr_texts) frente a df$text/text2, medido en figures",
+                     if (por_fila) "; el de cada fila, en las filas text/text2 (drawn.csv)" else
+                       "; sin la fila de cada texto (el adaptador no expone lo dibujado por fila)"))
 }
 
 # Dimensiones (ancho, alto) en px de un PNG y dpi declarados, como png_props() de build_finales.R:154-157 pero con
@@ -257,19 +375,35 @@ verify_figure <- function(spec, cfg, status = NULL) {
   if (!file.exists(f_table)) return(done("sin salida"))
   if (identical(spec$metodo, "static")) return(done("estatica", "SVG estático: no se verifica"))
   if (!file.exists(f_ref)) return(done("sin referencia", "corra tools/build_reference.R"))
-  st <- is_stale(status, f_table, f_svg, cfg)
+  st <- is_stale(status, f_table, f_svg, cfg, f_drawn)
   if (st$stale) return(done("desactualizada", st$why))
   wjpr <- identical(spec$metodo, "wjpr")
   if (wjpr && !is.null(status) && is.na(sfield(status, "wjpr_build"))) {
     return(done("desactualizada", "salida dibujada sin WJPr (otro metodo): corra --stage figures"))
   }
+  # corregido (revisión 4): un figures_status.csv sin la columna wjpr_drawn o un drawn.csv sin las columnas del
+  # contrato extendido son de una corrida anterior al contrato por fila; antes verify afirmaba que el adaptador «no
+  # expone lo dibujado por fila», lo que no es cierto (lo expone y no se escribió)
+  if (wjpr && ((!is.null(status) && !"wjpr_drawn" %in% names(status)) || (file.exists(f_drawn) && !drawn_has_contract(f_drawn)))) {
+    return(done("desactualizada", "corra --stage figures: figures_status.csv o drawn.csv anteriores al contrato por fila"))
+  }
 
   tol_pp <- cfg$verify$tol_pp %||% 0.6; tol_frac <- cfg$verify$tol_frac %||% 0.006
   size_tol <- cfg$verify$size_tol_in %||% 0.01; dpi <- cfg$layout$dpi %||% 300
+  lp <- verify_local_params(cfg)
   out <- read_table_csv(f_table); ref <- read_table_csv(f_ref)
-  d_k <- if (!spec$metodo %in% c("ggplot", "wjpr") && file.exists(f_drawn)) add_key(read_table_csv(f_drawn)) else NULL
+  # lo dibujado por fila: drawn.csv de svg_r y, con metodo wjpr, el del adaptador que lo expone (wjpr_drawn en
+  # figures_status: número de filas; NA si no lo expone); metodo ggplot no dibuja filas
+  n_drawn <- suppressWarnings(as.integer(sfield(status, "wjpr_drawn")))
+  wjpr_rows <- wjpr && isTRUE(n_drawn > 0)
+  d_k <- if ((!spec$metodo %in% c("ggplot", "wjpr") || wjpr_rows) && file.exists(f_drawn)) add_key(read_table_csv(f_drawn)) else NULL
   det <- list()
   add <- function(row) det[[length(det) + 1L]] <<- row
+  if (wjpr_rows && (is.null(d_k) || nrow(d_k) == 0)) {
+    add(vrow("frac", n_drawn, if (is.null(d_k)) "" else "0", "fallo", tol = tol_frac,
+             nota = paste0("figures registró ", n_drawn, " filas dibujadas y ", basename(f_drawn), " no las tiene")))
+    d_k <- NULL
+  }
 
   # (2) unión por (kind, grouping, label): fila de la referencia sin tabla → faltante; de la tabla sin referencia → extra
   ref_k <- add_key(ref); out_k <- add_key(out)
@@ -315,35 +449,37 @@ verify_figure <- function(spec, cfg, status = NULL) {
 
   # (5) dibujo: drawn.csv vs frac/frac2 de la referencia (solo donde alguna trae barra) y mismo orden; ggplot no dibuja.
   # Si la referencia no trae ninguna fracción (sankey 11/16: sin barra medible) las de drawn.csv no se comparan.
-  # metodo wjpr: parecido con la publicada y textos dibujados en lugar de drawn.csv. Si WJPr llegara a devolver lo que
-  # dibuja (p. ej. un attr con la fracción de cada barra), aquí volvería la comparación frac/frac2 de las svg_r.
-  f1 <- NA_real_
+  # metodo wjpr: lo mismo con el drawn.csv del adaptador cuando lo expone (order = posición visual: "orden" mira el
+  # orden dibujado de arriba abajo) y, siempre, parecido + parecido_local con la publicada y textos; sin PNG que
+  # comparar la figura queda "sin dibujo".
+  # corregido (V3-01, V3-02, V3-03): con wjpr solo había parecido (f1 global, que da ok con una barra 10 pp más larga o
+  # los colores de banda invertidos) y textos (multiconjunto, que no ve un valor en la fila equivocada), y sin PNG la
+  # figura quedaba ok sin ninguna comprobación del dibujo. No es cierto que WJPr no exponga las barras: ggplot_build()
+  # las da (wjpr_drawn, 09_wjpr.R).
+  f1 <- NA_real_; loc <- NA_real_; sin_dibujo <- NA_character_
+  has_frac <- any(!is.na(ref$frac)) || any(!is.na(ref$frac2))
+  # corregido (revisión 4): además de frac y orden, el nombre impreso (label_drawn, grouping_drawn) y el valor que
+  # codifica la geometría (val, val2) de drawn.csv frente a la referencia (drawn_ref_rows, la regla de la galería)
+  if (!is.null(d_k)) {
+    for (r in drawn_ref_rows(ref_k, d_k, tol_frac, tol_pp, has_frac)) add(r)
+    # corregido (revisión 4, G1): solo si drawn.csv trae fracciones (antes también «0 fracciones … sin comparar»)
+    n_fr <- sum(!is.na(d_k$frac) | !is.na(d_k$frac2))
+    if (!has_frac && n_fr > 0) log_msg("fig ", fig, ": la referencia no trae frac/frac2; ", n_fr, " fracciones de drawn.csv sin comparar")
+  } else if (!spec$metodo %in% c("ggplot", "wjpr") && has_frac) {
+    add(vrow("frac", sum(!is.na(ref$frac) | !is.na(ref$frac2)), "", "fallo", tol = tol_frac, nota = paste0("no existe ", basename(f_drawn))))
+  }
   if (wjpr) {
-    pr <- parecido_row(f_png, file.path(cfg$paths$reference, "published", paste0(stem, ".png")),
-                       cfg$verify$min_f1 %||% MIN_F1, status, root)
-    if (pr$resultado == "ok") f1 <- as.numeric(pr$obtenido)
-    add(pr)
-    add(textos_row(status))
-  } else if (!identical(spec$metodo, "ggplot")) {
-    has_frac <- any(!is.na(ref$frac)) || any(!is.na(ref$frac2))
-    if (!is.null(d_k)) {
-      bd <- inner_join(ref_k, d_k, by = KEY_COLS, suffix = c("_ref", "_drawn")) %>% arrange(order_ref)
-      if (nrow(bd) > 1) add(order_row(bd$order_ref, bd$order_drawn, bd, nota = "drawn.csv"))
-      for (i in seq_len(nrow(bd))) {
-        b <- bd[i, ]; meta <- list(kind = b$kind, grouping = b$grouping, label = b$label)
-        if (has_frac && (!is.na(b$frac_ref) || !is.na(b$frac_drawn))) add(cmp_num("frac", b$frac_ref, b$frac_drawn, tol_frac, meta, nota = "drawn.csv"))
-        if (has_frac && (!is.na(b$frac2_ref) || !is.na(b$frac2_drawn))) add(cmp_num("frac2", b$frac2_ref, b$frac2_drawn, tol_frac, meta, nota = "drawn.csv"))
-      }
-      if (!has_frac) log_msg("fig ", fig, ": la referencia no trae frac/frac2; ", sum(!is.na(d_k$frac) | !is.na(d_k$frac2)),
-                             " fracciones de drawn.csv sin comparar")
-      md <- anti_join(filter(ref_k, !is.na(frac) | !is.na(frac2)), d_k, by = KEY_COLS) %>% arrange(order)
-      for (i in seq_len(nrow(md))) {
-        add(vrow("frac", fmt_val(coalesce(md$frac[i], md$frac2[i])), "", "fallo", tol = tol_frac, kind = md$kind[i],
-                 grouping = md$grouping[i], label = md$label[i], nota = "barra de la referencia sin fila en drawn.csv"))
-      }
-    } else if (has_frac) {
-      add(vrow("frac", sum(!is.na(ref$frac) | !is.na(ref$frac2)), "", "fallo", tol = tol_frac, nota = paste0("no existe ", basename(f_drawn))))
+    if (is.null(d_k) && !wjpr_rows) {
+      add(vrow("frac", "", "", "suprimido", nota = paste0(spec$funcion %||% "el adaptador", " no expone lo dibujado por fila",
+                                                          " (attr(p, \"wjpr\")$drawn): el dibujo lo miden parecido y parecido_local")))
     }
+    pr <- parecido_rows(f_png, file.path(cfg$paths$reference, "published", paste0(stem, ".png")),
+                        cfg$verify$min_f1 %||% MIN_F1, lp, status, root)
+    if (pr[[1]]$resultado == "ok") f1 <- as.numeric(pr[[1]]$obtenido)
+    if (pr[[2]]$resultado == "ok") loc <- as.numeric(pr[[2]]$obtenido)
+    if (pr[[1]]$resultado == "suprimido") sin_dibujo <- sub(": no se mide.*$", "", pr[[1]]$nota)
+    for (r in pr) add(r)
+    add(textos_row(status, por_fila = !is.null(d_k)))
   }
 
   # (6) archivo: tamaño del SVG, texto vivo, PNG y entorno
@@ -381,8 +517,9 @@ verify_figure <- function(spec, cfg, status = NULL) {
                nota = paste0("round(w_in·dpi) × round(h_in·dpi) a ", dpi, " dpi (±", px_tol[1], " px ancho, ±", px_tol[2], " px alto)", if (!is.na(pd$dpi)) paste0("; el PNG declara ", pd$dpi, " dpi") else "")))
     }
   } else {
+    # corregido (revisión 4): obtenido "ausente" (antes "", y la consola decía «png: 1821x1296→» sin decir que falta)
     png_failed <- identical(sfield(status, "estado"), "png")
-    add(vrow("png", px_txt(px_exp), "", if (png_failed) "fallo" else "suprimido", tol = px_tol[2],
+    add(vrow("png", px_txt(px_exp), "ausente", if (png_failed) "fallo" else "suprimido", tol = px_tol[2],
              nota = if (png_failed) "Chrome no generó el PNG (estado png en figures_status)" else "PNG ausente (--no-png o sin Chrome): no se verifica"))
   }
   dm <- deps_mismatch(cfg)
@@ -390,6 +527,14 @@ verify_figure <- function(spec, cfg, status = NULL) {
     add(vrow("entorno", paste(dm$paquete, dm$version, collapse = ", "), paste(dm$paquete, dm$instalada, collapse = ", "), "ok",
              nota = "aviso: versiones 'exacta' de deps.csv distintas de las instaladas (no es fallo)"))
   }
+
+  # corregido (revisión 4): una figura que figures dejó en texto, dibujo, tamaño o png no sale "ok": la fila
+  # "figures" (primera del detalle) falla con el motivo de figures_status y la tabla la muestra "fallo · figures:
+  # <motivo>", como el error; antes solo se propagaba "error" (14 textos dudosos por una fuente equivocada daban "ok")
+  est_fig <- sfield(status, "estado")
+  fig_bad <- isTRUE(est_fig %in% FIGURES_NOT_OK)
+  mot_fig <- if (fig_bad) coalesce(sfield(status, "motivo"), paste0(est_fig, " (ver log)")) else NA_character_
+  if (fig_bad) det <- c(list(vrow("figures", "ok", est_fig, "fallo", nota = paste0("estado de --stage figures: ", mot_fig))), det)
 
   # (7) conocida: fila fallida cuyo label y text obtenido figuran en spec$nota como [conocida: <label>=<text>]
   detalle <- bind_rows(verify_rows_empty(), det)
@@ -409,10 +554,15 @@ verify_figure <- function(spec, cfg, status = NULL) {
 
   n_total <- nrow(detalle); n_ok <- sum(detalle$resultado %in% c("ok", "suprimido"))
   fails <- which(detalle$resultado %in% c("fallo", "faltante", "extra")); known <- which(detalle$resultado == "conocida")
-  estado <- if (length(fails) > 0) "fallo" else "ok"
-  verificacion <- if (length(fails) > 0) sprintf("%d/%d · %s", n_ok, n_total, motivo(detalle[fails[1], ]))
+  # corregido (V3-03): metodo wjpr sin parecido medido (sin PNG nuevo o publicado) → "sin dibujo", no "ok": el dibujo
+  # no se comprobó (lo por fila de drawn.csv no ve la maqueta) y --strict sale con 1
+  estado <- if (length(fails) > 0) "fallo" else if (!is.na(sin_dibujo)) "sin dibujo" else "ok"
+  verificacion <- if (fig_bad) paste0("figures: ", first_line(mot_fig, 60))
+                  else if (length(fails) > 0) sprintf("%d/%d · %s", n_ok, n_total, motivo(detalle[fails[1], ]))
+                  else if (!is.na(sin_dibujo)) sprintf("%d/%d · sin dibujo: %s", n_ok, n_total, sin_dibujo)
                   else if (length(known) > 0) sprintf("%d/%d · conocida %s", n_ok, n_total, motivo(detalle[known[1], ]))
-                  else sprintf("%d/%d ok%s", n_ok, n_total, if (is.na(f1)) "" else sprintf(" · parecido f1 %.3f", f1))
+                  else sprintf("%d/%d ok%s%s", n_ok, n_total, if (is.na(f1)) "" else sprintf(" · parecido f1 %.3f", f1),
+                               if (is.na(loc)) "" else sprintf(" · local %.3f", loc))
   detalle <- bind_cols(tibble(fig = rep(fig, n_total), slug = rep(spec$slug, n_total)), detalle)
   done(estado, verificacion, detalle)
 }
@@ -432,6 +582,10 @@ read_verificacion <- function(f) {
 
 run_verify <- function(specs, cfg) {
   t0 <- Sys.time()
+  lp <- verify_local_params(cfg)         # un umbral inválido detiene la etapa (no cada figura en "error")
+  log_msg("verify: parecido f1 ≥ ", fmt_val(cfg$verify$min_f1 %||% MIN_F1), " · parecido_local ≤ ", fmt_val(lp$max_local),
+          " (ventanas de ", lp$local_block_px, " px, |Δ| > ", fmt_val(lp$local_delta), " o > ", fmt_val(lp$local_delta_flat),
+          " en zonas planas) · frac ± ", fmt_val(cfg$verify$tol_frac %||% 0.006))
   status_tbl <- read_figures_status(cfg)
   if (is.null(status_tbl)) log_msg("verify: sin log/figures_status.csv (no se comprueban md5 ni ctx_key)")
   rows <- vector("list", length(specs)); dets <- vector("list", length(specs)); done_figs <- character()
@@ -499,3 +653,17 @@ run_verify <- function(specs, cfg) {
 ##   "desactualizada · salida dibujada sin WJPr"; sin figures_status → textos suprimido; wjpr_textos ≠ iguales → "fallo ·
 ##   72/73 · textos: …"; sin PNG nuevo (también --no-png de punta a punta) o sin publicada → parecido suprimido y ok;
 ##   min_f1 1.5 → fallo; yml sin min_f1 → MIN_F1.
+## Revisión 3 (2026-10-23, F1: V3-01, V3-02, V3-03, V3-07): main.R --stage all --figs 01,02,03,04,05,06,07,09,10,11 → 10/10
+##   con 1.1.0@382aee9 y con main ("55/55 ok · parecido f1 1.000 · local 0.000" en la 01; local 0.444 la 06, 0.153 la
+##   03, 0.118 la 07, 0.035 la 02, 0 el resto). SCRATCH/fix3/F1/pruebas/run_exp.sh, errores provocados de V3 (solo
+##   plot()), --strict: E1-E5 (01 barra National Average +10 pp, 02 Public Services −5 pp, 04 Male +1.0, 06 colores de
+##   banda 25-50 y ≥ 50 invertidos, 07 UE severidad 5 −1 pp): 5 × ok y exit 0 → 5 × fallo ("frac National Average:
+##   0.681573→0.782037", "parecido_local: ≤ 0.5→0.833", "frac Male: 0.494344→0.593947", "parecido_local: ≤ 0.5→1.000"
+##   en la 06 y en la 07) y exit 1; E7 (textos intercambiados en 01 y 04): ok → fallo "text 65-100: 61%→72%" / "3.5→6.4"
+##   (drawn.csv); E6 (06 sin colores de banda) con --no-png: "ok 416/416", "1/1 verificadas", exit 0 → "sin dibujo ·
+##   418/418 · sin dibujo: sin PNG nuevo (--no-png o sin Chrome)", "0/1 verificadas", exit 1; con PNG: fallo
+##   "parecido: ≥ 0.995→0.2282"; --no-png de las diez: 10 × "sin dibujo", "0/10 verificadas", exit 1 (otra vez con PNG:
+##   10/10, exit 0); svg_r (fig 09 con chart_grouped y metodo svg_r): "98/98 ok", con las mismas 98 filas de detalle y el
+##   mismo drawn.csv y SVG (md5) que el código de antes. p11_unit.R:
+##   verify_local_params (hungary.yml; max_local 2 y local_block_px 1.5 → error; sin claves → VERIFY_LOCAL),
+##   textos_row (iguales → ok, "sin textos que comparar" → suprimido, faltan → fallo).

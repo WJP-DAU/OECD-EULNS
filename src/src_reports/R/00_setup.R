@@ -446,6 +446,9 @@ print_header <- function(cfg, stage, run_id, notes = NULL) {
 # ancha como su texto más largo, hasta 70 (antes se cortaba a 44: la 'ok' de figures perdía '<text>').
 # Una figura con estado error en figures de esta corrida se muestra con ese error ("figures: <motivo>", decisión 2)
 # aunque verify diga otra cosa: su salida se borró al empezar y verify la daba 'sin salida' sin motivo (R5-07).
+# corregido (revisión 4): una figura que figures dejó en texto, dibujo, tamaño o png no sale "ok" (ni "sin dibujo"):
+# se muestra "fallo" con "figures: <motivo>" (verify_figure ya lo hace con figures_status.csv; esto lo asegura en la
+# consola para la corrida actual) y --strict la cuenta (main.R: verify no ok)
 print_rows <- function(rows) {
   tbl <- rows$verify %||% rows$figures %||% rows$compare
   if (!is.null(rows$verify) && !is.null(rows$figures)) {
@@ -453,6 +456,10 @@ print_rows <- function(rows) {
     i <- which(tbl$fig %in% f$fig & !tbl$estado %in% c("error", "omitida"))
     j <- match(tbl$fig[i], f$fig)
     tbl$estado[i] <- "error"; tbl$verificacion[i] <- paste0("figures: ", f$verificacion[j]); tbl$archivo[i] <- f$archivo[j]
+    f <- rows$figures[rows$figures$estado %in% c("texto", "dibujo", "tamaño", "png"), , drop = FALSE]
+    i <- which(tbl$fig %in% f$fig & tbl$estado %in% c("ok", "sin dibujo"))
+    j <- match(tbl$fig[i], f$fig)
+    tbl$estado[i] <- "fallo"; tbl$verificacion[i] <- paste0("figures: ", f$verificacion[j])
   }
   all <- bind_rows(rows$data, tbl)
   if (is.null(all) || nrow(all) == 0) return(invisible(NULL))
@@ -467,7 +474,7 @@ print_rows <- function(rows) {
   invisible(all)
 }
 
-# Línea de cierre (decisión 9): con verify, "N/M verificadas · k conocidas · e errores · log: <ruta>", donde e = figuras
+# Línea de cierre (decisión 9): con verify, "N/M verificadas · k conocidas · e errores [· s sin dibujo] · log: <ruta>", donde e = figuras
 # con estado error en figures o en verify (cada figura una vez); sin verify, el recuento de figures o de compare; la
 # ruta del log siempre (antes solo se imprimía si la corrida incluía verify). log = NULL: sin la ruta (para el log).
 closing_line <- function(rows, log = log_path()) {
@@ -475,7 +482,10 @@ closing_line <- function(rows, log = log_path()) {
   f <- sel(rows$figures); v <- sel(rows$verify); cmp <- sel(rows$compare)
   n_err <- function(...) length(unique(unlist(lapply(list(...), function(t) t$fig[t$estado == "error"]))))
   head <- if (!is.null(v)) {
-    sprintf("%d/%d verificadas · %d conocidas · %d errores", sum(v$estado == "ok"), nrow(v), sum(grepl("conocida", v$verificacion)), n_err(f, v))
+    # corregido (V3-03): nombra las figuras wjpr sin PNG que comparar («sin dibujo»); antes solo restaban de N/M
+    n_sd <- sum(v$estado == "sin dibujo")
+    paste0(sprintf("%d/%d verificadas · %d conocidas · %d errores", sum(v$estado == "ok"), nrow(v), sum(grepl("conocida", v$verificacion)), n_err(f, v)),
+           if (n_sd > 0) sprintf(" · %d sin dibujo", n_sd) else "")
   } else if (!is.null(f)) {
     sprintf("%d/%d figuras ok · %d errores", sum(f$estado == "ok"), nrow(f), n_err(f))
   } else if (!is.null(cmp)) {
