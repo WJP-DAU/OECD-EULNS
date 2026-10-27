@@ -26,7 +26,9 @@
 ##    y funcion wjpr_<tipo> en el manifiesto; R/09_wjpr.R: la función de WJPr del tipo + complementos), que
 ##    devuelve un ggplot marcado con attr(, "wjpr") (base, complementos, columnas cuyos textos se imprimen). La
 ##    etapa figures lo exporta a w_in × h_in con los tamaños de WJPr en pt (k = 1) y exige que los textos dibujados
-##    sean df$text/text2 (estado "texto" si no); verify mide el parecido con la publicada (f1 ≥ verify$min_f1).
+##    sean df$text/text2 (estado "texto" si no); si el adaptador expone lo dibujado por fila (drawn.csv), también el
+##    nombre impreso en cada posición (label_drawn/grouping_drawn = label/grouping: "texto") y el valor de la
+##    geometría (val/val2 = value/value2: "dibujo"); verify mide el parecido con la publicada (f1 ≥ verify$min_f1).
 ##    Respaldo sin WJPr: el chart_out de chart_<tipo>(df, spec) de R/05_charts.R (metodo svg_r) o un ggplot propio
 ##    (metodo ggplot, con base_pt). spec es la fila del manifiesto (fig, slug, titulo, tipo, metodo, funcion, w_in,
 ##    h_in, callout, label_col, base_pt, metodo_ue, eu_id, nota, …) + selected + country (= cfg$country: el país de

@@ -22,7 +22,7 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
 | `R/00_setup.R` | config, deps.csv (versión y commit), fuentes (Inter Tight en `fonts/`), log, tabla de consola |
 | `R/01_load.R` | lectura del `.dta`, master, `ctx`, caché, comprobaciones de `--stage data` |
 | `R/02_variables.R` | variables derivadas (copias de `special-vars.R`, `setup.R`; `add_report_vars`) |
-| `R/03_estimators.R` | `get_results_table`, `nat_est`, `eu_est`, `journey`, `perception_experience`, `xt`, `eu_value`, `memo` |
+| `R/03_estimators.R` | `get_results_table`, `nat_est`, `eu_est`, `journey`, `perception_experience`, `xt`, `eu_value`, `memo`, `problems_long`, `cooc_flags` |
 | `R/04_svg.R` | primitivas SVG, texto en trazos, `chart_out`, `svg_size`, `outline_svg_text`, `set_size` |
 | `R/05_charts.R` | un bloque por tipo: `rows_<tipo>()` (df del contrato) + `chart_<tipo>(df, spec)` (respaldo svg_r) |
 | `R/06_export.R` | `run_figures`: tablas, SVG, PNG (Chrome), textos dibujados, `figures_status.csv` |
@@ -34,15 +34,15 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
 
 ## Motor de dibujo: WJPr (detalle en README, «WJPr»)
 - Por defecto `metodo wjpr`: `plot = function(df, spec) wjpr_<tipo>(df, spec)` (columna `funcion`), un ggplot que figures
-  exporta a `w_in × h_in` con k = 1 (`base_pt` solo lo usan los adaptadores de 3, 6 y 29); textos dibujados ≠ `df$text/text2` → estado `texto`. Respaldo sin
-  WJPr: `chart_<tipo>()` de `R/05_charts.R` con `metodo svg_r`. Lo que le falta a WJPr va en `R/09_wjpr.R` como
-  `# complemento: <qué le falta>` (`wjpr_has_fun()`/`wjpr_has_arg()` solo para lo que existe en alguna build).
-- Build fijada en `deps.csv` (WJPr 1.1.0 @382aee9, exacta). Otra: `SRC_REPORTS_LIB=<librería con ella> Rscript …/main.R`
-  (o `tools/wjpr_gallery.R`) → cabecera `aviso deps.csv: WJPr 1.1.0@local (esperada 1.1.0@382aee9: otra build…)`;
-  `log/figures_status.csv` guarda la build y los complementos de cada figura.
-- verify, en lugar de drawn.csv: `parecido` (f1 de tinta del PNG nuevo frente a `reference/<slug>/published/`, ≥
-  `verify$min_f1` = 0.995) y `textos`. Una build que cambia el dibujo da `fallo · parecido: ≥ 0.995→0.9069` aunque la
-  tabla esté bien (main: orden de `wjp_groupbars`, leyenda de `wjp_dumbbells`); sin PNG (`--no-png`), `suprimido`.
+  exporta a `w_in × h_in` con k = 1 (`base_pt` solo lo leen los adaptadores de 3, 6, 7 y 29). Respaldo: `chart_<tipo>()`
+  de `R/05_charts.R` con `metodo svg_r`. Lo que le falta a WJPr va en `R/09_wjpr.R` como `# complemento: <qué le falta>`
+  (`wjpr_has_fun()`/`wjpr_has_arg()` solo para lo que existe en alguna build).
+- Build fijada en `deps.csv` (WJPr 1.1.0 @382aee9, exacta); otra con `SRC_REPORTS_LIB=<librería>` da en la cabecera
+  `aviso deps.csv: WJPr 1.1.0@local …`; `log/figures_status.csv` guarda la build y los complementos de cada figura.
+- Textos visibles (y `rotulos`) ≠ `df$text/text2` → `texto`. Lo dibujado por fila (`wjpr_meta(…, drawn =)`, 29 figuras;
+  `drawn.csv`): nombre impreso (`label_drawn`, `grouping_drawn`) ≠ df → `texto`; valor de la geometría (`val`) o marca
+  fija ausente (`marcas =`) → `dibujo`. verify: `parecido` (f1 ≥ 0.995 frente a `published/`), `parecido_local` (≤ 0.5) y `drawn.csv` frente a
+  la referencia; un estado de figures distinto de ok sale `fallo`; sin PNG, `sin dibujo` (`--strict` sale con 1).
 
 ## Contrato de una figura (detalle en `figures/_template.R`)
 `fig_NN <- list(data = function(ctx) ..., plot = function(df, spec) ...)`
@@ -50,8 +50,9 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
   `value` crudo (NA si n < 30); `text`/`text2` = lo impreso, exacto, vía `fmt_num()`. `plot()` no formatea ni recalcula.
 - `plot(df, spec)` → ggplot de `wjpr_<tipo>()` (respaldo: `chart_out` de `chart_<tipo>()`); no lee cfg ni ctx (país de las
   leyendas: `spec$country`). Encabezado: título, fuente de datos, método UE, código de origen (archivo:líneas). ~80 líneas.
-- Nada de `"Hungary"` literal: `ctx$country`, `{country}` en el manifiesto. Media UE en código (`eu_value(ctx, "data4web",
-  id)` o `eu_est(ctx, var)`) y en `eu_id` del manifiesto (de ahí saca `tools/build_reference.R` los de `eu_values.csv`).
+- Nada de `"Hungary"` literal (`ctx$country`, `{country}` en el manifiesto); una elección editorial del país (p. ej. las
+  destacadas de la 3) va en `figures:` de `config/<pais>.yml` y `data()` la pone en el df. Media UE en código
+  (`eu_value(ctx, "data4web", id)` o `eu_est(ctx, var)`) y en `eu_id` del manifiesto (lo lee `tools/build_reference.R`).
 - `get_results_table(ctx, target, ctype, …, omit)`: `short` = National + Gender, Age Group, Financial Situation, Area of
   Residence; `full` = short + Category + Co-occurrent Problems; `trust` = short + Problem Status + Non-Trivial Problem
   Experienced; `custom_1` = short + Problem Status + Resolution; `omit = "Category"` quita grupos por nombre.
@@ -61,11 +62,10 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
    una figura aprobada del mismo tipo y `reference/<slug>/Figure_NN_slug.csv` (labels, textos y orden exactos).
 2. Escribir `figures/fig_NN_slug.R` y su fila del manifiesto (la de una figura del mismo tipo; `status`, `verificada` y
    `wjpr` los actualiza el cierre de cada etapa).
-3. Iterar con `… main.R --stage figures --figs NN` hasta `ok` (muestra el motivo de `error`, `tamaño`, `texto` o `png`;
-   con `--stage all` verify lo resume y el detalle queda en el log).
+3. Iterar con `… main.R --stage figures --figs NN` hasta `ok` (da el motivo de `error`, `tamaño`, `texto` o `png`).
 4. Fijar `h_in` (3 decimales): con wjpr el SVG sale siempre al tamaño del manifiesto y un alto equivocado lo ve
-   `parecido`; con svg_r es el que mide `chart_<tipo>()` (`tamaño W×H in ≠ …`). Barras agrupadas: (6 + 15.5·filas +
-   22·encabezados) / 72 in. Si cambia solo para un país, va en `manifest/figures_<slug>.csv` (columnas `fig`, `h_in`).
+   `parecido`; con svg_r es el que mide `chart_<tipo>()`. Barras agrupadas: (6 + 15.5·filas + 22·encabezados) / 72 in.
+   Si cambia solo para un país (la 5: el log da el que pide su layout), va en `manifest/figures_<slug>.csv` (`fig,h_in`).
 5. `Rscript src/src_reports/main.R --stage all --figs NN` → `ok` en verify; mirar `output/<slug>/compare/`. 6. Un valor
    que difiere del publicado no se fuerza: va a la `nota` del manifiesto (`[conocida: <label>=<text>]` → conocida).
 

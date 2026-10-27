@@ -113,6 +113,13 @@ build_master <- function(raw, regions) {
 build_ctx <- function(cfg, master, jg, regions, key) {
   national <- master %>% filter(country_name_ltn == cfg$country)
   if (nrow(national) == 0) stop("Ningún encuestado con country_name_ltn == '", cfg$country, "'", call. = FALSE)
+  # corregido: guarda de módulo. Un país sin módulo LNS (prevalence2 vacío: Irlanda) no tiene figuras de problemas;
+  # antes el ctx se construía y cada figura fallaba con un error críptico de WJPr, ggplot o R base, o salía «ok» llena
+  # de N/A (revisión V4-06)
+  if (all(is.na(national$prevalence2))) {
+    stop(cfg$country, " sin módulo LNS (prevalence2 vacío en sus ", nrow(national), " encuestados): no hay figuras de ",
+         "problemas", call. = FALSE)
+  }
   jg_nat <- jg$keepDK %>% semi_join(national, by = "country_year_id")
   add <- setdiff(c("country_name_ltn", "nuts_id"), names(jg_nat))
   if (length(add) > 0) jg_nat <- left_join(jg_nat, select(national, country_year_id, all_of(add)), by = "country_year_id")

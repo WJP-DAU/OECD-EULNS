@@ -3,8 +3,12 @@
 ## hasta el diseño publicado). Para cada tipo de figura, wjpr_<tipo>(df, spec, ...) parte de la función de WJPr del
 ## tipo (o de WJP_theme()/wjp_palette() cuando WJPr no tiene una) y la complementa hasta acercarse a lo publicado.
 ## Recibe el df del contrato (§4.4: order, kind, grouping, label, value, value2, text, text2 + extras) y la spec,
-## igual que chart_<tipo>(), y devuelve un ggplot con attr(p, "wjpr") = list(base, complementos). La exporta y la
-## mide tools/wjpr_gallery.R; desde el 23-oct es el motor de main.R (metodo wjpr: plot = wjpr_<tipo>(df, spec)).
+## igual que chart_<tipo>(), y devuelve un ggplot con attr(p, "wjpr") = list(base, complementos, compara, drawn,
+## rotulos) (wjpr_meta). La exporta y la mide tools/wjpr_gallery.R; desde el 23-oct es el motor de main.R (metodo
+## wjpr: plot = wjpr_<tipo>(df, spec)). Verificación del dibujo (R/07_verify.R): wjpr_similarity() (parecido global y
+## local con la publicada) y, en los adaptadores que la exponen, lo dibujado por fila (attr(p, "wjpr")$drawn,
+## wjpr_drawn(): WJPR_DRAWN_COLS + las opcionales WJPR_DRAWN_OPT, leídas del dibujo con wjpr_slots(), wjpr_slot_of() y
+## wjpr_drawn_texts()).
 ## Cada complemento lleva "# complemento: <qué le falta a WJPr>": es la fuente del documento de brechas.
 ## Solo funciones: nada se ejecuta al cargar; WJPr solo se pide al llamar (deps.csv lo declara opcional).
 
@@ -39,8 +43,28 @@ wjpr_build <- function() {
 # Marca el ggplot con la función de WJPr de partida y los complementos aplicados (los lee la galería)
 # compara = columnas del df cuyos textos se imprimen tal cual (la galería los busca en el dibujo); p. ej. en la matriz
 # text2 es la banda de color, no un texto
-wjpr_meta <- function(p, base, complementos = character(), compara = c("text", "text2")) {
-  attr(p, "wjpr") <- list(base = base, complementos = unique(complementos), compara = compara)
+# corregido (V3-02, V3-07): drawn y rotulos, para que verify mire el dibujo fila a fila y no solo su parecido global.
+# drawn = function(b) que, con b = ggplot_build() del gráfico final, devuelve lo dibujado por fila (WJPR_DRAWN_COLS +
+# WJPR_DRAWN_OPT, el drawn de chart_out en svg_r; wjpr_drawn()): figures lo escribe en tables/<stem>.drawn.csv y
+# compara el texto, el nombre impreso y el valor de cada fila con los de df; verify compara frac/frac2, el texto, el
+# nombre impreso, el valor y el orden con la referencia. Lo exponen (revisión 4) wjpr_grouped_bars (la implementación
+# de referencia, wjpr_gb_drawn), wjpr_paired_bars, wjpr_severity_bars, wjpr_dumbbell, wjpr_matrix, wjpr_scatter,
+# wjpr_network y wjpr_sankey (29 figuras); faltan hbars, columns, funnel, cards y upset. Otro adaptador lo añade con
+# wjpr_meta(…, drawn = ), y wjpr_slots()/wjpr_slot_of() (o wjpr_pos_slots()/wjpr_pos_slot_of() con un eje mapeado) le
+# dan la fila de cada barra o texto y wjpr_drawn_texts() lo impreso en cada posición. NULL: el dibujo solo lo miden el
+# parecido y el parecido local. rotulos = rótulos fijos
+# del diseño que el adaptador dibuja y df no trae (nombres de nodo, categorías destacadas): entran con los de compara
+# en la comparación de textos (drawn_text_diff_wjpr, 06_export.R); los declaran wjpr_scatter (categorías rotuladas,
+# 3) y wjpr_network (nombres de nodo, 5).
+# corregido (revisión 4): marcas = function(b) con las marcas fijas del diseño que no tienen fila en df y faltan en el
+# dibujo (character(), vacío si están todas; p. ej. la línea de corte de la 7, wjpr_sev_cut_missing): figures da
+# estado "dibujo" si devuelve alguna. NULL: el adaptador no tiene marcas fijas que comprobar.
+wjpr_meta <- function(p, base, complementos = character(), compara = c("text", "text2"), drawn = NULL,
+                      rotulos = character(), marcas = NULL) {
+  if (!is.null(drawn) && !is.function(drawn)) stop("wjpr_meta: drawn debe ser una función de ggplot_build()", call. = FALSE)
+  if (!is.null(marcas) && !is.function(marcas)) stop("wjpr_meta: marcas debe ser una función de ggplot_build()", call. = FALSE)
+  attr(p, "wjpr") <- list(base = base, complementos = unique(complementos), compara = compara, drawn = drawn,
+                          rotulos = as.character(rotulos), marcas = marcas)
   p
 }
 
@@ -82,16 +106,269 @@ wjpr_theme <- function(family = WJPR_FAMILY) {
                                      legend.title = e, plot.title = e)
 }
 
-# Textos efectivamente dibujados por las capas de texto (posición finita), sin marcas de texto enriquecido
-wjpr_texts <- function(p) {
-  b <- suppressWarnings(ggplot2::ggplot_build(p))
-  is_text <- vapply(b$plot$layers, function(l) inherits(l$geom, c("GeomText", "GeomLabel", "GeomRichText", "GeomTextRepel")), logical(1))
-  x <- unlist(lapply(b$data[is_text], function(d) {
-    if (!"label" %in% names(d)) return(NULL)
-    ok <- (if ("x" %in% names(d)) is.finite(d$x) else TRUE) & (if ("y" %in% names(d)) is.finite(d$y) else TRUE)
-    as.character(d$label[ok])
-  }))
-  trimws(gsub("<[^>]+>", "", x[!is.na(x) & nzchar(trimws(x))]))
+## Lo impreso en el dibujo (wjpr_drawn_texts) -------------------------------------------------------------------
+## complemento: WJPr 1.1.0 y main no dicen qué texto imprime un gráfico ni dónde; WJPr::wjp_drawn(what = "text") (en
+## preparación en el clon del paquete, R/drawn.R: aún en ninguna build) lo hará. wjpr_drawn_texts(b) devuelve lo mismo
+## con su forma (source "layer" | "axis-x" | "axis-y" | "strip", layer, PANEL, label sin markup, x, y en coordenadas
+## de datos — las etiquetas de eje en la posición de su break —, colour) y además descarta lo que no se ve: un texto
+## con alfa 0, del color de lo que tiene debajo (el fondo del panel o del gráfico, blanco por defecto, o el relleno de
+## una barra, celda o polígono de una capa anterior: un texto blanco sobre una celda oscura sí se ve), tapado por una
+## marca opaca de una capa posterior, de tamaño 0, o cuyo elemento del tema es element_blank (ejes, strips). Es lo que
+## leen los adaptadores para saber qué etiqueta está impresa en cada posición (label_drawn, grouping_drawn) y lo que
+## cuenta wjpr_texts(). Cuando WJPr::wjp_drawn exista en la build fijada, esta función la llama y conserva el filtro.
+
+WJPR_TEXT_GEOMS <- c("GeomText", "GeomLabel", "GeomRichText", "GeomTextBox", "GeomTextRepel", "GeomLabelRepel")
+WJPR_VISIBLE_MIN <- 0.02   # |Δ| RGB (0-1) mínima entre el texto (con su alfa) y lo que tiene debajo para contar como impreso
+
+# Texto de una marca: sin etiquetas HTML (<br> → salto de línea, como wjp_drawn) y, si se dibuja como Markdown
+# (ggtext: GeomRichText/GeomTextBox, element_markdown/element_textbox), sin escapes de Markdown ("\*", "1\.") y con
+# las entidades HTML resueltas (&amp; → &): lo que se lee en la figura
+wjpr_plain_text <- function(x, markdown = FALSE) {
+  x <- as.character(x)
+  x <- gsub("<br\\s*/?>", "\n", x, ignore.case = TRUE, perl = TRUE)
+  x <- gsub("<[^>]+>", "", x, perl = TRUE)
+  if (!markdown) return(trimws(x))
+  x <- gsub("\\\\([[:punct:]])", "\\1", x, perl = TRUE)
+  ent <- c("&lt;" = "<", "&gt;" = ">", "&quot;" = "\"", "&#39;" = "'", "&apos;" = "'", "&nbsp;" = " ")
+  for (k in names(ent)) x <- gsub(k, ent[[k]], x, fixed = TRUE)
+  num <- function(m, base) vapply(m, function(s) intToUtf8(strtoi(s, base)), "")
+  for (re in c("&#([0-9]+);", "&#[xX]([0-9A-Fa-f]+);")) {
+    m <- regmatches(x, gregexpr(re, x, perl = TRUE))
+    regmatches(x, gregexpr(re, x, perl = TRUE)) <- lapply(m, function(v) num(sub(re, "\\1", v, perl = TRUE), if (grepl("x", re)) 16L else 10L))
+  }
+  trimws(gsub("&amp;", "&", x, fixed = TRUE))
+}
+
+# Nombre impreso normalizado para comparar (espacios, tabuladores y saltos de línea → un espacio, sin bordes)
+wjpr_norm_text <- function(x) trimws(gsub("[[:space:] ]+", " ", as.character(x), perl = TRUE))
+
+# Color de un texto con markup: el primer color: de un style (el de la caja que lo pinta en ggtext); NA si no trae
+wjpr_markup_colour <- function(x) {
+  m <- regmatches(x, regexpr("color\\s*:\\s*[#A-Za-z0-9]+", x, perl = TRUE, ignore.case = TRUE))
+  out <- rep(NA_character_, length(x))
+  out[grepl("color\\s*:", x, perl = TRUE, ignore.case = TRUE)] <- sub("^color\\s*:\\s*", "", m, ignore.case = TRUE)
+  out
+}
+
+# RGB (0-1) y alfa de colores (NA o "transparent" → alfa 0)
+wjpr_rgba <- function(col) {
+  col <- as.character(col); ok <- !is.na(col) & nzchar(col)
+  m <- matrix(c(1, 1, 1, 0), 4, length(col))
+  if (any(ok)) m[, ok] <- tryCatch(grDevices::col2rgb(col[ok], alpha = TRUE) / 255, error = function(e) m[, ok])
+  m
+}
+
+# Color de fondo (RGB 0-1) de un elemento del tema (element_rect con fill) sobre el de abajo; sin relleno, el de abajo
+wjpr_theme_fill <- function(th, name, under = c(1, 1, 1)) {
+  el <- tryCatch(ggplot2::calc_element(name, th), error = function(e) NULL)
+  if (is.null(el) || inherits(el, "element_blank") || is.null(el$fill)) return(under)
+  f <- wjpr_rgba(el$fill)[, 1]
+  f[1:3] * f[4] + under * (1 - f[4])
+}
+
+# ¿Contiene la marca la posición (x, y)? Rectángulos (xmin..ymax: barras, celdas, rect) y polígonos (por group, regla
+# par-impar). Devuelve una matriz lógica textos × filas (rect) o textos × grupos (polígono) y el relleno de cada marca
+wjpr_marks_at <- function(d, geom, px, py) {
+  has <- function(...) all(c(...) %in% names(d))
+  rgba <- function(fill, alpha) { m <- wjpr_rgba(fill); a <- suppressWarnings(as.numeric(alpha)); m[4, ] <- m[4, ] * coalesce(a, 1); m }
+  if (has("xmin", "xmax", "ymin", "ymax", "fill")) {
+    x0 <- pmin(d$xmin, d$xmax); x1 <- pmax(d$xmin, d$xmax); y0 <- pmin(d$ymin, d$ymax); y1 <- pmax(d$ymin, d$ymax)
+    inside <- outer(px, x0, ">=") & outer(px, x1, "<=") & outer(py, y0, ">=") & outer(py, y1, "<=")
+    inside[is.na(inside)] <- FALSE
+    return(list(inside = inside, rgba = rgba(d$fill, if ("alpha" %in% names(d)) d$alpha else NA)))
+  }
+  if (inherits(geom, "GeomPolygon") && has("x", "y", "fill")) {
+    g <- if ("group" %in% names(d)) d$group else rep(1L, nrow(d))
+    ids <- unique(g)
+    inside <- vapply(ids, function(id) {
+      vx <- d$x[g == id]; vy <- d$y[g == id]; n <- length(vx); j <- c(n, seq_len(n - 1))
+      vapply(seq_along(px), function(k) {
+        cr <- ((vy > py[k]) != (vy[j] > py[k])) & (px[k] < (vx[j] - vx) * (py[k] - vy) / (vy[j] - vy) + vx)
+        sum(cr, na.rm = TRUE) %% 2 == 1
+      }, logical(1))
+    }, logical(length(px)))
+    inside <- matrix(inside, nrow = length(px))
+    first <- match(ids, g)
+    return(list(inside = inside, rgba = rgba(d$fill[first], if ("alpha" %in% names(d)) d$alpha[first] else NA)))
+  }
+  NULL
+}
+
+# ¿Se ven los textos de la capa i (posiciones px, py del panel pan, color col, alfa a)? Fondo = el del panel con las
+# marcas rellenas de las capas anteriores que contienen la posición compuestas encima (en orden); tapado = una marca
+# opaca de una capa posterior en esa posición. Visible si alfa > 0 y |texto − fondo| > WJPR_VISIBLE_MIN en algún canal
+# corregido (revisión 4, integración): punto de prueba de un texto = su ancla desplazada un épsilon hacia donde se
+# extiende el texto (hjust, vjust, angle; con coord_flip los ejes de datos se intercambian). Un valor anclado en el
+# extremo de su barra y dibujado hacia fuera (la 29: hjust -0.15 a 90°, del color de la barra) contaba como dentro
+# de ella, del mismo color, y no visible (15 textos «faltan» en la galería). Solo cambia el resultado cuando el ancla
+# cae justo en el borde de una marca; just no numérico («inward», …) = centrado
+wjpr_text_probe <- function(x, y, hjust, vjust, angle, flip = FALSE) {
+  jn <- function(v) {
+    v <- as.character(v); n <- suppressWarnings(as.numeric(v))
+    n[is.na(n) & v %in% c("left", "bottom")] <- 0; n[is.na(n) & v %in% c("right", "top")] <- 1
+    coalesce(n, 0.5)
+  }
+  n <- length(x); ux <- 0.5 - rep_len(jn(hjust), n); uy <- 0.5 - rep_len(jn(vjust), n)
+  a <- coalesce(suppressWarnings(as.numeric(rep_len(angle, n))), 0) * pi / 180
+  dx <- cos(a) * ux - sin(a) * uy; dy <- sin(a) * ux + cos(a) * uy
+  if (flip) { t <- dx; dx <- dy; dy <- t }
+  eps <- function(v) 1e-7 * pmax(1, abs(v))
+  list(x = x + sign(round(dx, 9)) * eps(x), y = y + sign(round(dy, 9)) * eps(y))
+}
+
+wjpr_text_visible <- function(b, i, pan, px, py, col, a, bg_panel, box = NULL) {
+  n <- length(px); if (!n) return(logical())
+  bg <- matrix(bg_panel, 3, n)
+  covered <- rep(FALSE, n)
+  for (j in seq_along(b$data)) {
+    if (j == i || inherits(b$plot$layers[[j]]$geom, WJPR_TEXT_GEOMS)) next
+    d <- b$data[[j]]
+    if (!nrow(d) || !"PANEL" %in% names(d)) next
+    for (pn in unique(pan)) {
+      k <- which(pan == pn); dj <- d[as.character(d$PANEL) == pn, , drop = FALSE]
+      if (!nrow(dj)) next
+      mk <- wjpr_marks_at(dj, b$plot$layers[[j]]$geom, px[k], py[k])
+      if (is.null(mk)) next
+      for (m in seq_len(ncol(mk$inside))) {
+        hit <- k[mk$inside[, m]]
+        if (!length(hit) || mk$rgba[4, m] <= 0) next
+        if (j < i) bg[, hit] <- mk$rgba[1:3, m] * mk$rgba[4, m] + bg[, hit, drop = FALSE] * (1 - mk$rgba[4, m])
+        else if (mk$rgba[4, m] >= 0.999) covered[hit] <- TRUE
+      }
+    }
+  }
+  if (!is.null(box)) {                                  # geom_label: la caja de la etiqueta (fill) va bajo su texto
+    bx <- wjpr_rgba(box); bg <- bx[1:3, , drop = FALSE] * rep(bx[4, ], each = 3) + bg * rep(1 - bx[4, ], each = 3)
+  }
+  tc <- wjpr_rgba(col); ta <- tc[4, ] * coalesce(suppressWarnings(as.numeric(a)), 1)
+  delta <- apply(abs(tc[1:3, , drop = FALSE] - bg), 2, max) * ta
+  !covered & ta > 0 & delta > WJPR_VISIBLE_MIN
+}
+
+# Paneles que dibujan el eje (lado side) en el layout: facet_grid solo en la columna o fila del borde (salvo axes =
+# "all"); facet_wrap en todos si la escala es libre, si no en el borde (o sin vecino de ese lado); sin facetas, todos
+wjpr_axis_panels <- function(b, ax, side) {
+  lay <- b$layout$layout; fp <- b$layout$facet$params %||% list()
+  all_ax <- isTRUE(fp$draw_axes[[ax]]) || inherits(b$layout$facet, "FacetNull")
+  if (inherits(b$layout$facet, "FacetWrap") && isTRUE(fp$free[[ax]])) all_ax <- TRUE
+  if (all_ax) return(as.character(lay$PANEL))
+  edge <- switch(side, left = lay$COL == min(lay$COL), right = lay$COL == max(lay$COL),
+                 top = lay$ROW == min(lay$ROW), bottom = lay$ROW == max(lay$ROW), rep(TRUE, nrow(lay)))
+  if (inherits(b$layout$facet, "FacetWrap")) {            # sin vecino del lado del eje (fila incompleta)
+    nb <- switch(side, left = paste(lay$ROW, lay$COL - 1), right = paste(lay$ROW, lay$COL + 1),
+                 top = paste(lay$ROW - 1, lay$COL), bottom = paste(lay$ROW + 1, lay$COL))
+    edge <- edge | !(nb %in% paste(lay$ROW, lay$COL))
+  }
+  as.character(lay$PANEL[edge])
+}
+
+wjpr_drawn_texts <- function(b) {
+  th <- ggplot2::complete_theme(b$plot$theme)
+  bg_plot <- wjpr_theme_fill(th, "plot.background")
+  bg_panel <- wjpr_theme_fill(th, "panel.background", bg_plot)
+  rows <- list()
+  # Capas de texto (columnas por nombre exacto: d$x de un data.frame casaría con xmin)
+  for (i in seq_along(b$data)) {
+    l <- b$plot$layers[[i]]
+    if (!inherits(l$geom, WJPR_TEXT_GEOMS)) next
+    d <- as.data.frame(b$data[[i]])
+    if (!nrow(d) || !"label" %in% names(d)) next
+    cl <- function(nm, default) if (nm %in% names(d)) d[[nm]] else rep(default, nrow(d))
+    md <- inherits(l$geom, c("GeomRichText", "GeomTextBox"))
+    raw <- as.character(d[["label"]])
+    x <- suppressWarnings(as.numeric(cl("x", NA))); y <- suppressWarnings(as.numeric(cl("y", NA)))
+    lab <- wjpr_plain_text(raw, markdown = md)
+    size <- suppressWarnings(as.numeric(cl("size", 1)))
+    ok <- !is.na(raw) & !is.na(lab) & nzchar(lab) & is.finite(x) & is.finite(y) & coalesce(size, 1) > 0
+    if (!any(ok)) next
+    col <- as.character(cl("colour", l$aes_params$colour %||% "black"))
+    if (md) col <- coalesce(wjpr_markup_colour(raw), col)
+    pan <- as.character(cl("PANEL", "1"))
+    box <- if (inherits(l$geom, c("GeomLabel", "GeomLabelRepel"))) as.character(cl("fill", "white"))[ok] else NULL
+    pr <- wjpr_text_probe(x[ok], y[ok], cl("hjust", 0.5)[ok], cl("vjust", 0.5)[ok], cl("angle", 0)[ok],
+                          inherits(b$layout$coord, "CoordFlip"))
+    vis <- wjpr_text_visible(b, i, pan[ok], pr$x, pr$y, col[ok], cl("alpha", NA)[ok], bg_panel, box)
+    k <- which(ok)[vis]
+    if (length(k)) rows[[length(rows) + 1]] <- tibble(source = "layer", layer = i, PANEL = pan[k], label = lab[k],
+                                                       x = x[k], y = y[k], colour = col[k])
+  }
+  # Etiquetas de eje: en cada panel que dibuja el eje, las de sus breaks (posición = la del break en datos)
+  flipped <- inherits(b$layout$coord, "CoordFlip")
+  gd <- b$plot$guides
+  for (k in seq_along(b$layout$panel_params)) {
+    pp <- b$layout$panel_params[[k]]; pan <- as.character(b$layout$layout$PANEL[k])
+    for (ax in c("x", "y")) {
+      sc <- pp[[ax]]
+      if (is.null(sc) || !is.function(sc$get_labels)) next
+      side <- sc$position %||% if (ax == "x") "bottom" else "left"
+      guide <- sc$guide
+      g_plot <- tryCatch(if (inherits(gd, "Guides")) gd$guides[[match(ax, gd$aesthetics)]] else NULL, error = function(e) NULL)
+      if (identical(guide, "none") || inherits(guide, "GuideNone") || identical(g_plot, "none") || inherits(g_plot, "GuideNone")) next
+      el <- tryCatch(ggplot2::calc_element(paste0("axis.text.", ax, ".", side), th), error = function(e) NULL)
+      if (is.null(el) || inherits(el, "element_blank")) next
+      if (!pan %in% wjpr_axis_panels(b, ax, side)) next
+      brk <- tryCatch(sc$get_breaks(), error = function(e) NULL); labs <- tryCatch(sc$get_labels(), error = function(e) NULL)
+      if (!length(brk) || length(labs) != length(brk)) next
+      pos <- if (isTRUE(sc$scale_is_discrete)) suppressWarnings(as.numeric(sc$map(brk))) else suppressWarnings(as.numeric(brk))
+      raw <- vapply(labs, function(v) paste(as.character(v), collapse = " "), "")
+      md <- inherits(el, c("element_markdown", "element_textbox"))
+      lab <- wjpr_plain_text(raw, markdown = md)
+      # corregido (revisión 4, G1): el color y el tamaño del elemento pueden ser un vector por break (las 10 y 15): rep()
+      # daba n² colores y n² − n filas con label NA; rep_len los alinea con las etiquetas
+      cl <- rep_len(as.character(el$colour %||% "black"), length(raw))
+      col <- if (md) coalesce(wjpr_markup_colour(raw), cl) else cl
+      tc <- wjpr_rgba(col)
+      vis <- !is.na(brk) & is.finite(pos) & !is.na(lab) & nzchar(lab) & rep_len(el$size %||% 1, length(raw)) > 0 &
+        apply(abs(tc[1:3, , drop = FALSE] - bg_plot), 2, max) * tc[4, ] > WJPR_VISIBLE_MIN
+      if (!any(vis)) next
+      s2 <- if (flipped) setdiff(c("x", "y"), ax) else ax
+      rows[[length(rows) + 1]] <- tibble(source = paste0("axis-", s2), layer = NA_integer_, PANEL = pan, label = lab[vis],
+                                         x = if (s2 == "x") pos[vis] else NA_real_, y = if (s2 == "y") pos[vis] else NA_real_,
+                                         colour = col[vis])
+    }
+  }
+  # Strips de faceta: el valor de la faceta en el panel del borde donde se dibuja (sin el labeller), si su elemento se ve
+  lay <- b$layout$layout; fp <- b$layout$facet$params %||% list()
+  strip_set <- if (inherits(b$layout$facet, "FacetGrid")) {
+    sw <- fp$switch %||% ""
+    list(list(vars = names(fp$rows), el = if (sw %in% c("y", "both")) "strip.text.y.left" else "strip.text.y.right",
+              edge = if (sw %in% c("y", "both")) lay$COL == min(lay$COL) else lay$COL == max(lay$COL)),
+         list(vars = names(fp$cols), el = if (sw %in% c("x", "both")) "strip.text.x.bottom" else "strip.text.x.top",
+              edge = if (sw %in% c("x", "both")) lay$ROW == max(lay$ROW) else lay$ROW == min(lay$ROW)))
+  } else if (inherits(b$layout$facet, "FacetWrap")) {
+    sp <- fp$strip.position %||% "top"
+    list(list(vars = names(fp$facets), el = paste0("strip.text.", if (sp %in% c("left", "right")) "y." else "x.", sp),
+              edge = rep(TRUE, nrow(lay))))
+  } else list()
+  for (s in strip_set) {
+    if (!length(s$vars)) next
+    el <- tryCatch(ggplot2::calc_element(s$el, th), error = function(e) NULL)
+    if (is.null(el) || inherits(el, "element_blank")) next
+    bg_s <- wjpr_theme_fill(th, sub("^strip\\.text", "strip.background", s$el), bg_plot)
+    for (v in intersect(s$vars, names(lay))) {
+      raw <- as.character(lay[[v]][s$edge]); pan <- as.character(lay$PANEL[s$edge])
+      md <- inherits(el, c("element_markdown", "element_textbox"))
+      lab <- wjpr_plain_text(raw, markdown = md); col <- rep(el$colour %||% "black", length(raw))
+      tc <- wjpr_rgba(col)
+      vis <- !is.na(lab) & nzchar(lab) & apply(abs(tc[1:3, , drop = FALSE] - bg_s), 2, max) * tc[4, ] > WJPR_VISIBLE_MIN
+      if (any(vis)) rows[[length(rows) + 1]] <- tibble(source = "strip", layer = NA_integer_, PANEL = pan[vis], label = lab[vis],
+                                                       x = NA_real_, y = NA_real_, colour = col[vis])
+    }
+  }
+  out <- bind_rows(tibble(source = character(), layer = integer(), PANEL = character(), label = character(),
+                          x = numeric(), y = numeric(), colour = character()), rows)
+  out
+}
+
+# Textos efectivamente dibujados por las capas de texto (posición finita), sin marcas de texto enriquecido. b =
+# ggplot_build(p) si ya está construido (figures lo construye una vez para los textos y para lo dibujado por fila)
+# corregido (revisión 4): solo los que se ven (wjpr_drawn_texts: alfa 0, del color de lo que tienen debajo o tapados
+# no cuentan); antes un valor oculto (alfa 0, blanco sobre blanco) contaba como dibujado y el multiconjunto daba
+# «iguales». Con Markdown (ggtext) el texto es el que se lee (&amp; → &, sin escapes)
+wjpr_texts <- function(p, b = NULL) {
+  if (is.null(b)) b <- suppressWarnings(ggplot2::ggplot_build(p))
+  tx <- wjpr_drawn_texts(b)
+  tx$label[tx$source == "layer"]
 }
 
 # Multiconjunto de textos: lo que falta (esperado y no dibujado) y lo que sobra (dibujado y no esperado)
@@ -100,6 +377,85 @@ wjpr_text_diff <- function(drawn, expected) {
   k <- union(drawn, expected)
   n1 <- as.integer(table(factor(drawn, levels = k))); n2 <- as.integer(table(factor(expected, levels = k)))
   list(faltan = rep(k, pmax(n2 - n1, 0)), sobran = rep(k, pmax(n1 - n2, 0)))
+}
+
+# Lo dibujado por fila: attr(p, "wjpr")$drawn(b) con b = ggplot_build(p) (o el ya construido) → tibble con
+# WJPR_DRAWN_COLS: order = posición visual (1 = arriba o a la izquierda), kind/grouping/label = la fila del df que ocupa
+# esa posición SEGÚN EL DIBUJO (el nivel del eje o la geometría en esa posición, nunca df copiado en orden),
+# frac/frac2 = fracción dibujada (como el drawn de svg_r: valor / escala de la pista; NA sin barra) y text/text2 = lo
+# impreso en esa posición ("" si nada). NULL si el adaptador no lo expone; error legible si la función no cumple el
+# contrato (la figura queda en error: un drawn roto no se ignora).
+# corregido (revisión 4): las columnas opcionales WJPR_DRAWN_OPT (contrato extendido), porque con solo las de arriba
+# un error que conserva el conjunto de textos pasaba (etiquetas Male/Female intercambiadas, un encabezado cambiado):
+# label_drawn y grouping_drawn (character) = el nombre IMPRESO en la posición de la marca de esa fila (etiqueta del eje,
+# encabezado de grupo bajo el que queda, rótulo junto al punto, nombre dentro del nodo; wjpr_drawn_texts), NA = el
+# adaptador no lo expone, "" = no hay nada impreso; val y val2 (numeric) = el valor que codifica la geometría dibujada,
+# decodificado a las unidades de df$value y df$value2 (largo de barra, x del punto, alto de caja), NA = no lo codifica o
+# no se expone. Un adaptador que no las devuelve las tiene NA (nada que comparar). figures (06) compara label_drawn y
+# grouping_drawn con df (estado "texto") y val/val2 con df$value/value2 (estado "dibujo"); verify (07), con la referencia.
+WJPR_DRAWN_COLS <- c("order", "kind", "grouping", "label", "frac", "frac2", "text", "text2")
+WJPR_DRAWN_OPT  <- c("label_drawn", "grouping_drawn", "val", "val2")
+# Las columnas del contrato en orden y con su tipo (las que falten: "" o NA en las fijas, NA en las opcionales); las
+# demás columnas se conservan detrás. La usan wjpr_drawn() y save_figure() (06_export.R) para el drawn de svg_r
+wjpr_drawn_complete <- function(d) {
+  n <- nrow(d); get <- function(nm, na) if (nm %in% names(d)) d[[nm]] else rep(na, n)
+  chr <- function(x) coalesce(as.character(x), "")
+  num <- function(x) suppressWarnings(as.numeric(x))
+  out <- tibble(order = as.integer(get("order", NA)), kind = chr(get("kind", "")), grouping = chr(get("grouping", "")),
+                label = chr(get("label", "")), frac = num(get("frac", NA)), frac2 = num(get("frac2", NA)),
+                text = chr(get("text", "")), text2 = chr(get("text2", "")),
+                label_drawn = as.character(get("label_drawn", NA_character_)),
+                grouping_drawn = as.character(get("grouping_drawn", NA_character_)),
+                val = num(get("val", NA)), val2 = num(get("val2", NA)))
+  bind_cols(out, as_tibble(d)[, setdiff(names(d), names(out)), drop = FALSE])
+}
+wjpr_drawn <- function(p, b = NULL) {
+  fn <- attr(p, "wjpr")$drawn
+  if (!is.function(fn)) return(NULL)
+  if (is.null(b)) b <- suppressWarnings(ggplot2::ggplot_build(p))
+  d <- fn(b)
+  miss <- if (is.data.frame(d)) setdiff(WJPR_DRAWN_COLS, names(d)) else WJPR_DRAWN_COLS
+  if (length(miss)) stop("attr(p, \"wjpr\")$drawn no devolvió las columnas ", paste(miss, collapse = ", "), call. = FALSE)
+  wjpr_drawn_complete(d)[, c(WJPR_DRAWN_COLS, WJPR_DRAWN_OPT)]
+}
+
+# Posiciones de un eje discreto en un gráfico construido (b = ggplot_build): una fila por nivel de cada panel con PANEL,
+# pos (entero de la escala del panel), level (su nivel) y slot (orden visual: en el eje y, paneles de arriba abajo y,
+# dentro de cada uno, la y mayor arriba; en el x, de izquierda a derecha; coord con reverse lo invierte). Es la base de
+# un drawn por fila: una barra o un texto de una capa construida está en el slot de su PANEL y de round(y) (o x).
+wjpr_slots <- function(b, axis = c("y", "x")) {
+  axis <- match.arg(axis)
+  lay <- b$layout$layout
+  scales <- if (axis == "y") b$layout$panel_scales_y else b$layout$panel_scales_x
+  sc_col <- if (axis == "y") "SCALE_Y" else "SCALE_X"
+  out <- bind_rows(lapply(seq_len(nrow(lay)), function(i) {
+    s <- scales[[lay[[sc_col]][i]]]
+    if (is.null(s) || !s$is_discrete()) stop("wjpr_slots: el eje ", axis, " del panel ", lay$PANEL[i], " no es discreto", call. = FALSE)
+    lev <- as.character(s$get_limits())
+    rv <- b$layout$panel_params[[i]]$reverse
+    flip <- is.character(rv) && length(rv) == 1 && rv %in% c(axis, "xy")
+    up <- (axis == "y") != flip                         # TRUE: la posición mayor va primero (arriba)
+    tibble(PANEL = as.integer(as.character(lay$PANEL[i])), ROW = as.integer(lay$ROW[i]), COL = as.integer(lay$COL[i]),
+           pos = seq_along(lev), level = lev, .k = if (up) -seq_along(lev) else seq_along(lev))
+  }))
+  out <- if (axis == "y") arrange(out, ROW, COL, .k) else arrange(out, COL, ROW, .k)
+  mutate(select(out, -.k), slot = row_number())
+}
+
+# Slot (wjpr_slots) de cada fila de una capa construida d: su PANEL y round() de su coordenada en el eje discreto; NA
+# si no es finita (barra de un valor suprimido) o no corresponde a ningún nivel
+wjpr_slot_of <- function(d, slots, axis = "y") {
+  if (!nrow(d) || is.null(d[[axis]]) || !"PANEL" %in% names(d)) return(rep(NA_integer_, nrow(d)))
+  v <- suppressWarnings(round(as.numeric(d[[axis]])))
+  i <- match(paste(as.integer(as.character(d$PANEL)), v), paste(slots$PANEL, slots$pos))
+  ifelse(is.finite(v), slots$slot[i], NA_integer_)
+}
+
+# ¿Mismo color que ref (hex o nombre, alfa incluido)? NA → FALSE
+wjpr_same_color <- function(x, ref) {
+  x <- as.character(x); out <- rep(FALSE, length(x)); ok <- !is.na(x)
+  if (any(ok)) out[ok] <- colSums(abs(grDevices::col2rgb(x[ok], alpha = TRUE) - as.vector(grDevices::col2rgb(ref, alpha = TRUE)))) == 0
+  out
 }
 
 # Exporta como las figuras ggplot: svglite al tamaño del manifiesto (los tamaños de WJPr ya están en pt reales:
@@ -125,7 +481,13 @@ wjpr_render <- function(p, spec, cfg, out_dir) {
 # Parecido visual con la figura publicada: ambas a 96 dpi en el mismo lienzo; "tinta" = píxel con gris < 0.75.
 # precision = tinta nueva a ≤ r px de tinta publicada; recall = tinta publicada a ≤ r px de tinta nueva; f1 su media
 # armónica (1 = mismo dibujo). mad = diferencia media absoluta de gris. Mide disposición, no colores exactos.
-wjpr_similarity <- function(png_new, png_pub, r = 2L, dpi_new = NA) {
+# corregido (V3-01): el f1 es global y binario, y no ve un error localizado: una barra 10 pp más larga cambia menos del
+# 0.5 % de la tinta, y la pista, la banda < 25 % y los colores claros no son tinta. Además del f1 devuelve local (la
+# peor ventana de block × block px, wjpr_local_diff: 0 = igual, 1 = ventana entera distinta), local_x_in y
+# local_y_in (centro de esa ventana, en pulgadas desde arriba a la izquierda) y local_px (píxeles distintos).
+# local = FALSE: solo el f1. Los umbrales los fija verify (config/<pais>.yml: min_f1, max_local, local_*).
+wjpr_similarity <- function(png_new, png_pub, r = 2L, dpi_new = NA, local = TRUE, block = 12L, delta = 0.2,
+                            delta_flat = 0.05, shift = 1L) {
   a <- read_png_rgb(png_pub); b <- read_png_rgb(png_new)
   bi <- resample_to_dpi(b$img, if (is.na(dpi_new)) (if (is.na(b$dpi)) 300 else b$dpi) else dpi_new)
   h <- min(dim(a$img)[1], dim(bi)[1]); w <- min(dim(a$img)[2], dim(bi)[2])
@@ -143,8 +505,48 @@ wjpr_similarity <- function(png_new, png_pub, r = 2L, dpi_new = NA) {
   }
   prec <- if (sum(ib)) sum(ib & dilate(ia)) / sum(ib) else NA_real_
   rec <- if (sum(ia)) sum(ia & dilate(ib)) / sum(ia) else NA_real_
-  list(precision = prec, recall = rec, f1 = if (is.na(prec) || is.na(rec) || prec + rec == 0) NA_real_ else 2 * prec * rec / (prec + rec),
-       mad = mean(abs(ga - gb)))
+  out <- list(precision = prec, recall = rec, f1 = if (is.na(prec) || is.na(rec) || prec + rec == 0) NA_real_ else 2 * prec * rec / (prec + rec),
+              mad = mean(abs(ga - gb)))
+  if (!isTRUE(local)) return(out)
+  c(out, wjpr_local_diff(a$img[seq_len(h), seq_len(w), 1:3, drop = FALSE], bi[seq_len(h), seq_len(w), 1:3, drop = FALSE],
+                         block = block, delta = delta, delta_flat = delta_flat, shift = shift))
+}
+
+# Diferencia LOCAL entre dos imágenes RGB del mismo tamaño (alto × ancho × 3, en 0-1; la publicada y la nueva a 96 dpi).
+# Un píxel es distinto si, en algún canal, su valor cae a más de delta fuera del rango [mín, máx] de ese canal en la
+# vecindad de (2·shift + 1)² px de la otra imagen, en los dos sentidos (tolera el antialias y desplazamientos de shift
+# px; por canal ve también un cambio de tono con el mismo gris), o si las dos imágenes son planas en esa vecindad (rango
+# < 0.03 por canal) y difieren allí en más de delta_flat (colores claros que delta no separa: pista #E5E8E8 frente a
+# blanco = 0.10, UE #A8A8C8 frente a la pista = 0.24, tonos de relleno). local = máximo, sobre todas las ventanas de
+# block × block px, de la fracción de píxeles distintos. Calibración (23-oct): config/hungary.yml, verify$max_local.
+wjpr_local_diff <- function(A, B, block = 12L, delta = 0.2, delta_flat = 0.05, shift = 1L, dpi = COMPARE_DPI) {
+  h <- dim(A)[1]; w <- dim(A)[2]
+  if (!identical(dim(A), dim(B)) || length(dim(A)) != 3 || dim(A)[3] != 3) stop("wjpr_local_diff: A y B deben ser alto × ancho × 3 del mismo tamaño", call. = FALSE)
+  rs <- function(M, d) M[pmin(pmax(seq_len(h) + d, 1L), h), , drop = FALSE]
+  cs <- function(M, d) M[, pmin(pmax(seq_len(w) + d, 1L), w), drop = FALSE]
+  box <- function(M) {                           # mín y máx en la vecindad (separable: filas, luego columnas)
+    hi <- M; lo <- M
+    for (d in setdiff(-shift:shift, 0L)) { S <- rs(M, d); hi <- pmax(hi, S); lo <- pmin(lo, S) }
+    hi2 <- hi; lo2 <- lo
+    for (d in setdiff(-shift:shift, 0L)) { hi2 <- pmax(hi2, cs(hi, d)); lo2 <- pmin(lo2, cs(lo, d)) }
+    list(hi = hi2, lo = lo2)
+  }
+  out_a <- matrix(0, h, w); out_b <- out_a; flat_a <- matrix(TRUE, h, w); flat_b <- flat_a; raw <- out_a
+  for (k in 1:3) {
+    a <- matrix(A[, , k], h, w); b <- matrix(B[, , k], h, w); ba <- box(a); bb <- box(b)
+    out_a <- pmax(out_a, bb$lo - a, a - bb$hi)   # A fuera del rango de B en su vecindad
+    out_b <- pmax(out_b, ba$lo - b, b - ba$hi)   # y al revés
+    flat_a <- flat_a & (ba$hi - ba$lo) < 0.03; flat_b <- flat_b & (bb$hi - bb$lo) < 0.03
+    raw <- pmax(raw, abs(a - b))
+  }
+  bad <- pmax(out_a, out_b) > delta | (flat_a & flat_b & raw > delta_flat)
+  k <- as.integer(min(block, h, w))
+  S <- matrix(0, h + 1, w + 1); S[-1, -1] <- t(apply(apply(bad * 1, 2, cumsum), 1, cumsum))   # imagen integral
+  i <- seq_len(h - k + 1); j <- seq_len(w - k + 1)
+  s <- S[i + k, j + k, drop = FALSE] - S[i, j + k, drop = FALSE] - S[i + k, j, drop = FALSE] + S[i, j, drop = FALSE]
+  m <- which.max(s) - 1L
+  list(local = max(s) / k^2, local_x_in = (m %/% length(i) + k / 2) / dpi, local_y_in = (m %% length(i) + k / 2) / dpi,
+       local_px = as.integer(sum(bad)))
 }
 
 # df del contrato desde la referencia publicada, para dibujar figuras cuyo data() aún no existe. En los tipos con
@@ -161,8 +563,103 @@ wjpr_ref_df <- function(spec, cfg) {
     scale <- if (spec$tipo == "grouped_bars" && !any(grepl("%", d$text))) 10 else 100      # fig 4: media 0-10
     d <- d %>% mutate(value = coalesce(frac * scale, value), value2 = coalesce(frac2 * scale, value2))
   }
+  # corregido (revisión 4): la referencia del scatter (3) no trae series y wjpr_scatter la usa para las destacadas
+  # (rotuladas): sin ella la galería sin caché dibujaba la 3 sin rótulos. Se pone como en data(): "destacada" si la
+  # categoría está en figures: figNN: highlight de config/<pais>.yml (las de lo publicado), "" si no
+  if (identical(spec$tipo, "scatter") && !"series" %in% names(d)) {
+    hl <- as.character(unlist(cfg$figures[[sprintf("fig%02d", as.integer(spec$fig))]]$highlight))
+    d$series <- if_else(d$label %in% hl, "destacada", "")
+  }
+  # corregido (revisión 4): tampoco trae text2 = WJPR_SCATTER_HUECO (punto dibujable con n < 30, la marca que pone
+  # data() y que compara lo dibujado por punto); se pone como en data() desde la columna n de la referencia
+  if (identical(spec$tipo, "scatter") && "n" %in% names(d) && !any(d$text2 == WJPR_SCATTER_HUECO)) {
+    d$text2 <- if_else(is.finite(d$value) & is.finite(d$value2) & coalesce(d$n < 30, FALSE), WJPR_SCATTER_HUECO, d$text2)
+  }
   d %>% select(-any_of(c("frac", "frac2", "tol", "tol2", "tol_xy"))) %>% mutate(order = as.integer(order))
 }
+
+## Prueba de la verificación del dibujo (revisión 3, 2026-10-23, F1: V3-01, V3-02): SCRATCH/fix3/F1/pruebas/
+## p10_calibra_final.R con wjpr_similarity() y los parámetros de config/hungary.yml sobre las 42 de tools/wjpr_gallery.R
+## (1.1.0@382aee9 y main, mismos valores) y las perturbaciones de la revisión V3 (rev3_V3/perturb): local 0.000-0.444
+## en 41 correctas (0.444 la 06, claves de leyenda de 15.2 pt; 0.389 la 29, título del eje y desplazado ~2 px y gris
+## #E5E8E8 en lugar de #D9D9D9 en la matriz; 0.243 la 16; 0.153 la 03, rótulos de ggrepel; 0.125 la 19; 0.118 la 07) y
+## 0.715 en la 42 (tarjeta 42 % con texto negro; publicada, blanco: diferencia real del bloque cards); errores: barra
+## +10 pp en la 1 → 1.000 (f1 0.9954), Public Services −5 pp en la 2 → 0.833 (0.9951), Male +1.0 en la 4 → 0.924
+## (0.9957), colores de banda invertidos en la 6 → 1.000 (0.9985), UE severidad 5 −1 pp en la 7 → 1.000 (0.9973),
+## lift máximo × 2 en la 5 → 1.000 (0.9995); +1 pp en la 1 → 0.333 y +2 pp → 0.583 (las barras agrupadas los ven por
+## fila); textos de dos filas intercambiados → 0.028-0.194 (los ve solo lo dibujado por fila). Tiempo: 0.05-0.17 s por
+## figura (la tolerancia de 1 px como mínimo/máximo separable 3 × 3; la versión con 9 desplazamientos tardaba 0.2-0.5 s
+## y daba lo mismo salvo en bordes de texto: 03 0.201 → 0.153, 29 0.424 → 0.389). p11_unit.R: idénticas → 0, barra 12 px
+## más larga → 0.917, todo desplazado 1 px → 0, pista #E5E8E8 → blanco (Δ 0.10) → 1, tono de la barra → 0.917;
+## wjpr_meta(drawn = "x") y un drawn sin columnas → error legible; sin drawn → NULL.
+
+## Lo dibujado por fila con dos series por posición (revisión 4, G1) ------------------------------------------------
+## Auxiliares de los bloques dumbbell, paired_bars y severity_bars (un solo panel con un eje discreto); escritos en
+## el bloque dumbbell y movidos aquí porque los usan tres bloques.
+# wjpr_pos_slots(b, axis): una fila por nivel del eje discreto con level, pos = su posición MAPEADA (sc$map, la paleta
+# de la escala: el dumbbell pone cada línea en pt con scale_x_discrete(palette = ), no en 1..n como supone
+# wjpr_slots()) y slot = orden visual: con coord_flip el x de datos va de abajo arriba (la posición mayor arriba = 1),
+# sin flip el x de izquierda a derecha y el y de arriba abajo
+wjpr_pos_slots <- function(b, axis = c("x", "y")) {
+  axis <- match.arg(axis)
+  if (nrow(b$layout$layout) != 1) stop("wjpr_pos_slots: se esperaba un solo panel (", nrow(b$layout$layout), ")", call. = FALSE)
+  sc <- (if (axis == "y") b$layout$panel_scales_y else b$layout$panel_scales_x)[[1]]
+  if (is.null(sc) || !sc$is_discrete()) stop("wjpr_pos_slots: el eje ", axis, " no es discreto", call. = FALSE)
+  lev <- as.character(sc$get_limits())
+  pos <- suppressWarnings(as.numeric(sc$map(lev)))
+  up <- (axis == "y") != inherits(b$layout$coord, "CoordFlip")      # TRUE: la posición mayor va primero
+  tibble(level = lev, pos = pos, slot = as.integer(rank(if (up) -pos else pos, ties.method = "first")))
+}
+# Slot de cada coordenada v del eje discreto: el del nivel más cercano, a menos de media separación entre niveles
+# (una barra esquivada o un texto de la línea caen en su nivel); NA si no es finita o no cae en ninguno
+wjpr_pos_slot_of <- function(v, slots) {
+  v <- suppressWarnings(as.numeric(v))
+  half <- if (nrow(slots) > 1) min(diff(sort(slots$pos))) / 2 else 0.5
+  vapply(v, function(x) {
+    if (!is.finite(x)) return(NA_integer_)
+    d <- abs(slots$pos - x); j <- which.min(d)
+    if (d[j] < half) slots$slot[j] else NA_integer_
+  }, NA_integer_)
+}
+# Lo impreso en la leyenda: una fila por clave con aes ("fill" | "colour"), value (el color de la clave) y label (su
+# texto sin markup). complemento: wjpr_drawn_texts() no lee la leyenda (WJPr::wjp_drawn tampoco, en preparación): se
+# lee de las guías que ggplot_build() ya entrenó (b$plot$guides: key con .label y el color de cada clave). Vacía si no
+# se dibuja: legend.position "none", legend.text en blanco, de tamaño 0 o del color del fondo, o sin guía de leyenda
+# (una capa con show.legend = FALSE no la crea)
+wjpr_legend_drawn <- function(b) {
+  empty <- tibble(aes = character(), value = character(), label = character())
+  g <- b$plot$guides
+  if (!inherits(g, "Guides") || !length(g$params)) return(empty)
+  th <- ggplot2::complete_theme(b$plot$theme)
+  pos <- tryCatch(ggplot2::calc_element("legend.position", th), error = function(e) NULL) %||% "right"
+  if (identical(as.character(pos)[1], "none")) return(empty)
+  el <- tryCatch(ggplot2::calc_element("legend.text", th), error = function(e) NULL)
+  if (is.null(el) || inherits(el, "element_blank") || !isTRUE(all((el$size %||% 1) > 0))) return(empty)
+  bg <- wjpr_theme_fill(th, "legend.background", wjpr_theme_fill(th, "plot.background"))
+  tc <- wjpr_rgba(el$colour %||% "black")[, 1]
+  if (max(abs(tc[1:3] - bg)) * tc[4] <= WJPR_VISIBLE_MIN) return(empty)
+  md <- inherits(el, c("element_markdown", "element_textbox"))
+  out <- lapply(seq_along(g$params), function(k) {
+    key <- g$params[[k]]$key
+    if (!inherits(g$guides[[k]], "GuideLegend") || !is.data.frame(key) || !nrow(key) || !".label" %in% names(key)) return(NULL)
+    lab <- wjpr_plain_text(vapply(key$.label, function(v) paste(as.character(v), collapse = " "), ""), markdown = md)
+    bind_rows(lapply(intersect(c("fill", "colour"), names(key)), function(a)
+      tibble(aes = a, value = as.character(key[[a]]), label = lab)))
+  })
+  out <- bind_rows(empty, out)
+  out[!is.na(out$label) & nzchar(out$label), , drop = FALSE]
+}
+# Serie de cada color col: la que la leyenda impresa (wjpr_legend_drawn, guía del aes) da a ese color; si no hay
+# leyenda de ese aes, la del color que el adaptador da a cada serie (series ↔ cols; NULL: NA). NA si ninguna
+wjpr_series_of <- function(col, legend, aes, series = NULL, cols = NULL) {
+  lg <- legend[legend$aes == aes, , drop = FALSE]
+  ref <- if (nrow(lg)) lg$value else cols; nm <- if (nrow(lg)) lg$label else series
+  vapply(as.character(col), function(cl) {
+    if (is.na(cl) || !length(ref)) return(NA_character_)
+    k <- which(wjpr_same_color(ref, cl)); if (length(k)) nm[k[1]] else NA_character_
+  }, NA_character_, USE.NAMES = FALSE)
+}
+
 
 ## Bloques por tipo ---------------------------------------------------------------------------------------------------
 ## (cada bloque: encabezado "## Bloque wjpr <tipo> — figuras …", la función wjpr_<tipo>(df, spec, ...) y sus
@@ -246,7 +743,9 @@ wjpr_gb_top_down <- function() {
 # Entrada de wjp_groupbars: una fila por categoría (grp, lvl, v = barra 0-100, lab = df$text, kind). Con complementos,
 # la fila EU Average en la faceta de los promedios y, por grupo, una faceta de encabezado (una fila sin barra) antes
 # de la de sus categorías. Devuelve d, el orden de facetas (group_order), level_order (las filas en el orden del df,
-# de arriba abajo, en el sentido de la build: top_down) y el tipo de cada faceta.
+# de arriba abajo, en el sentido de la build: top_down), el tipo de cada faceta y keys: la fila del df (order, kind,
+# grouping, label) de cada nivel del eje y de WJPr (y_id = "<faceta> | <categoría>", el que lab_fun rotula), para
+# lo dibujado por fila (wjpr_gb_drawn).
 wjpr_gb_input <- function(df, g, complementos = TRUE, top_down = wjpr_gb_top_down()) {
   lo <- function(x) if (top_down) x else rev(x)
   avg <- df[df$kind == "avg", ]; body <- df[df$kind %in% c("header", "row"), ]
@@ -256,13 +755,18 @@ wjpr_gb_input <- function(df, g, complementos = TRUE, top_down = wjpr_gb_top_dow
   rows <- body[body$kind == "row", ]
   groups <- unique(as.character(body$grouping))
   row_d <- function(r, grp) tibble(grp = grp, lvl = r$label, v = pct(r$value), lab = coalesce(r$text, ""), kind = r$kind)
+  key_d <- function(r, grp) tibble(y_id = paste(grp, r$label, sep = " | "), order = as.integer(r$order), kind = r$kind,
+                                   grouping = r$grouping, label = r$label)
+  nat_key <- if (nrow(avg)) key_d(avg[1, ], WJPR_GB_NAT) else key_d(avg, character())   # barra nacional de WJPr
   if (!complementos) {
     d <- row_d(rows, as.character(rows$grouping))
     lev <- setNames(lapply(groups, function(gr) lo(d$lvl[d$grp == gr])), groups)
-    return(list(d = d, order = groups, lev = lev, panels = rep("rows", length(groups)), avg = avg))
+    return(list(d = d, order = groups, lev = lev, panels = rep("rows", length(groups)), avg = avg,
+                keys = bind_rows(nat_key, key_d(rows, as.character(rows$grouping)))))
   }
   extra <- if (nrow(avg)) avg[-1, ] else avg
   d <- row_d(extra, rep(WJPR_GB_NAT, nrow(extra))) %>% mutate(kind = "avg")
+  keys <- bind_rows(nat_key, key_d(extra, rep(WJPR_GB_NAT, nrow(extra))))
   order <- character(); panels <- character(); lev <- list()
   if (nrow(avg)) { order <- WJPR_GB_NAT; panels <- "avg"; lev[[WJPR_GB_NAT]] <- lo(avg$label) }
   for (gr in groups) {
@@ -271,14 +775,61 @@ wjpr_gb_input <- function(df, g, complementos = TRUE, top_down = wjpr_gb_top_dow
     if (nrow(h)) {
       key <- paste0(WJPR_GB_HDR, gr)
       d <- bind_rows(d, row_d(h, rep(key, nrow(h))) %>% mutate(lab = ""))
+      keys <- bind_rows(keys, key_d(h, rep(key, nrow(h))))
       order <- c(order, key); panels <- c(panels, "header"); lev[[key]] <- lo(h$label)
     }
     if (nrow(r)) {
       d <- bind_rows(d, row_d(r, rep(gr, nrow(r))))
+      keys <- bind_rows(keys, key_d(r, rep(gr, nrow(r))))
       order <- c(order, gr); panels <- c(panels, "rows"); lev[[gr]] <- lo(r$label)
     }
   }
-  list(d = d, order = order, lev = lev, panels = panels, avg = avg)
+  list(d = d, order = order, lev = lev, panels = panels, avg = avg, keys = keys)
+}
+
+# Lo dibujado por fila (contrato drawn de wjpr_meta; V3-01, V3-02 y contrato extendido de la revisión 4), leído de b =
+# ggplot_build() del gráfico final: en cada posición del eje y de cada panel (wjpr_slots, de arriba abajo = order), la
+# fila del df cuyo nivel y_id ocupa esa posición (sin equivalente: kind "" y el nivel como label, una fila sobrante),
+# frac = largo de las barras del color principal en esa posición / 100 (la pista es 0-100 en la escala de WJPr; la 4
+# entra como value / scale · 100, así que frac = value / scale, el frac de la referencia), val = frac · scale (el largo
+# en las unidades de df$value: % o, en la 4, media 0-10) y text = lo que la capa de texto imprime y se ve en esa
+# posición (wjpr_drawn_texts: un valor con alfa 0 o blanco sobre blanco no cuenta). label_drawn = la etiqueta del eje
+# impresa en esa posición (la que lab_fun rotula; "" si ninguna) y grouping_drawn = el encabezado impreso bajo el que
+# queda la fila: el strip visible de su panel si lo hay (WJPr sin complementos) y si no la etiqueta impresa de la
+# última fila de encabezado por encima (la propia en un encabezado; "" en los promedios, que van antes del primero).
+# Una barra o un texto en la fila equivocada, una barra más larga, un orden distinto, dos etiquetas intercambiadas, un
+# encabezado cambiado o un valor oculto se ven aquí aunque el multiconjunto de textos y el parecido global sean iguales.
+wjpr_gb_drawn <- function(b, keys, bar_fill, scale = 100) {
+  slots <- wjpr_slots(b, "y")
+  layer_data <- function(geoms) b$data[which(vapply(b$plot$layers, function(l) inherits(l$geom, geoms), logical(1)))]
+  has <- function(d, ...) all(c(...) %in% names(d))
+  bars <- bind_rows(lapply(layer_data(c("GeomCol", "GeomBar", "GeomRect")), function(d)
+    tibble(slot = wjpr_slot_of(d, slots), main = if (has(d, "fill")) wjpr_same_color(d$fill, bar_fill) else FALSE,
+           len = if (has(d, "xmin", "xmax")) as.numeric(d$xmax) - as.numeric(d$xmin) else NA_real_)))
+  bars <- bars[!is.na(bars$slot) & bars$main & is.finite(bars$len), , drop = FALSE]
+  tx <- wjpr_drawn_texts(b)                            # solo lo que se ve
+  at <- function(src) { t <- tx[tx$source == src, , drop = FALSE]; t$slot <- wjpr_slot_of(t, slots); t[!is.na(t$slot), , drop = FALSE] }
+  txt <- at("layer"); txt <- txt[order(txt$slot, txt$x), , drop = FALSE]
+  ax <- at("axis-y")
+  strips <- tx[tx$source == "strip", , drop = FALSE]
+  k <- match(slots$level, keys$y_id)
+  kind <- coalesce(keys$kind[k], "")
+  lab_drawn <- vapply(slots$slot, function(s) paste(ax$label[ax$slot == s], collapse = " "), "")
+  strip_of <- strips$label[match(as.character(slots$PANEL), strips$PANEL)]
+  hdr <- ""; grp_drawn <- character(nrow(slots))
+  for (i in seq_len(nrow(slots))) {                     # slots ya va en orden visual (de arriba abajo)
+    if (kind[i] == "header") hdr <- lab_drawn[i]
+    grp_drawn[i] <- if (!is.na(strip_of[i]) && nzchar(strip_of[i])) strip_of[i] else hdr
+  }
+  frac <- vapply(slots$slot, function(s) { l <- bars$len[bars$slot == s]; if (length(l)) sum(l) / 100 else NA_real_ }, 0)
+  tibble(order = slots$slot, kind = kind, grouping = coalesce(keys$grouping[k], ""),
+         label = coalesce(keys$label[k], slots$level), frac = frac, frac2 = NA_real_,
+         text = vapply(slots$slot, function(s) paste(txt$label[txt$slot == s], collapse = " "), ""), text2 = "",
+         label_drawn = lab_drawn, grouping_drawn = grp_drawn, val = frac * scale, val2 = NA_real_)
+}
+wjpr_gb_drawn_fun <- function(keys, bar_fill, scale = 100) {
+  force(keys); force(bar_fill); force(scale)
+  function(b) wjpr_gb_drawn(b, keys, bar_fill, scale)
 }
 
 wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...) {
@@ -287,6 +838,12 @@ wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...)
   g <- wjpr_gb_design(df, spec); st <- g$st
   inp <- wjpr_gb_input(df, g, complementos); d <- inp$d; avg <- inp$avg
   has_nat <- nrow(avg) > 0
+  # corregido (revisión 4): con el promedio nacional suprimido (NA) WJPr se detenía con «national_value must be a
+  # single proportion», sin decir qué figura ni por qué; ahora el error es legible y sale antes de llamar a WJPr
+  if (has_nat && !is.finite(suppressWarnings(as.numeric(avg$value[1])))) {
+    stop(sprintf("fig %02d: sin promedio nacional (%s con value NA: suprimido por n < 30 o sin datos; wjp_groupbars necesita national_value)",
+                 as.integer(spec$fig), avg$label[1]), call. = FALSE)
+  }
   nat_v <- if (has_nat) as.numeric(avg$value[1]) / g$scale * 100 else NULL
   p <- WJPr::wjp_groupbars(
     data = d, target = "v", grouping = "grp", levels = "lvl",
@@ -296,7 +853,10 @@ wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...)
     national_label = if (has_nat) avg$label[1] else NULL, national_group_label = WJPR_GB_NAT,
     label_position = "end", bar_width = st$bar / st$pitch, show_axis = FALSE, strip_position = "left",
     ptheme = wjpr_theme())
-  if (!complementos) return(wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = character()))
+  # lo dibujado por fila (V3-02; revisión 4: label_drawn, grouping_drawn y val en unidades de df$value), también sin
+  # complementos
+  drawn <- wjpr_gb_drawn_fun(inp$keys, st$col$main, g$scale)
+  if (!complementos) return(wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = character(), drawn = drawn))
 
   # complemento (solo 1.1.0): WJPr fija family = "Lato Full" en capas y tema (wjpr_font); main la toma de
   # options(wjpr.family = ), que fija wjpr_require(), y el complemento sobra
@@ -389,7 +949,7 @@ wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...)
   p <- p + ggplot2::theme(plot.margin = ggplot2::margin(top, 0, 4 + (spec$h_in * 72 - used), max(g$x0 - left, 0), unit = "bigpts"))
   comp <- c(comp, "línea base de las etiquetas Markdown", "alto de fila y bloque de encabezado del diseño",
             "márgenes y columna de etiquetas fijos")
-  wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = comp)
+  wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = comp, drawn = drawn)
 }
 ## Prueba del bloque (2026-10-23): Rscript tools/wjpr_gallery.R --figs 1,4,9,12,17,20,21,22,23,24,25,26,27,28,31,33,35,
 ## 38,39,40, con 1.1.0@382aee9 y con main a46c831 (SRC_REPORTS_LIB) → 20/20 ok en las dos, textos iguales, 0 dudosos,
@@ -399,6 +959,17 @@ wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...)
 ## 0.14-0.79 (main; mediana 0.62: Inter Tight nativa, misma geometría). Posiciones en el SVG: barra en x0 = 155,
 ## etiquetas a 149, valores a 410 (27: 441), filas y líneas base de encabezados a ±0.05 pt de STD/ST_A01; escape
 ## Markdown ("a*b_c*", "1. …", "&").
+## Lo dibujado por fila (revisión 3, 2026-10-23, F1; SCRATCH/fix3/F1/pruebas/p08_drawn.R y tools/wjpr_gallery.R): 01, 04 y
+## 09 con data() y 27 desde la referencia, con 1.1.0@382aee9 y con main → 18, 17, 36 y 9 filas, las de la referencia en
+## el mismo orden visual, |Δfrac| ≤ 0.0028 y textos iguales; galería: 20/20 "n filas ok" en las dos builds; los SVG no
+## cambian (md5); figures construye el ggplot una sola vez para wjpr_texts() y wjpr_drawn().
+## Contrato extendido (revisión 4, 2026-10-26/27; SCRATCH/fix4/I0/pruebas/iny_gb.sh): label_drawn, grouping_drawn y val
+## en las 18/17/36 filas de 01/04/09; cada inyección, una a la vez y solo en el dibujo, con --stage all --figs 01 --strict
+## → exit 1: Male/Female, 65-100/18-24 y Urban/Rural intercambiadas (texto · label_drawn), encabezado Gender → Sex
+## (texto · label_drawn + grouping_drawn de sus filas), valor de Male con alfa 0 (texto · text Male: 65%→), barra de
+## Male +5 pp (dibujo · val 65.35→70.35), Helvetica en los valores (texto · 14 dudosos); en verify, «fallo · figures:
+## <motivo>». Sin inyección, 10/10 en las dos builds con los SVG y PNG idénticos (md5) a los de antes; Polonia y Malta
+## (01, 04, 09) ok en figures; National Average NA → «fig 01: sin promedio nacional (…)» antes de llamar a WJPr.
 
 
 ## Bloque wjpr dumbbell — figuras 10, 15 ----------------------------------------------------------------------------
@@ -415,11 +986,25 @@ wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...)
 ## (05_charts.R): leyenda con líneas base 10 y 24 pt, rótulos del eje con base 44, línea del eje en 49, filas desde 52;
 ## la figura 15 (18-24 sin ningún valor) sale como fila vacía sin rama propia.
 ## complementos = FALSE devuelve WJPr sin complementos (como el piloto: sin encabezados), para medir la brecha.
+## Lo dibujado por fila (revisión 4, G1; contrato drawn de wjpr_meta, con y sin complementos): wjpr_dumbbell_drawn,
+## una fila por línea con val/val2 = punto de cada serie (por su color y la leyenda impresa), frac = val/100,
+## text/text2, label_drawn y grouping_drawn (último encabezado impreso). Las líneas sin valor no pasan a las capas de
+## segmento, punto y texto (wjpr_drop_na_rows: sin «Removed N rows» en el log, mismo dibujo).
 ## Prueba (2026-10-23, tools/wjpr_gallery.R --figs 10,15, con y sin SRC_REPORTS_LIB): textos iguales, 0 dudosos, f1
 ## 1.000 en las dos con 1.1.0@382aee9 (13 complementos) y con main a46c831 (12 en la 10, que sigue con labpos por su
 ## 18-24 de un solo valor; 11 en la 15: sobran wjpr_font y labpos). Sin complementos: 0.128 / 0.170 con 1.1.0 (y
 ## Noto Sans Syriac en lugar de la fuente: 24 textos dudosos) y 0.185 / 0.221 con main (fuente nativa, 0 dudosos).
-## Auxiliares de este bloque (los usa también el bloque hbars): unidades del diseño → ggplot2 y edición de capas.
+## Prueba de lo dibujado por fila (revisión 4, 2026-10-27, G1: SCRATCH/fix4/G1/pruebas/iny_g1.sh, una inyección a la
+## vez en el dibujo con --stage all --figs 10 --strict → exit 1): texto de percepción Male ↔ Female (texto · text),
+## etiquetas Urban ↔ Rural (texto · label_drawn), punto de Male +5 pp (dibujo · val 29.46→34.46; verify frac y val);
+## sin inyección 17 filas sin diferencias con df ni con la referencia (85/85 en drawn_ref_rows) y sin complementos 13
+## (lo que le falta a WJPr: encabezados y el 68 % de 18-24). Sin inyección: Hungría --stage all --figs 01-07,09-11
+## --strict 10/10 con 1.1.0@382aee9 (SVG y PNG = ROOT) y con main a46c831 (la 10 = el código anterior con main), 0
+## «Removed N rows» en el log (antes 5); Polonia y Malta ok en figures (Malta: 4 celdas suprimidas, val NA); galería
+## --figs 2,7,10,15: «17 filas ok» en la 10 y en la 15 (desde la referencia), SVG de la 15 = el del código anterior.
+## Auxiliares de este bloque (los usa también el bloque hbars): unidades del diseño → ggplot2 y edición de capas;
+## los de lo dibujado por fila (wjpr_pos_slots, wjpr_pos_slot_of, wjpr_legend_drawn, wjpr_series_of) los usan también
+## los bloques paired_bars y severity_bars.
 
 # Conversión de las medidas del diseño (pt = 1/72 in, la unidad del SVG) a ggplot2, comprobada en el SVG de svglite:
 # linewidth L → trazo de L·.pt·0.75 pt (lwd 1 = 1/96 in); punto de forma 19 con stroke 0 → radio 0.375·size·.pt;
@@ -470,6 +1055,77 @@ wjpr_labcol_w <- function(label, kind, size) {
              label, kind))
 }
 
+# Lo dibujado por fila del dumbbell (contrato drawn de wjpr_meta, revisión 4), leído de b = ggplot_build() del gráfico
+# final: una fila por nivel del eje (una línea de la figura: promedio, encabezado o categoría) en orden visual de
+# arriba abajo (wjpr_pos_slots), con kind/grouping/label = la fila del df cuya clave ocupa esa posición (keys: level =
+# clave del nivel); val/val2 = la posición (0-100 %) del punto de cada serie en esa línea y frac/frac2 = val/100 (el
+# frac de la referencia), con la serie de cada punto según su color y la leyenda impresa (series[1] = value,
+# series[2] = value2; sin leyenda, según cols); text/text2 = los valores impresos en la línea, cada uno de la serie del
+# punto más cercano (van por fuera del par, a dot_r + 3 pt de su punto; sin punto en la línea, la de su color);
+# label_drawn = la etiqueta del eje impresa en esa posición y grouping_drawn = la del último encabezado impreso por
+# encima (la propia en un encabezado; "" en el promedio, antes del primero). Dos textos o dos etiquetas
+# intercambiados, un punto desplazado o un encabezado cambiado se ven aquí aunque el multiconjunto de textos sea igual.
+wjpr_dumbbell_drawn <- function(b, keys, series, cols) {
+  slots <- wjpr_pos_slots(b, "x")
+  lg <- wjpr_legend_drawn(b)
+  num <- function(d, nm, na = NA_real_) if (nm %in% names(d)) suppressWarnings(as.numeric(d[[nm]])) else rep(na, nrow(d))
+  # unname: ggplot2 4 nombra las capas y bind_rows leería una lista con nombre como columnas
+  ip <- unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, "GeomPoint"), logical(1))))
+  pts <- bind_rows(tibble(slot = integer(), y = numeric(), serie = character()), lapply(ip, function(i) {
+    d <- as.data.frame(b$data[[i]])
+    ok <- is.finite(num(d, "x")) & is.finite(num(d, "y")) & coalesce(num(d, "size"), 1) > 0 & coalesce(num(d, "alpha"), 1) > 0
+    d <- d[ok, , drop = FALSE]
+    tibble(slot = wjpr_pos_slot_of(d$x, slots), y = as.numeric(d$y),
+           serie = wjpr_series_of(d$colour, lg, "colour", series, cols))
+  }))
+  pts <- pts[!is.na(pts$slot) & !is.na(pts$serie), , drop = FALSE]
+  tx <- wjpr_drawn_texts(b)
+  tx <- tx[!is.na(tx$label), , drop = FALSE]               # solo lo que se ve (y sin las filas NA de un color vectorizado)
+  txt <- tx[tx$source == "layer", , drop = FALSE]
+  txt$slot <- wjpr_pos_slot_of(txt$x, slots); txt <- txt[!is.na(txt$slot), , drop = FALSE]
+  txt$serie <- vapply(seq_len(nrow(txt)), function(j) {
+    p <- pts[pts$slot == txt$slot[j], , drop = FALSE]
+    if (nrow(p)) p$serie[which.min(abs(p$y - txt$y[j]))] else wjpr_series_of(txt$colour[j], lg, "colour", series, cols)
+  }, NA_character_)
+  ax <- tx[tx$source == "axis-x", , drop = FALSE]; ax$slot <- wjpr_pos_slot_of(ax$x, slots)
+  k <- match(slots$level, keys$level)
+  kind <- coalesce(keys$kind[k], "")
+  lab_drawn <- vapply(slots$slot, function(s) paste(ax$label[ax$slot %in% s], collapse = " "), "")
+  hdr <- ""; grp_drawn <- character(nrow(slots))
+  for (i in order(slots$slot)) {                           # de arriba abajo
+    if (kind[i] == "header") hdr <- lab_drawn[i]
+    grp_drawn[i] <- hdr
+  }
+  val_of <- function(s, se) { y <- pts$y[pts$slot == s & pts$serie %in% se]; if (length(y)) y[1] else NA_real_ }
+  txt_of <- function(s, se) paste(txt$label[txt$slot == s & txt$serie %in% se], collapse = " ")
+  v1 <- vapply(slots$slot, val_of, 0, se = series[1]); v2 <- vapply(slots$slot, val_of, 0, se = series[2])
+  out <- tibble(order = slots$slot, kind = kind, grouping = coalesce(keys$grouping[k], ""),
+                label = coalesce(keys$label[k], slots$level), frac = v1 / 100, frac2 = v2 / 100,
+                text = vapply(slots$slot, txt_of, "", se = series[1]), text2 = vapply(slots$slot, txt_of, "", se = series[2]),
+                label_drawn = lab_drawn, grouping_drawn = grp_drawn, val = v1, val2 = v2)
+  out[order(out$order), , drop = FALSE]
+}
+wjpr_dumbbell_drawn_fun <- function(keys, series, cols) {
+  force(keys); force(series); force(cols)
+  function(b) wjpr_dumbbell_drawn(b, keys, series, cols)
+}
+
+# Copia las capas `which` sin las filas de su data cuya posición en el eje de valores (los aesthetics y e yend de su
+# mapping) es NA: no se dibujan y ggplot2 las quitaba con el aviso «Removed N rows containing missing values»
+wjpr_drop_na_rows <- function(p, which) {
+  p$layers <- lapply(seq_along(p$layers), function(i) {
+    l <- p$layers[[i]]
+    if (!i %in% which || !is.data.frame(l$data)) return(l)
+    keep <- rep(TRUE, nrow(l$data))
+    for (a in intersect(c("y", "yend"), names(l$mapping))) keep <- keep & !is.na(rlang::eval_tidy(l$mapping[[a]], l$data))
+    if (all(keep)) return(l)
+    l2 <- ggplot2::ggproto(NULL, l)
+    l2$data <- l$data[keep, , drop = FALSE]
+    l2
+  })
+  p
+}
+
 wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
                                                "People with a non-trivial problem: experience"),
                           st = ST_DUMB, complementos = wjpr_complementos()) {
@@ -486,7 +1142,9 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
     p <- WJPr::wjp_dumbbells(data = long, target = "v", grouping = "cat", cgroups = cg, colors = "serie",
                              labels = "lab", cvec = cvec, order = setNames(df$order[r], df$label[r]),
                              ptheme = wjpr_theme())
-    return(wjpr_meta(p, base = "WJPr::wjp_dumbbells"))
+    # corregido (revisión 4): lo dibujado por fila también sin complementos (nivel del eje = df$label; sin encabezados)
+    keys0 <- tibble(level = df$label[r], kind = df$kind[r], grouping = df$grouping[r], label = df$label[r])
+    return(wjpr_meta(p, base = "WJPr::wjp_dumbbells", drawn = wjpr_dumbbell_drawn_fun(keys0, cg, unname(cvec))))
   }
   geo <- list(leg_base = c(10, 24), leg_dot = 3.4, ax_base = 44, ax_line = 49, rows0 = 52)  # chart_dumbbell()
   W <- spec$w_in * 72; H <- spec$h_in * 72
@@ -554,7 +1212,13 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
   shift <- key_w / 2 - st$dot_r
   top <- geo$leg_base[1] - geo$leg_dot - key_h / 2                            # borde superior de la leyenda
   ax_box <- WJPR_TEXT_BOX_EM * st$size_axis
-  p <- p +
+  # corregido (revisión 4): las líneas sin valor (encabezados, y la serie que falta en una fila de un solo valor: 18-24
+  # de la 10) no pasan a las capas de segmento, punto y texto; ggplot2 las quitaba con «Removed N rows containing
+  # missing values» (5 avisos por figura en el log de la 10). geom_blank conserva todos los niveles: el dibujo no cambia
+  p <- wjpr_drop_na_rows(p, c(is, ip, it))
+  # corregido (revisión 4): sin los mensajes «Scale for … is already present» / «Coordinate system already present»
+  # en el log: las escalas y la coord de abajo reemplazan las de WJPr a propósito (complementos)
+  p <- suppressMessages(p +
     # complemento: encabezados de grupo y alturas del reporte (fila 18 pt, encabezado 22): posición de cada nivel
     # del eje discreto; wjp_dumbbells no admite encabezados ni alturas distintas, y rotula con `grouping`
     ggplot2::scale_x_discrete(palette = function(n) unname(posv[match(lv, key)]), labels = setNames(df$label, key),
@@ -601,7 +1265,7 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
                                           margin = wjpr_margin_bp(l = 5 - shift)),
       # complemento: márgenes que ponen la pista en x0..x0 + track y el panel desde la línea del eje hasta abajo
       plot.margin = wjpr_margin_bp(t = top, r = W - x0 - track, b = 0,
-                                   l = x0 - st$gap_label - wjpr_labcol_w(df$label, df$kind, st$size_label)))
+                                   l = x0 - st$gap_label - wjpr_labcol_w(df$label, df$kind, st$size_label))))
   comp <- c(comp, "tamaño de punto",
             if (leg_native) "leyenda: una serie por línea, texto y claves (guía + tema)" else
               "leyenda (color mapeado + escala + tema)",
@@ -609,7 +1273,11 @@ wjpr_dumbbell <- function(df, spec, legend = c("General population: perception",
             if (!off_native) "posición de los valores (labpos)", "encabezados y alturas de fila (escala discreta)",
             "eje cada 25 % sin expansión", "sin franjas alternas", "clip off", "sin rejilla",
             "columna de etiquetas: alineación y estilos", "eje: tamaño, línea y márgenes")
-  wjpr_meta(p, base = "WJPr::wjp_dumbbells", complementos = comp)
+  # corregido (revisión 4): lo dibujado por fila (wjpr_dumbbell_drawn: punto, texto y etiqueta impresos en cada línea);
+  # antes el dumbbell solo lo medían el parecido y el multiconjunto de textos, que no ven dos textos o dos etiquetas
+  # intercambiados ni un punto desplazado
+  keys <- tibble(level = key, kind = df$kind, grouping = df$grouping, label = df$label)
+  wjpr_meta(p, base = "WJPr::wjp_dumbbells", complementos = comp, drawn = wjpr_dumbbell_drawn_fun(keys, cg, unname(cvec)))
 }
 
 
@@ -756,9 +1424,20 @@ wjpr_hbars <- function(df, spec, base = c("wjp_bars", "wjp_lollipops", "wjp_edge
 ## complemento en la capa), su tema {country} | EU Average, la fuente según la build y medidas de Inter Tight en el
 ## texto de grid. Fig 2: ancho 8.4 in con columna de etiquetas propia (la más ancha + 2 pt), pista hasta la columna de
 ## valores.
+## Lo dibujado por fila (revisión 4, G1; contrato drawn de wjpr_meta, también con bare = TRUE): wjpr_pb_drawn, una fila
+## por categoría con val/frac (país) y val2/frac2 (UE) según el relleno de cada barra y la leyenda impresa, text/text2
+## de la barra más cercana y label_drawn (la categoría impresa). Los auxiliares wjpr_wb_* no cambian.
 ## Prueba (galería, 2026-10-23, con y sin SRC_REPORTS_LIB): fig 2 f1 1.000 con 1.1.0@382aee9 (8 complementos) y con
 ## main a46c831 (7: leyenda con show_legend y fuente nativa), textos iguales, 0 dudosos; sin complementos 0.530 (1.1.0)
 ## y 0.332 (main: su leyenda, arriba y fuera del panel, desplaza el dibujo; sin show_legend daría 0.527).
+## Prueba de lo dibujado por fila (revisión 4, 2026-10-27, G1: SCRATCH/fix4/G1/pruebas/iny_g1.sh, una inyección a la
+## vez en el dibujo con --stage all --figs 02 --strict → exit 1): textos del país Public Services ↔ Housing (texto ·
+## text), categorías Community ↔ Money & Debt (texto · label_drawn), barra del país +5 pp (dibujo · val 28.23→33.23),
+## series cambiadas en una fila, solo barras (dibujo · val, val2) o barras y textos (texto + dibujo), leyenda
+## intercambiada (texto + dibujo en las 12 filas); en verify, fallo y las filas de drawn.csv frente a la referencia.
+## Sin inyección 12 filas sin diferencias (61/61 en drawn_ref_rows); sin complementos los dos textos de cada fila
+## caen en la misma posición (wjp_bars apila) y salen como texto del país. Sin inyección: Hungría 10/10 con las dos
+## builds (SVG y PNG de la 2 = ROOT), Polonia y Malta ok en figures, galería «12 filas ok».
 
 # Medidas de Inter Tight en el texto de grid (medidas en el SVG de svglite), en em: ascendente que apoya vjust = 1 y
 # alto de un texto de eje (ascendente + descendente de la fuente)
@@ -835,6 +1514,59 @@ wjpr_wb_legend <- function(st, top = 2, key = 9, gap_key = 4, gap_item = 14) {
                                         margin = ggplot2::margin(l = gap_key)))
 }
 
+# Lo dibujado por fila de las barras pareadas (contrato drawn de wjpr_meta, revisión 4), leído de b = ggplot_build()
+# del gráfico final: una fila por categoría del eje (wjpr_pos_slots: con coord_flip, de arriba abajo), con
+# kind/grouping/label = la fila del df cuya categoría ocupa esa posición (keys: level = categoría). Cada barra de la
+# posición es de la serie que la leyenda impresa da a su relleno (wjpr_legend_drawn; sin leyenda, según fills): series[1]
+# (el país) → val = su largo (en %, las unidades de df$value) y frac = val / 100 (el frac de la referencia); series[2]
+# (la UE) → val2, frac2. La pista (relleno track_fill) no es serie; una barra de largo 0 con pista 0 o sin pista es un
+# valor suprimido (wjpr_wb_long: na = TRUE) → val NA. text/text2 = los valores impresos en la posición, cada uno de la
+# serie de la barra más cercana (van esquivados con ella); label_drawn = la categoría impresa en el eje en esa
+# posición. Dos textos o dos categorías intercambiados, una barra más larga o las series cambiadas en una fila se ven
+# aquí aunque el multiconjunto de textos sea igual.
+wjpr_pb_drawn <- function(b, keys, series, fills, track_fill) {
+  slots <- wjpr_pos_slots(b, "x")
+  lg <- wjpr_legend_drawn(b)
+  ib <- unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, c("GeomCol", "GeomBar", "GeomRect")), logical(1))))
+  bars <- bind_rows(tibble(x = numeric(), slot = integer(), len = numeric(), track = logical(), serie = character()),
+                    lapply(ib, function(i) {
+    d <- as.data.frame(b$data[[i]])
+    if (!all(c("x", "ymin", "ymax", "fill") %in% names(d))) return(NULL)
+    tibble(x = as.numeric(d$x), slot = wjpr_pos_slot_of(d$x, slots), len = abs(as.numeric(d$ymax) - as.numeric(d$ymin)),
+           track = wjpr_same_color(d$fill, track_fill), serie = wjpr_series_of(d$fill, lg, "fill", series, fills))
+  }))
+  bars <- bars[!is.na(bars$slot) & is.finite(bars$len), , drop = FALSE]
+  trk <- bars[bars$track, , drop = FALSE]
+  ser <- bars[!bars$track & !is.na(bars$serie), , drop = FALSE]
+  ser$val <- vapply(seq_len(nrow(ser)), function(j) {
+    t <- trk$len[abs(trk$x - ser$x[j]) < 1e-6]
+    if (ser$len[j] <= 1e-9 && (!length(t) || all(t <= 1e-9))) NA_real_ else ser$len[j]
+  }, 0)
+  tx <- wjpr_drawn_texts(b)
+  tx <- tx[!is.na(tx$label), , drop = FALSE]
+  txt <- tx[tx$source == "layer", , drop = FALSE]
+  txt$slot <- wjpr_pos_slot_of(txt$x, slots); txt <- txt[!is.na(txt$slot), , drop = FALSE]
+  txt$serie <- vapply(seq_len(nrow(txt)), function(j) {
+    s <- ser[ser$slot == txt$slot[j], , drop = FALSE]
+    if (nrow(s)) s$serie[which.min(abs(s$x - txt$x[j]))] else NA_character_
+  }, NA_character_)
+  ax <- tx[tx$source == "axis-x", , drop = FALSE]; ax$slot <- wjpr_pos_slot_of(ax$x, slots)
+  k <- match(slots$level, keys$level)
+  val_of <- function(s, se) { v <- ser$val[ser$slot == s & ser$serie %in% se]; if (length(v)) v[1] else NA_real_ }
+  txt_of <- function(s, se) paste(txt$label[txt$slot == s & txt$serie %in% se], collapse = " ")
+  v1 <- vapply(slots$slot, val_of, 0, se = series[1]); v2 <- vapply(slots$slot, val_of, 0, se = series[2])
+  out <- tibble(order = slots$slot, kind = coalesce(keys$kind[k], ""), grouping = coalesce(keys$grouping[k], ""),
+                label = coalesce(keys$label[k], slots$level), frac = v1 / 100, frac2 = v2 / 100,
+                text = vapply(slots$slot, txt_of, "", se = series[1]), text2 = vapply(slots$slot, txt_of, "", se = series[2]),
+                label_drawn = vapply(slots$slot, function(s) paste(ax$label[ax$slot %in% s], collapse = " "), ""),
+                grouping_drawn = NA_character_, val = v1, val2 = v2)
+  out[order(out$order), , drop = FALSE]
+}
+wjpr_pb_drawn_fun <- function(keys, series, fills, track_fill) {
+  force(keys); force(series); force(fills); force(track_fill)
+  function(b) wjpr_pb_drawn(b, keys, series, fills, track_fill)
+}
+
 # bare = TRUE: solo wjp_bars con argumentos documentados (para medir la brecha sin complementos)
 wjpr_paired_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_require()
@@ -852,7 +1584,12 @@ wjpr_paired_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
                     cvec = stats::setNames(c(st$col$main, st$col$eu), levels(d$serie)), direction = "horizontal",
                     stacked = FALSE, lab_pos = "lab_pos", order = "order", width = w, ptheme = wjpr_theme(),
                     legend = TRUE)
-  if (bare) return(wjpr_meta(p, base = "wjp_bars"))
+  # corregido (revisión 4): lo dibujado por fila (wjpr_pb_drawn: barras, valores y categoría impresos en cada
+  # posición), también sin complementos; antes solo lo medían el parecido y el multiconjunto de textos, que no ven dos
+  # textos o dos categorías intercambiados
+  drawn <- wjpr_pb_drawn_fun(tibble(level = rows$label, kind = rows$kind, grouping = rows$grouping, label = rows$label),
+                             levels(d$serie), c(st$col$main, st$col$eu), st$col$track)
+  if (bare) return(wjpr_meta(p, base = "wjp_bars", drawn = drawn))
   # complemento: wjp_bars fija position = "stack" en geom_col (stacked solo cambia el color del texto); falta un
   # argumento position = "dodge" (con su ancho y el orden de las series: el país arriba)
   dodge <- ggplot2::position_dodge(width = 2 * (st$pair_bar + 2) / st$pair_pitch, reverse = TRUE)
@@ -887,7 +1624,8 @@ wjpr_paired_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
             complementos = c("lado a lado (dodge, país arriba)", wjpr_wb_legend_comp("dentro del panel"),
                              "texto por serie (posición, color, semibold cursiva 9 pt)", "pista al 100 %",
                              "escala de valores sin expansión", "alto de fila (expansión discreta)",
-                             "tema sin eje ni rejilla, etiquetas a la derecha", wjpr_wb_font_comp()))
+                             "tema sin eje ni rejilla, etiquetas a la derecha", wjpr_wb_font_comp()),
+            drawn = drawn)
 }
 
 ## Bloque wjpr columns — figuras 30, 37 -----------------------------------------------------------------------------
@@ -957,15 +1695,99 @@ wjpr_columns <- function(df, spec, bare = !wjpr_complementos(), ...) {
 ## Bloque wjpr severity_bars — figuras 7 ----------------------------------------------------------------------------
 ## wjp_bars vertical con las dos series lado a lado por nivel de severidad 0-10 y la línea de corte en 3.5 (entre 3 y
 ## 4), como F03.R:28-45: geom_col dodge 0.8 width 0.75 y theme_minimal('inter') con textos a 13 sobre un lienzo × 1.3
-## que se reduce a w_in. Aquí todo va en pt finales (pt del original × k = 1/1.3: texto a 10 pt). Usa wjpr_wb_layer().
+## que se reduce a w_in. Aquí todo va en pt finales (pt del original × k = 10 / base_pt = 1/1.3: texto a 10 pt). Usa wjpr_wb_layer().
 ## Prueba (galería, 2026-10-23, con y sin SRC_REPORTS_LIB): f1 0.999 con 1.1.0@382aee9 (7 complementos) y con main
 ## a46c831 (6), textos iguales, 0 dudosos; sin complementos 0.380 (1.1.0) y 0.266 (main, con su leyenda a la
 ## izquierda; sin ella 0.380); idéntica al F03 original salvo los guiones de la línea de corte (svglite no escala el
-## guion por debajo de lwd 1: 4 pt, no 3.5).
+## guion por debajo de lwd 1: 4 pt, no 3.5). base_pt (2026-10-25): k = 10 / base_pt con el 13 del manifiesto da el mismo
+## SVG byte a byte que el k = 1 / 1.3 fijo de antes.
+## Lo dibujado por fila (revisión 4, G1; contrato drawn de wjpr_meta, también con bare = TRUE): wjpr_sev_drawn, una
+## fila por barra con val = alto, label_drawn = etiqueta del eje y grouping_drawn = texto de la leyenda para su relleno;
+## la línea de corte (diseño fijo, sin fila) se comprueba aparte: si falta, «fig 07 mensaje: línea de corte entre 3 y 4
+## ausente del dibujo…» en el log de figures, sin cambiar el estado (para que lo cambie: pendiente 4 del INFORME de G1).
+## Prueba de lo dibujado por fila (revisión 4, 2026-10-27, G1: SCRATCH/fix4/G1/pruebas/iny_g1.sh, --stage all --figs 07
+## --strict): barra de severidad 5 +1 pp (dibujo · val 12.21→13.21, exit 1), leyenda Hungary ↔ EU Average (texto ·
+## grouping_drawn de las 22 barras, exit 1), niveles 3 ↔ 4 del eje (texto · label_drawn, exit 1), línea de corte
+## quitada (ok con el mensaje en el log, exit 0); sin inyección 22 filas sin diferencias (67/67 en drawn_ref_rows); sin
+## complementos (1.1.0) grouping_drawn "" (WJPr no dibuja la leyenda). Sin inyección: Hungría 10/10 con las dos builds
+## (SVG y PNG de la 7 = ROOT), Polonia y Malta ok en figures sin el mensaje del corte, galería «22 filas ok».
+
+WJPR_SEV_CUT <- 3.5   # umbral de no trivial (F03.R:28-45): la línea de corte va entre las severidades 3 y 4
+
+# Lo dibujado por fila de la severidad (contrato drawn de wjpr_meta, revisión 4), leído de b = ggplot_build() del
+# gráfico final: una fila por barra, de izquierda a derecha (nivel del eje, wjpr_pos_slots, y dentro de él la x de la
+# barra esquivada). kind "bar", label = el nivel de severidad que ocupa esa posición del eje y grouping = la serie que
+# ocupa ese lugar del par (series[1] a la izquierda: el país; series[2] la UE, el orden del dodge); val = el alto de la
+# barra (en %, las unidades de df$value; una barra de alto 0 no se ve y no codifica nada: NA, el valor suprimido que el
+# adaptador dibuja con alto 0); label_drawn = la etiqueta impresa en el eje en esa posición; grouping_drawn = el texto
+# de la leyenda impresa para el relleno de la barra ("" si la leyenda no lo nombra); text = los textos impresos en la
+# posición, de la barra más cercana ("" en la 7). Una barra más alta, dos niveles del eje o las etiquetas de la leyenda
+# intercambiados se ven aquí. La línea de corte (diseño fijo, sin fila en df) la comprueba wjpr_sev_cut_missing, que
+# el adaptador declara en wjpr_meta(…, marcas = )
+wjpr_sev_drawn <- function(b, series) {
+  slots <- wjpr_pos_slots(b, "x")
+  lg <- wjpr_legend_drawn(b)
+  num <- function(d, nm) if (nm %in% names(d)) suppressWarnings(as.numeric(d[[nm]])) else rep(NA_real_, nrow(d))
+  ib <- unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, c("GeomCol", "GeomBar", "GeomRect")), logical(1))))
+  bars <- bind_rows(tibble(x = numeric(), slot = integer(), len = numeric(), fill = character()), lapply(ib, function(i) {
+    d <- as.data.frame(b$data[[i]])
+    if (!all(c("x", "ymin", "ymax", "fill") %in% names(d))) return(NULL)
+    tibble(x = num(d, "x"), slot = wjpr_pos_slot_of(d$x, slots), len = abs(num(d, "ymax") - num(d, "ymin")),
+           fill = as.character(d$fill))
+  }))
+  bars <- bars[!is.na(bars$slot) & is.finite(bars$len), , drop = FALSE]
+  bars <- bars[order(bars$slot, bars$x), , drop = FALSE]
+  kpos <- stats::ave(seq_len(nrow(bars)), bars$slot, FUN = seq_along)
+  tx <- wjpr_drawn_texts(b)
+  tx <- tx[!is.na(tx$label), , drop = FALSE]
+  txt <- tx[tx$source == "layer", , drop = FALSE]
+  txt$slot <- wjpr_pos_slot_of(txt$x, slots); txt <- txt[!is.na(txt$slot), , drop = FALSE]
+  txt$bar <- vapply(seq_len(nrow(txt)), function(j) {
+    k <- which(bars$slot == txt$slot[j]); if (length(k)) k[which.min(abs(bars$x[k] - txt$x[j]))] else NA_integer_
+  }, NA_integer_)
+  ax <- tx[tx$source == "axis-x", , drop = FALSE]; ax$slot <- wjpr_pos_slot_of(ax$x, slots)
+  lev <- slots$level[match(bars$slot, slots$slot)]
+  tibble(order = seq_len(nrow(bars)), kind = "bar", grouping = ifelse(kpos <= length(series), series[pmin(kpos, length(series))], ""),
+         label = lev, frac = NA_real_, frac2 = NA_real_,
+         text = vapply(seq_len(nrow(bars)), function(j) paste(txt$label[txt$bar %in% j], collapse = " "), ""), text2 = "",
+         label_drawn = vapply(bars$slot, function(s) paste(ax$label[ax$slot %in% s], collapse = " "), ""),
+         grouping_drawn = coalesce(wjpr_series_of(bars$fill, lg, "fill"), ""),
+         val = ifelse(bars$len <= 1e-9, NA_real_, bars$len), val2 = NA_real_)
+}
+wjpr_sev_drawn_fun <- function(series) {
+  force(series)
+  function(b) wjpr_sev_drawn(b, series)
+}
+
+# corregido (revisión 4): la línea de corte, marca fija del diseño sin fila en df, como marca de wjpr_meta(…, marcas =)
+# (figures: estado "dibujo" si falta); antes su ausencia solo iba al log y la figura seguía ok (parecido_local 0.118,
+# igual que sin error). cut = c(nivel, nivel) entre los que va: character() si hay una geom_vline visible (color
+# distinto del fondo, ancho > 0, tipo de línea no blank) en la posición media de los dos niveles del eje; si no, su
+# descripción
+wjpr_sev_cut_missing <- function(b, cut) {
+  slots <- wjpr_pos_slots(b, "x")
+  num <- function(d, nm) if (nm %in% names(d)) suppressWarnings(as.numeric(d[[nm]])) else rep(NA_real_, nrow(d))
+  at <- mean(slots$pos[match(as.character(cut), slots$level)])
+  th <- ggplot2::complete_theme(b$plot$theme)
+  bg <- wjpr_theme_fill(th, "panel.background", wjpr_theme_fill(th, "plot.background"))
+  iv <- which(vapply(b$plot$layers, function(l) inherits(l$geom, "GeomVline"), logical(1)))
+  seen <- any(vapply(iv, function(i) {
+    d <- as.data.frame(b$data[[i]]); if (!nrow(d)) return(FALSE)
+    tc <- wjpr_rgba(if ("colour" %in% names(d)) d$colour else "black")
+    vis <- apply(abs(tc[1:3, , drop = FALSE] - bg), 2, max) * tc[4, ] * coalesce(num(d, "alpha"), 1) > WJPR_VISIBLE_MIN
+    lt <- if ("linetype" %in% names(d)) as.character(d$linetype) else rep("solid", nrow(d))
+    any(is.finite(num(d, "xintercept")) & abs(num(d, "xintercept") - at) < 1e-6 & coalesce(num(d, "linewidth"), 0.5) > 0 &
+          vis & !lt %in% c("blank", "0"))
+  }, logical(1)))
+  if (isTRUE(seen)) character() else paste0("línea de corte entre ", cut[1], " y ", cut[2])
+}
+wjpr_sev_marcas_fun <- function(cut) { force(cut); function(b) wjpr_sev_cut_missing(b, cut) }
 
 wjpr_severity_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_require()
-  st <- STD; k <- 1 / 1.3
+  # corregido: k sale de base_pt del manifiesto (13 = textos del original sobre el lienzo × 1.3), como en los adaptadores
+  # de 3, 6 y 29; antes 1 / 1.3 fijo y la columna no tenía efecto en la 7. Sin base_pt, 13 (lo publicado)
+  st <- STD; k <- 10 / (if (is.null(spec$base_pt) || is.na(spec$base_pt)) 13 else spec$base_pt)
   lv <- c(spec$country, "EU Average")
   d <- df %>% filter(kind == "bar") %>%
     mutate(serie = factor(ifelse(grouping == lv[2], lv[2], lv[1]), levels = lv), sev = as.numeric(label),
@@ -973,7 +1795,10 @@ wjpr_severity_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   p <- wjpr_wb_bars(data = d, target = "value", grouping = "label", colors = "serie",
                     cvec = stats::setNames(c(st$col$main, st$col$eu), lv), direction = "vertical", stacked = FALSE,
                     order = "sev", width = 0.75, ptheme = wjpr_theme(), legend = TRUE)
-  if (bare) return(wjpr_meta(p, base = "wjp_bars"))
+  # corregido (revisión 4): lo dibujado por fila (wjpr_sev_drawn: alto, nivel del eje y serie de la leyenda de cada
+  # barra), también sin complementos; antes la 7 no tenía textos que comparar y solo la medía el parecido, que no ve
+  # una barra 1 pp más alta, dos niveles del eje o la leyenda intercambiados
+  if (bare) return(wjpr_meta(p, base = "wjp_bars", drawn = wjpr_sev_drawn_fun(lv)))
   # complemento: wjp_bars fija position = "stack" en geom_col; falta un argumento position = "dodge" (y su ancho)
   dodge <- ggplot2::position_dodge(width = 0.8)
   # complemento (1.1.0): wjp_bars oculta la leyenda (show.legend = FALSE fijo); main la trae (show_legend).
@@ -983,7 +1808,7 @@ wjpr_severity_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   is_col <- wjpr_wb_is(p, "GeomCol")
   p$layers[is_col] <- lapply(p$layers[is_col], wjpr_wb_layer, position = dodge, aes_params = list(linewidth = 0.5 * k))
   # complemento: WJPr no tiene líneas de referencia; falta un argumento ref_lines (posición, tipo, color, grosor)
-  cut <- 3.5 - min(d$sev) + 1                        # 3.5 en la escala discreta (posición 1 = la severidad mínima)
+  cut <- WJPR_SEV_CUT - min(d$sev) + 1               # 3.5 en la escala discreta (posición 1 = la severidad mínima)
   p$layers <- c(p$layers, list(ggplot2::geom_vline(xintercept = cut, linetype = "dashed", colour = st$col$text,
                                                    linewidth = 0.4 * k)))
   ext <- 0.8 / 4 + 0.75 / 4                          # media barra más medio desplazamiento: borde de las barras
@@ -1014,8 +1839,12 @@ wjpr_severity_bars <- function(df, spec, bare = !wjpr_complementos(), ...) {
   wjpr_meta(wjpr_wb_font(p), base = "wjp_bars",
             complementos = c("lado a lado (dodge)", wjpr_wb_legend_comp("arriba, centrada"), "línea de corte en 3.5",
                              "escala y en % sin límite fijo", "expansión del eje x como el original",
-                             "tema de F03 (rejilla, leyenda, textos 10 pt)", wjpr_wb_font_comp()))
+                             "tema de F03 (rejilla, leyenda, textos 10 pt)", wjpr_wb_font_comp()),
+            drawn = wjpr_sev_drawn_fun(lv),
+            marcas = wjpr_sev_marcas_fun(as.character(c(floor(WJPR_SEV_CUT), ceiling(WJPR_SEV_CUT)))))
 }
+## Marcas fijas (revisión 4, 2026-10-27, integración): sin la línea de corte, --figs 07 --strict → figures «dibujo ·
+## marca fija ausente: línea de corte entre 3 y 4», verify fallo, exit 1 (con G1 solo iba al log); con ella, ok.
 
 ## Bloque wjpr funnel — figuras 8, 34 -------------------------------------------------------------------------------
 ## WJPr no tiene embudo: wjp_bars horizontal apilada (su position = "stack" fija) con un tramo transparente antes de
@@ -1208,21 +2037,90 @@ wjpr_cards <- function(df, spec, complementos = wjpr_complementos(), st = ST_CAR
 ## WJPr 1.1.0 no tiene mapa de calor: la base es geom_tile(fill = banda) + geom_text(text) con WJP_theme(), la familia
 ## y el tamaño de las capas de WJPr y wjp_palette() (categórica: violeta, azul verdoso, naranja) para las bandas;
 ## filas = df$grouping de arriba abajo y columnas = df$label en el orden de df$order; banda = df$text2 ("" en la
-## diagonal y en las N/A: celda blanca), ordenadas por su valor mínimo. Los complementos lo llevan al diseño de
+## diagonal y en las N/A: celda blanca). bands = nombres de las bandas de la más baja a la más alta (los labels del
+## cut() de fig_06, F01.R:17, que la figura pasa): cada banda toma su color por nombre (cols_band en ese orden), la
+## leyenda muestra las presentes en ese orden y el texto blanco va en la última, como F01.R:25-28, aunque en los datos
+## falte alguna; una banda de text2 que no está en bands detiene la figura. Los complementos lo llevan al diseño de
 ## run_F01 (src/hungary/F01.R:24-41: theme_minimal 'inter', bandas COL_BG / COL_LIGHT / COL_MAIN, texto blanco en la
 ## banda alta, columnas arriba a 40°, títulos bold cursiva main, leyenda arriba), que se dibujó en un lienzo
 ## k = base_pt / 10 veces mayor (render_figure.R:29-38; 06_export.R): aquí cada tamaño va dividido por k porque
-## wjpr_render() exporta al tamaño final. Los títulos de eje son texto fijo del diseño (argumentos). La galería
-## cuenta text2 (la banda) como texto esperado: se dibuja como color y leyenda, no como texto en cada celda.
+## wjpr_render() exporta al tamaño final, también la clave de la leyenda (legend.key.size). Los títulos de eje son
+## texto fijo del diseño (argumentos). La galería cuenta text2 (la banda) como texto esperado: se dibuja como color y
+## leyenda, no como texto en cada celda.
+## Lo dibujado por celda (revisión 4, contrato extendido; wjpr_matrix_drawn, con complementos y sin ellos): una fila
+## por posición de la rejilla con la celda que la ocupa según los ejes, lo impreso en ella, la banda que dice su color
+## (decodificada con el mismo mapa de la escala) y las etiquetas de eje impresas en su fila y su columna.
+
+# corregido (revisión 4): lo dibujado por celda, porque el multiconjunto de textos y el parecido no veían errores que
+# conservan los textos (parecido_local con dos textos de celda intercambiados 0.083, con dos etiquetas de fila
+# intercambiadas 0.431: ok). b = ggplot_build() del gráfico final; fill_map = color de cada banda en el orden de bands
+# (el de la escala del adaptador: cols_band, o wjp_palette() sin complementos). Una fila por posición de la rejilla:
+# niveles del eje y de arriba abajo × niveles del eje x de izquierda a derecha (wjpr_slots; order = esa secuencia, la
+# de df: por filas), kind "cell", grouping = el nivel del eje y y label = el del eje x en esa posición (la fila de df
+# que la ocupa según el dibujo, nunca df copiado en orden); text = lo impreso y visible en la celda (wjpr_drawn_texts:
+# alfa 0 o del color de la celda no cuentan); text2 = la banda que dice el relleno de la celda superior en esa posición
+# con fill_map ("" si es blanco, transparente o no hay celda: sin banda, como la diagonal y las N/A; "color <hex>" si
+# no es de ninguna banda); label_drawn = la etiqueta del eje x impresa en esa columna y grouping_drawn = la del eje y
+# en esa fila ("" si nada). frac, val: NA (la celda codifica la banda, no el valor). figures compara text, text2,
+# label_drawn y grouping_drawn con df (estado "texto"); verify, con la referencia. Dos textos de celda intercambiados,
+# dos etiquetas de fila o de columna intercambiadas, la matriz traspuesta o el color de una celda cambiado se ven aquí.
+wjpr_matrix_drawn <- function(b, bands, fill_map) {
+  sx <- wjpr_slots(b, "x"); sy <- wjpr_slots(b, "y")
+  cells <- inner_join(select(sy, PANEL, grouping = level, rslot = slot), select(sx, PANEL, label = level, cslot = slot),
+                      by = "PANEL", relationship = "many-to-many") %>% arrange(rslot, cslot)
+  ckey <- paste(cells$PANEL, cells$rslot, cells$cslot)
+  key_of <- function(d) paste(as.integer(as.character(d$PANEL)), wjpr_slot_of(d, sy, "y"), wjpr_slot_of(d, sx, "x"))
+  # relleno de cada posición: el de la última celda dibujada en ella (la de encima)
+  # sin nombres: con los de las capas (geom_tile), bind_rows tomaba la lista como una columna y las claves quedaban NA
+  is_tile <- unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, c("GeomTile", "GeomRect", "GeomRaster")), logical(1))))
+  tiles <- bind_rows(tibble(k = character(), fill = character(), alpha = numeric()), lapply(is_tile, function(i) {
+    d <- as.data.frame(b$data[[i]])
+    if (!nrow(d) || !all(c("x", "y", "fill", "PANEL") %in% names(d))) return(NULL)
+    tibble(k = key_of(d), fill = as.character(d$fill),
+           alpha = if ("alpha" %in% names(d)) suppressWarnings(as.numeric(d$alpha)) else NA_real_)
+  }))
+  top <- tiles[!duplicated(tiles$k, fromLast = TRUE), , drop = FALSE]
+  fill <- top$fill[match(ckey, top$k)]; alpha <- top$alpha[match(ckey, top$k)]
+  seen <- !is.na(fill) & wjpr_rgba(fill)[4, ] * coalesce(alpha, 1) > 0 & !wjpr_same_color(fill, "white")
+  band <- rep("", length(fill))
+  for (j in rev(seq_along(bands))) band[seen & wjpr_same_color(fill, fill_map[j])] <- bands[j]
+  odd <- seen & !nzchar(band)
+  band[odd] <- paste("color", fill[odd])
+  # lo impreso: textos de las capas en la celda; etiquetas de eje en su columna (x) y en su fila (y)
+  tx <- wjpr_drawn_texts(b)
+  lt <- tx[tx$source == "layer", , drop = FALSE]
+  at_cell <- if (nrow(lt)) key_of(lt) else character()
+  ax <- tx[tx$source == "axis-x", , drop = FALSE]; ay <- tx[tx$source == "axis-y", , drop = FALSE]
+  ax_slot <- paste(ax$PANEL, wjpr_slot_of(ax, sx, "x")); ay_slot <- paste(ay$PANEL, wjpr_slot_of(ay, sy, "y"))
+  glue <- function(lab, where, keys) vapply(keys, function(k) paste(lab[where == k], collapse = " "), "", USE.NAMES = FALSE)
+  tibble(order = seq_len(nrow(cells)), kind = "cell", grouping = cells$grouping, label = cells$label,
+         frac = NA_real_, frac2 = NA_real_, text = glue(lt$label, at_cell, ckey), text2 = band,
+         label_drawn = glue(ax$label, ax_slot, paste(cells$PANEL, cells$cslot)),
+         grouping_drawn = glue(ay$label, ay_slot, paste(cells$PANEL, cells$rslot)), val = NA_real_, val2 = NA_real_)
+}
+wjpr_matrix_drawn_fun <- function(bands, fill_map) {
+  force(bands); force(fill_map)
+  function(b) wjpr_matrix_drawn(b, bands, fill_map)
+}
+
 wjpr_matrix <- function(df, spec, complementos = wjpr_complementos(),
                         x_title = "Among people who experienced problems with:", y_title = "People who also experienced:",
+                        bands = c("Less than 25%", "25% to 50%", "50% or more"),
                         cols_band = c(STD$col$track, STD$col$eu, STD$col$main)) {
   wjpr_require()
+  if (length(cols_band) != length(bands)) {
+    stop("wjpr_matrix: cols_band necesita un color por banda (", length(bands), ")", call. = FALSE)
+  }
   df <- df[order(df$order), ]
   rows <- unique(df$grouping); cols <- unique(df$label)
   has_band <- nzchar(coalesce(df$text2, ""))
-  bands <- df[has_band, ] %>% group_by(text2) %>% summarise(m = min(value, na.rm = TRUE), .groups = "drop") %>%
-    arrange(m) %>% pull(text2)
+  # corregido: bandas por nombre (las de bands, en su orden), como F01.R:26-27, y no las presentes ordenadas por su
+  # mínimo: si faltaba una, el color, la leyenda y el texto blanco se corrían a la banda siguiente (revisión V1-03).
+  # Una banda desconocida se pintaba de blanco sin aviso: ahora se detiene con su nombre
+  otras <- setdiff(unique(df$text2[has_band]), bands)
+  if (length(otras) > 0) {
+    stop("wjpr_matrix: bandas de text2 que no están en bands: ", paste(otras, collapse = ", "), call. = FALSE)
+  }
   d <- df %>% mutate(band = factor(if_else(has_band, text2, NA_character_), levels = bands),
                      xf = factor(label, levels = cols), yf = factor(grouping, levels = rev(rows)))
   fam <- wjpr_wjp_family(); pal <- WJPr::wjp_palette()
@@ -1234,18 +2132,18 @@ wjpr_matrix <- function(df, spec, complementos = wjpr_complementos(),
     scale_x_discrete(position = "top") +
     labs(x = x_title, y = y_title, fill = NULL) +
     WJPr::WJP_theme()
-  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base))
+  # corregido (revisión 4): lo dibujado por celda también sin complementos, con el mapa de su escala (wjp_palette)
+  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base, drawn = wjpr_matrix_drawn_fun(bands, pal[seq_along(bands)])))
 
   k <- (if (is.null(spec$base_pt) || is.na(spec$base_pt)) 10 else spec$base_pt) / 10   # base_pt vacío llega como NA
   if (is.na(k)) k <- 1
   comp <- character()
   # complemento: WJPr solo trae una paleta categórica (wjp_palette) y el gris "#e5e8e8"; no tiene la escala ordinal
-  # del reporte (COL_BG #e5e8e8, COL_LIGHT #a8a8c8, COL_MAIN #575796)
-  p <- suppressMessages(p + scale_fill_manual(values = setNames(cols_band[seq_along(bands)], bands), breaks = bands,
-                                              na.value = "white"))
+  # del reporte (COL_BG #e5e8e8, COL_LIGHT #a8a8c8, COL_MAIN #575796), aquí por nombre de banda (F01.R:26-27)
+  p <- suppressMessages(p + scale_fill_manual(values = setNames(cols_band, bands), breaks = bands, na.value = "white"))
   comp <- c(comp, "escala ordinal del reporte (3 bandas)")
-  # complemento: celdas separadas por un borde blanco y texto blanco sobre la banda alta (#1A1A1A en el resto); WJPr
-  # no tiene argumento de borde ni de color de texto según el fondo
+  # complemento: celdas separadas por un borde blanco y texto blanco sobre la banda alta (la última de bands, por
+  # nombre: F01.R:25; #1A1A1A en el resto); WJPr no tiene argumento de borde ni de color de texto según el fondo
   p$layers[[1]] <- geom_tile(aes(fill = band), colour = "white", linewidth = 0.8 / k)
   p$layers[[2]] <- geom_text(aes(label = text, colour = band %in% tail(bands, 1)), family = fam, size = 3.6 / k,
                              show.legend = FALSE)
@@ -1259,6 +2157,9 @@ wjpr_matrix <- function(df, spec, complementos = wjpr_complementos(),
   # columnas arriba a 40°, textos 11 / k pt #1A1A1A, títulos 12 / k pt bold cursiva main (el de x alineado a la
   # izquierda; margen de theme_minimal, no el margin(10) de los títulos de WJP_theme()),
   # leyenda arriba sin título, márgenes del lienzo original
+  # corregido: la clave de la leyenda también va dividida por k (legend.key.size = 1.2 / k líneas): la de
+  # theme_minimal son 1.2 líneas de grid, 17.28 pt que no escalan con base_size, y salía de 15.22 pt (13.65 en la
+  # publicada), con la matriz 1.56 pt más abajo (revisión V3-05)
   p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                  axis.text.x.top = element_text(angle = 40, hjust = 0, vjust = 0, size = 11 / k, colour = STD$col$text),
                  axis.text.y = element_text(size = 11 / k, colour = STD$col$text),
@@ -1267,31 +2168,217 @@ wjpr_matrix <- function(df, spec, complementos = wjpr_complementos(),
                  axis.title.y = element_text(face = "bold.italic", colour = STD$col$main, size = 12 / k,
                                              margin = margin(r = 11 / 4 / k)),
                  legend.position = "top", legend.title = element_blank(), legend.text = element_text(size = 11 / k),
+                 legend.key.size = grid::unit(1.2 / k, "lines"),
                  plot.margin = margin(10 / k, 45 / k, 10 / k, 10 / k), plot.background = element_rect(fill = "white", colour = NA))
   comp <- c(comp, "tema del diseño (ejes, títulos, leyenda, márgenes)")
   # complemento: WJPr fija "Lato Full" en capas y tema, sin argumento para cambiarla
   p <- wjpr_font(p); comp <- c(comp, "fuente Inter Tight (wjpr_font)")
-  wjpr_meta(p, base = base, complementos = comp, compara = "text")  # text2 = banda (color)
+  # corregido (revisión 4): lo dibujado por celda (wjpr_matrix_drawn) con el mapa de la escala del diseño (cols_band)
+  wjpr_meta(p, base = base, complementos = comp, compara = "text",  # text2 = banda (color)
+            drawn = wjpr_matrix_drawn_fun(bands, cols_band))
 }
+## Prueba del bloque (revisión 3, grupo F2, 2026-10-23; pruebas/p02_matriz.R y p06, ggplot_build del adaptador): con
+## el df de lo publicado, 0 de 144 rellenos distintos de F01.R:26 y el mismo df que antes; sin las celdas «Less than
+## 25%», 0 (antes 90: «25% to 50%» en #E5E8E8 y «50% or more» en #A8A8C8); sin «50% or more», 0 textos blancos fuera de
+## esa banda (antes 49); banda desconocida en text2: error con su nombre (antes, celda blanca sin aviso). Claves de la
+## leyenda de 13.65 pt en el SVG, como la publicada (antes 15.22); parecido a r = 0 / 1 / 2 px 0.9987 / 1.0000 / 1.0000
+## y mad 0.0005 (antes 0.9350 / 0.9922 / 0.9997 y 0.0286); main.R --stage all con 1.1.0@382aee9 y con main a46c831:
+## 416/416 ok, f1 0.9997 → 1.0000.
+## Lo dibujado por celda (revisión 4, 2026-10-27; SCRATCH/fix4/INT/pruebas/iny_g2.R e iny_run.sh): 144 celdas, verify
+## 706/706 (antes 418); cada inyección, una a la vez y solo en el dibujo, --stage all --figs 06 --strict → exit 1: dos
+## textos de celda intercambiados (texto · text Consumer: 62%→64%), dos etiquetas de fila (texto · grouping_drawn, 24
+## celdas), la matriz traspuesta (texto, 236), el color de banda de una celda (texto · text2 50% or more→25% to 50%).
+## SVG y PNG de Hungría iguales (md5) a los de antes.
 
 ## Bloque wjpr scatter — figura 3 ----------------------------------------------------------------------------------
 ## WJPr 1.1.0 no tiene diagrama de dispersión x-y (wjp_dots es un diagrama de puntos por categoría y wjp_lines une los
 ## puntos con líneas): la base es geom_smooth(lm) + geom_point + ggrepel::geom_text_repel (como wjp_lines(repel =
 ## TRUE): "Lato Full" bold 3.514598) + facet_wrap(grouping) con WJP_theme() y wjp_palette()[1]; x = df$value
-## (prevalencia %), y = df$value2 (severidad 0-10; NA = sin punto), facetas en el orden de df$order. Los complementos lo
-## llevan al diseño de run_F02 (src/hungary/F02.R:33-50: theme_minimal 'inter', destacadas en main y el resto
-## #c4c4c4, punto hueco si n < 30, rótulos solo de las destacadas con seed 7, ejes 0-50 % y 4-8, rejilla #eeeeee,
-## facetas bold cursiva main), dibujado en un lienzo k = base_pt / 10 mayor: aquí cada tamaño va dividido por k.
-## highlight = categorías destacadas (top_cats de F02.R:36: diseño de la figura). La galería cuenta los rótulos de
-## categoría como texto sobrante: el contrato del scatter no imprime valores (text = "").
-wjpr_scatter <- function(df, spec, complementos = wjpr_complementos(),
-                         highlight = c("Public Services", "Consumer", "Community", "Money & Debt", "Housing", "Family"),
-                         x_title = "Prevalence", y_title = "Mean seriousness (0-10)") {
+## (prevalencia %), y = df$value2 (severidad 0-10; NA = sin punto), facetas en el orden de df$order. Destacadas =
+## df$series == "destacada": data() las toma de config/<pais>.yml (figures: fig03: highlight; las de lo publicado son
+## el top_cats de F02.R:33, una elección editorial); highlight (vector de categorías) solo vale para un df sin series,
+## como el de la referencia. Un punto sin prevalencia o sin severidad (suprimido) no se dibuja, como F02.R:38
+## (na.rm): el log cuenta cuántos faltan por faceta, y una faceta con menos de min_points puntos dibujables se quita
+## del dibujo con aviso (sin ninguna que llegue, error). Los complementos lo llevan al diseño de run_F02
+## (src/hungary/F02.R:33-50: theme_minimal 'inter', destacadas en main y el resto #c4c4c4, punto hueco si n < 30,
+## rótulos solo de las destacadas con seed 7, ejes 0-50 % y 4-8, rejilla #eeeeee, facetas bold cursiva main),
+## dibujado en un lienzo k = base_pt / 10 mayor: aquí cada tamaño va dividido por k, también los rellenos de ggrepel
+## (box.padding, min.segment.length, point.size, segment.size). El contrato del scatter no imprime valores (text = ""):
+## los rótulos de categoría (destacadas con punto dibujable) van en rotulos y entran en la comparación de textos.
+## Lo dibujado por punto (revisión 4, contrato extendido; wjpr_scatter_drawn, con complementos y sin ellos): una fila
+## por punto dibujado, con la categoría que ocupa esa posición, x e y decodificados (val, val2), el rótulo anclado en
+## él (label_drawn), la faceta impresa (grouping_drawn) y si es hueco (text2 = WJPR_SCATTER_HUECO, el text2 que data()
+## pone a los puntos dibujables con n < 30); df$text2 ya no es texto impreso: compara = "text".
+
+# text2 de un punto hueco (n < 30) en df (data() de la figura) y en lo dibujado por punto ("" = punto lleno)
+WJPR_SCATTER_HUECO <- "n < 30"
+
+# ¿Punto hueco? Formas de R sin relleno (pch 0-14 y sus nombres de ggplot2) o con relleno (21-25) que no se ve
+wjpr_shape_hollow <- function(shape, fill = NA) {
+  s <- as.character(shape); n <- suppressWarnings(as.numeric(s))
+  open <- c("square open", "circle open", "triangle open", "plus", "cross", "diamond open", "triangle down open",
+            "square cross", "asterisk", "diamond plus", "circle plus", "star", "square plus", "circle cross",
+            "square triangle", "triangle square")
+  with_fill <- n %in% 21:25 | s %in% c("circle filled", "square filled", "diamond filled", "triangle filled", "triangle down filled")
+  fill <- rep_len(as.character(fill), length(s))
+  no_fill <- is.na(fill) | wjpr_rgba(fill)[4, ] == 0 | wjpr_same_color(fill, "white")
+  (!is.na(n) & n %in% 0:14) | s %in% open | (with_fill & no_fill)
+}
+
+# Asigna puntos a claves por cercanía (D = distancias puntos × claves): de menor a mayor distancia, cada punto a una
+# clave libre y cada clave a un punto; los puntos que sobran quedan NA
+wjpr_nearest_assign <- function(D) {
+  out <- rep(NA_integer_, nrow(D))
+  if (!length(D)) return(out)
+  D[!is.finite(D)] <- Inf
+  while (any(is.finite(D))) {
+    m <- which(D == min(D), arr.ind = TRUE)[1, ]
+    out[m[1]] <- m[2]; D[m[1], ] <- Inf; D[, m[2]] <- Inf
+  }
+  out
+}
+
+# corregido (revisión 4): lo dibujado por punto, porque el parecido no veía un punto hueco con n ≥ 30
+# (parecido_local 0.271: ok) ni, sin fila, un rótulo junto a otro punto o un punto desplazado unas décimas. b =
+# ggplot_build() del gráfico final; keys = df del adaptador (order, kind, grouping, label, value, value2, destacada).
+# Una fila por punto dibujado (capas GeomPoint: x e y finitos, forma, tamaño y color presentes, alfa y tamaño > 0): su
+# clave sale de la POSICIÓN: grouping = la faceta de su panel y label = la categoría de esa faceta más cercana a (x,
+# y) en unidades del panel (wjpr_nearest_assign, una a una; una clave sin prevalencia o sin severidad solo se asigna
+# si no queda otra; un punto que sobra lleva label "": sobrante en figures). val, val2 = x, y decodificados con la
+# inversa de la escala (unidades de df$value, df$value2); text = "" (no se imprimen valores); text2 =
+# WJPR_SCATTER_HUECO si el punto es hueco (wjpr_shape_hollow) y "" si es lleno; label_drawn = el rótulo (capas de
+# texto visibles, wjpr_drawn_texts) anclado en ese punto: ggrepel mueve el rótulo al dibujar, pero ggplot_build da su
+# ancla (x, y del dato), que se compara con la del punto (|Δ| ≤ 1e-6 del rango del panel); sin rótulo, "" si la
+# categoría es destacada (se esperaba) y NA si no (nada impreso ni esperado: df$label no aplica); grouping_drawn = el
+# strip impreso de su panel ("" si no se ve; NA sin facetas). Además, una fila por clave de df sin punto (suprimida,
+# o de una faceta quitada por min_points) con val/val2/label_drawn/grouping_drawn NA y textos "", para que lo dibujado
+# cubra cada fila de df como los slots sin barra de wjpr_gb_drawn; un rótulo sin punto en su ancla es una fila sobrante
+# (label "", label_drawn = el rótulo). order: paneles de izquierda a derecha y de arriba abajo y, en cada uno, el orden
+# de df de la clave (un scatter no tiene orden visual dentro del panel); sobrantes al final de su panel.
+wjpr_scatter_drawn <- function(b, keys, hollow = WJPR_SCATTER_HUECO) {
+  lay <- b$layout$layout
+  fv <- names(b$layout$facet$params$facets %||% list())
+  faceted <- length(fv) > 0 && fv[1] %in% names(lay)
+  o <- order(lay$ROW, lay$COL); rk <- integer(nrow(lay)); rk[o] <- seq_along(o)
+  pan <- tibble(PANEL = as.character(lay$PANEL), grupo = if (faceted) as.character(lay[[fv[1]]]) else NA_character_, rank = rk)
+  inv <- function(sc) {
+    tr <- tryCatch(sc$get_transformation(), error = function(e) sc$trans)
+    if (is.null(tr) || !is.function(tr$inverse)) identity else tr$inverse
+  }
+  tx <- wjpr_drawn_texts(b)
+  strips <- tx[tx$source == "strip", , drop = FALSE]
+  lab <- tx[tx$source == "layer", , drop = FALSE]; lab$used <- rep(FALSE, nrow(lab))
+  is_pt <- unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, "GeomPoint"), logical(1))))   # sin nombres (bind_rows)
+  num <- function(d, nm, default) if (nm %in% names(d)) suppressWarnings(as.numeric(d[[nm]])) else rep(default, nrow(d))
+  pts <- bind_rows(tibble(PANEL = character(), x = numeric(), y = numeric(), shape = character(), fill = character()),
+                   lapply(is_pt, function(i) {
+    d <- as.data.frame(b$data[[i]])
+    if (!nrow(d)) return(NULL)
+    ok <- is.finite(num(d, "x", NA)) & is.finite(num(d, "y", NA)) & !is.na(if ("shape" %in% names(d)) d$shape else 19) &
+      coalesce(num(d, "size", 1), 0) > 0 & coalesce(num(d, "alpha", 1), 1) > 0 & !is.na(if ("colour" %in% names(d)) d$colour else "black")
+    tibble(PANEL = as.character(d$PANEL), x = num(d, "x", NA), y = num(d, "y", NA),
+           shape = if ("shape" %in% names(d)) as.character(d$shape) else "19",
+           fill = if ("fill" %in% names(d)) as.character(d$fill) else NA_character_)[ok, ]
+  }))
+  rows <- list(); matched <- rep(FALSE, nrow(keys))
+  for (k in seq_len(nrow(pan))) {
+    P <- pts[pts$PANEL == pan$PANEL[k], , drop = FALSE]
+    if (!nrow(P)) next
+    pp <- b$layout$panel_params[[match(pan$PANEL[k], as.character(lay$PANEL))]]
+    ix <- inv(b$layout$panel_scales_x[[lay$SCALE_X[k]]]); iy <- inv(b$layout$panel_scales_y[[lay$SCALE_Y[k]]])
+    vx <- ix(P$x); vy <- iy(P$y)
+    xr <- abs(diff(range(ix(pp$x.range)))); yr <- abs(diff(range(iy(pp$y.range))))
+    cand <- which(if (faceted) keys$grouping == pan$grupo[k] else rep(TRUE, nrow(keys)))
+    cand <- cand[!matched[cand]]
+    term <- function(a, b, r) { t <- outer(a, b, function(u, v) ((u - v) / r)^2); t[is.na(t)] <- 1e6; t }
+    D <- if (length(cand)) term(vx, keys$value[cand], xr) + term(vy, keys$value2[cand], yr) else matrix(numeric(), nrow(P), 0)
+    a <- wjpr_nearest_assign(D); ki <- cand[a]
+    matched[ki[!is.na(ki)]] <- TRUE
+    # rótulos anclados en cada punto (en coordenadas del panel, antes de la inversa)
+    L <- which(lab$PANEL == pan$PANEL[k])
+    tolx <- 1e-6 * abs(diff(pp$x.range)); toly <- 1e-6 * abs(diff(pp$y.range))
+    lab_at <- vapply(seq_len(nrow(P)), function(j) {
+      hit <- L[abs(lab$x[L] - P$x[j]) <= tolx & abs(lab$y[L] - P$y[j]) <= toly & !lab$used[L]]
+      if (!length(hit)) return(NA_character_)
+      lab$used[hit] <<- TRUE
+      paste(lab$label[hit], collapse = " ")
+    }, "")
+    dest <- !is.na(ki) & coalesce(keys$destacada[ki], FALSE)
+    rows[[length(rows) + 1]] <- tibble(
+      .rank = pan$rank[k], .ord = coalesce(as.numeric(keys$order[ki]), Inf), .x = vx,
+      kind = coalesce(keys$kind[ki], "point"), grouping = if (faceted) pan$grupo[k] else coalesce(keys$grouping[ki], ""),
+      label = coalesce(keys$label[ki], ""), frac = NA_real_, frac2 = NA_real_, text = "",
+      text2 = if_else(wjpr_shape_hollow(P$shape, P$fill), hollow, ""),
+      label_drawn = coalesce(lab_at, if_else(dest, "", NA_character_)),
+      grouping_drawn = if (faceted) coalesce(strips$label[match(pan$PANEL[k], strips$PANEL)], "") else NA_character_,
+      val = vx, val2 = vy)
+  }
+  # claves de df sin punto: fila sin marca (NA) en su lugar del orden; rótulos sin punto en su ancla: sobrantes
+  un <- which(!matched)
+  if (length(un)) {
+    rows[[length(rows) + 1]] <- tibble(
+      .rank = coalesce(pan$rank[match(keys$grouping[un], pan$grupo)], Inf), .ord = as.numeric(keys$order[un]), .x = NA_real_,
+      kind = keys$kind[un], grouping = keys$grouping[un], label = keys$label[un], frac = NA_real_, frac2 = NA_real_,
+      text = "", text2 = coalesce(keys$text2_sin_punto[un], ""), label_drawn = NA_character_, grouping_drawn = NA_character_,
+      val = NA_real_, val2 = NA_real_)
+  }
+  orph <- which(!lab$used)
+  if (length(orph)) {
+    rows[[length(rows) + 1]] <- tibble(
+      .rank = coalesce(pan$rank[match(lab$PANEL[orph], pan$PANEL)], Inf), .ord = Inf, .x = lab$x[orph], kind = "point",
+      grouping = if (faceted) pan$grupo[match(lab$PANEL[orph], pan$PANEL)] else "", label = "", frac = NA_real_,
+      frac2 = NA_real_, text = "", text2 = "", label_drawn = lab$label[orph], grouping_drawn = NA_character_,
+      val = NA_real_, val2 = NA_real_)
+  }
+  out <- bind_rows(tibble(.rank = numeric(), .ord = numeric(), .x = numeric()), rows)
+  out <- out[order(out$.rank, out$.ord, out$.x), , drop = FALSE]
+  out %>% mutate(order = row_number(), .before = 1) %>% select(-.rank, -.ord, -.x)
+}
+wjpr_scatter_drawn_fun <- function(keys, hollow = WJPR_SCATTER_HUECO) {
+  force(keys); force(hollow)
+  function(b) wjpr_scatter_drawn(b, keys, hollow)
+}
+
+wjpr_scatter <- function(df, spec, complementos = wjpr_complementos(), highlight = NULL,
+                         x_title = "Prevalence", y_title = "Mean seriousness (0-10)", min_points = 2) {
   wjpr_require()
   df <- df[order(df$order), ]
+  tag <- sprintf("fig %02d", as.integer(spec$fig %||% 3L))
   small <- if ("n" %in% names(df)) coalesce(df$n < 30, FALSE) else rep(FALSE, nrow(df))   # sin n: ningún punto hueco
-  d <- df %>% mutate(facet = factor(grouping, levels = unique(grouping)), destacada = label %in% highlight,
+  # corregido: las destacadas vienen del df (series = "destacada", de config/<pais>.yml) y no de la lista fija de
+  # lo publicado en el adaptador, que en otro país rotulaba en silencio las mismas 6 (revisión V2-03)
+  dest <- if ("series" %in% names(df)) coalesce(df$series == "destacada", FALSE) else df$label %in% highlight
+  d <- df %>% mutate(facet = factor(grouping, levels = unique(grouping)), destacada = dest,
                      hueco = small | is.na(value2))
+  # corregido: los puntos sin dibujar se cuentan por faceta en el log y una faceta con menos de min_points puntos no
+  # se dibuja; antes desaparecían sin aviso y la faceta podía quedar vacía (Malta: Rural sin ningún punto, revisión
+  # V4-03). En lo publicado faltan 2 de 12 en Rural y 1 de 12 en Urban: mismo dibujo
+  vis <- d %>% group_by(facet) %>% summarise(n = n(), dib = sum(!is.na(value) & !is.na(value2)), .groups = "drop")
+  if (any(vis$dib < vis$n)) {
+    log_msg(tag, ": puntos sin dibujar (sin prevalencia o sin severidad): ",
+            paste0(vis$facet, " ", vis$n - vis$dib, " de ", vis$n, collapse = ", "))
+  }
+  fuera <- as.character(vis$facet[vis$dib < min_points])
+  cuenta <- paste0(vis$facet, " ", vis$dib, collapse = ", ")
+  if (length(fuera) == nrow(vis)) {
+    stop(tag, ": ninguna faceta con ", min_points, " puntos o más para dibujar (puntos con prevalencia y severidad: ",
+         cuenta, ")", call. = FALSE)
+  }
+  if (length(fuera) > 0) {
+    log_msg(tag, " aviso: faceta ", paste(fuera, collapse = ", "), " sin dibujar: menos de ", min_points,
+            " puntos con prevalencia y severidad (", cuenta, ")")
+    d <- d %>% filter(!facet %in% fuera) %>% mutate(facet = droplevels(facet))
+  }
+  # corregido (revisión 4): lo dibujado por punto (wjpr_scatter_drawn), con complementos y sin ellos; las claves son
+  # las de df entero (también las de una faceta que no se dibuje: quedan como filas sin punto). text2_sin_punto: en una
+  # faceta que el diseño no dibuja (fuera, con aviso en el log) la marca de hueco de df no se compara (sin punto no
+  # hay hueco que ver); en las demás, una clave sin punto con la marca es un punto esperado que falta
+  drawn <- wjpr_scatter_drawn_fun(tibble(order = df$order, kind = df$kind, grouping = df$grouping, label = df$label,
+                                         value = df$value, value2 = df$value2, destacada = dest,
+                                         text2_sin_punto = if_else(df$grouping %in% fuera, df$text2, "")))
+  # corregido (V3-07): las categorías rotuladas entran en la comparación de textos (attr(p, "wjpr")$rotulos); antes
+  # figures y verify no las miraban y la 3 quedaba «sin textos que comparar»
+  rot <- as.character(d$label[d$destacada & is.finite(d$value) & is.finite(d$value2)])
   fam <- wjpr_wjp_family(); pal <- WJPr::wjp_palette()
   base <- "WJP_theme() + wjp_palette() (sin función de dispersión)"
   p <- ggplot(d, aes(x = value, y = value2)) +
@@ -1302,7 +2389,9 @@ wjpr_scatter <- function(df, spec, complementos = wjpr_complementos(),
     facet_wrap(~facet, nrow = 1) +
     labs(x = x_title, y = y_title) +
     WJPr::WJP_theme()
-  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base))
+  # corregido (revisión 4): compara = "text" (df$text2 marca el punto hueco, WJPR_SCATTER_HUECO: no se imprime) y
+  # lo dibujado por punto
+  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base, compara = "text", rotulos = rot, drawn = drawn))
 
   k <- (if (is.null(spec$base_pt) || is.na(spec$base_pt)) 10 else spec$base_pt) / 10   # base_pt vacío llega como NA
   if (is.na(k)) k <- 1
@@ -1317,13 +2406,20 @@ wjpr_scatter <- function(df, spec, complementos = wjpr_complementos(),
     scale_shape_manual(values = c(`FALSE` = 16, `TRUE` = 1), guide = "none")
   comp <- c(comp, "tendencia discontinua gris", "puntos destacados y huecos (n < 30)")
   # complemento: rótulos en main, regular (WJPr: bold #4a4a49), 4 / k mm, con la semilla y el segmento del diseño
+  # corregido: los rellenos de ggrepel también van divididos por k (box.padding 0.25 líneas, min.segment.length 0.3
+  # líneas, point.size 1 y el segmento de 0.5 mm del lienzo original): sin dividir, los rótulos se movían unos px
+  # respecto a la publicada (revisión V3-06)
   p$layers[[3]] <- ggrepel::geom_text_repel(data = d %>% filter(destacada), aes(label = label), family = fam,
-                                            size = 4 / k, colour = STD$col$main, seed = 7, min.segment.length = 0.3,
+                                            size = 4 / k, colour = STD$col$main, seed = 7, box.padding = 0.25 / k,
+                                            min.segment.length = 0.3 / k, point.size = 1 / k, segment.size = 0.5 / k,
                                             na.rm = TRUE)
   comp <- c(comp, "rótulos de las destacadas (main, 4 mm, seed 7)")
-  # complemento: ejes del diseño (0-50 % con sufijo, 4-8 cada 1); WJPr fija sus ejes dentro de cada función
-  p <- p + scale_x_continuous(limits = c(0, 50), labels = function(x) paste0(x, "%")) +
-    scale_y_continuous(limits = c(4, 8), breaks = 4:8)
+  # complemento: ejes del diseño (0-50 % con sufijo, 4-8 cada 1); WJPr fija sus ejes dentro de cada función. Si un
+  # punto cae fuera (otro país: p. ej. severidad 8.10), el eje se amplía en vez de descartarlo en silencio
+  xl <- c(0, max(50, ceiling(max(d$value, na.rm = TRUE) / 10) * 10))
+  yl <- c(min(4, floor(min(d$value2, na.rm = TRUE))), max(8, ceiling(max(d$value2, na.rm = TRUE))))
+  p <- p + scale_x_continuous(limits = xl, labels = function(x) paste0(x, "%")) +
+    scale_y_continuous(limits = yl, breaks = seq(yl[1], yl[2]))
   comp <- c(comp, "escalas 0-50 % y 4-8")
   # complemento: WJP_theme() es parcial sobre theme_grey(11) (franjas grises en las facetas): base theme_minimal a
   # 11 / k pt con WJP_theme() encima; rejilla continua #eeeeee (WJP_theme: discontinua #5e5c5a), textos 12 / k
@@ -1341,8 +2437,20 @@ wjpr_scatter <- function(df, spec, complementos = wjpr_complementos(),
   comp <- c(comp, "tema del diseño (theme_minimal, rejilla, facetas, ejes)")
   # complemento: WJPr fija "Lato Full" en capas y tema, sin argumento para cambiarla
   p <- wjpr_font(p); comp <- c(comp, "fuente Inter Tight (wjpr_font)")
-  wjpr_meta(p, base = base, complementos = comp)
+  wjpr_meta(p, base = base, complementos = comp, compara = "text", rotulos = rot, drawn = drawn)
 }
+## Prueba del bloque (revisión 3, grupo F2, 2026-10-23; pruebas/p03_dispersion.R y p05_barrido.R): lo publicado: df
+## de antes + series (las 6 de config/hungary.yml, las mismas rotuladas), parecido a r = 0 / 1 / 2 px 0.9806 / 0.9997 /
+## 1.0000 y mad 0.0007 (antes 0.6843 / 0.9682 / 0.9996 y 0.0079), log «Rural 2 de 12, Urban 1 de 12». Malta y Bulgaria:
+## antes un panel Rural vacío o con 1 punto; ahora solo Urban y aviso. Sin la clave (Poland, Italy, Greece): aviso con
+## las 6 de mayor prevalencia (antes, en silencio, las 6 publicadas). Nombre que no es categoría: aviso y se ignora;
+## ninguna faceta con 2 puntos: error legible (antes «Problem while computing stat.»). 26 países LNS sin error.
+## Rótulos (2026-10-25, main.R --stage all --figs 03 en las dos builds): con rotulos = las destacadas con punto, textos
+## «iguales» en figures y verify (antes «sin textos que comparar»); SVG igual byte a byte.
+## Lo dibujado por punto (revisión 4, 2026-10-27; iny_g2.R): 24 filas (21 puntos y 3 claves sin punto), verify 156/156
+## (antes 81); --figs 03 --strict → exit 1 con: un punto +3 pp en x (dibujo · val Accidental 23.43→26.43), un punto
+## hueco con n ≥ 30 (texto · text2 Consumer: →n < 30; antes pasaba, parecido_local 0.271), dos rótulos intercambiados
+## y un rótulo junto a otro punto (texto · label_drawn). Hungría no tiene puntos huecos; SVG y PNG iguales (md5).
 
 ## Bloque wjpr upset — figura 29 -----------------------------------------------------------------------------------
 ## WJPr 1.1.0 no tiene diagrama UpSet. Lo publicado salió de ComplexUpset::upset() (render_figure.R:53-75), que
@@ -1458,15 +2566,26 @@ wjpr_upset <- function(df, spec, complementos = wjpr_complementos(),
 ## Bloque wjpr network — figura 5 ----------------------------------------------------------------------------------
 ## WJPr 1.1.0 no tiene grafo de red: la base es geom_segment (aristas, ancho según lift) + geom_point (nodos) +
 ## geom_text (nombre y df$text) con WJP_theme(), wjp_palette() y las capas de texto de WJPr, sobre las coordenadas del
-## layout de df (x, y de los nodos: network_graph.R:148-199, sin renormalizar). Los complementos lo llevan al diseño
-## de charts5.py:196-226 network() (la publicada): lienzo = caja de los nodos ± (radio 35 + margen 6) en unidades del
-## SVG fuente, que mide 518.03 unidades por unidad de layout (network_graph.R; medido en la publicada), escalado al
-## ancho de la figura (k_s = W / (518.03·Δx + 82)); aristas #5D6D7E con ancho 0.8 + 3.4·t^0.8 (t = lift normalizado),
-## opacidad min(0.85, (lift − 1)·0.35 + 0.2) (network_graph.R:209-210), de la más fina a la más gruesa; nodos de radio
-## 35·k_s con relleno por centralidad (suma de lifts del nodo, normalizada: #A8A8C8 → #39396B, network_graph.R:117-141)
-## y borde #2C3E50 1.2·k_s; rótulos bold 10.5·k_s (nombre con los cortes de network_graph.R:225-231 + text) en blanco
-## si la luminancia del relleno < 0.45, interlineado 1.15. Los nodos son polígonos de 72 lados (radio exacto en datos).
-## La galería cuenta los nombres de los nodos como texto sobrante: el contrato solo pone "(40%)" en text.
+## layout de df (x, y de los nodos: network_graph.R:148-199, sin renormalizar). df trae todas las parejas (kind edge,
+## value = lift): series "sig" = arista dibujada (lift > 1.2 y n >= 10, edges_sig de network_graph.R:111-112) y "no" =
+## solo cuenta para la centralidad; sin columna series (df de la referencia, que solo trae las dibujadas) todas son
+## "sig". Los complementos lo llevan al diseño de charts5.py:196-226 network() (la publicada): lienzo = caja de los
+## nodos ± (radio 35 + margen 6) en unidades del SVG fuente, que mide 518.03 unidades por unidad de layout
+## (network_graph.R; medido en la publicada), escalado al ancho de la figura (k_s = W / (518.03·Δx + 82)); el alto que
+## pide el layout es k_s·(518.03·Δy + 82) pt: el h_in del manifiesto es el de lo publicado (5.869) y, si difiere en
+## más de h_tol, el log da el valor para manifest/figures_<slug>.csv (con otro alto los rótulos se acercan al borde del
+## nodo o quedan franjas en blanco); aristas #5D6D7E con ancho 0.8 + 3.4·t^0.8 (t = lift normalizado entre las
+## dibujadas; 0.5 si todas tienen el mismo), opacidad min(0.85, (lift − 1)·0.35 + 0.2) (network_graph.R:213), de la más
+## fina a la más gruesa; nodos de radio 35·k_s con relleno por centralidad (suma de los lifts de TODAS las parejas del
+## nodo, sig y no, normalizada; 0.5 si el rango es 0: #A8A8C8 → #39396B, network_graph.R:116-141) y borde #2C3E50
+## 1.2·k_s; rótulos bold 10.5·k_s (nombre con los cortes de network_graph.R:219-228 + text) en blanco si la luminancia
+## del relleno < 0.45, interlineado 1.15. Los nodos son polígonos de 72 lados (radio exacto en datos).
+## El contrato solo pone "(40%)" en text: los nombres de los nodos (con sus cortes de línea) van en rotulos y entran en
+## la comparación de textos.
+## Lo dibujado por fila (revisión 4, contrato extendido; wjpr_net_drawn): la red no tiene eje, así que la clave de cada
+## fila es la POSICIÓN: un nodo dibujado es la fila node del df cuyo x, y está en su centro y una arista, la fila sig
+## cuyos dos nodos están en sus extremos; nombre y porcentaje impresos en cada nodo, lift decodificado del ancho de cada
+## arista y los nodos y aristas dibujados sin fila en el df como sobrantes.
 
 # Polígonos de círculos (centro x, y y radio r en unidades de datos); id = índice del círculo
 wjpr_circle_df <- function(x, y, r, n = 72) {
@@ -1474,18 +2593,114 @@ wjpr_circle_df <- function(x, y, r, n = 72) {
   bind_rows(lapply(seq_along(x), function(i) tibble(x = x[i] + r * cos(a), y = y[i] + r * sin(a), id = i)))
 }
 
+# Índice del punto de (qx, qy) más cercano a cada (px, py) y su distancia (NA e Inf si no hay puntos q)
+wjpr_net_nearest <- function(px, py, qx, qy) {
+  if (!length(px)) return(list(i = integer(), d = numeric()))
+  if (!length(qx)) return(list(i = rep(NA_integer_, length(px)), d = rep(Inf, length(px))))
+  D <- sqrt(outer(px, qx, "-")^2 + outer(py, qy, "-")^2)
+  i <- max.col(-D, ties.method = "first")
+  list(i = i, d = D[cbind(seq_along(px), i)])
+}
+
+# Lo dibujado por fila de la red (contrato drawn de wjpr_meta; revisión 4, contrato extendido), leído de b =
+# ggplot_build() del gráfico final, con la posición como clave (en unidades del layout, las de df$x, df$y):
+# - nodos: el centro de cada nodo dibujado (media de los vértices de su polígono; sin complementos, el punto) es la
+#   fila node del df cuyo x, y está a ≤ pos_tol; sin ninguna, una fila sobrante (kind "", label "nodo en (x, y)").
+#   label_drawn = el nombre impreso en el nodo (textos visibles de la capa lay_name a ≤ r_node de su centro, de arriba
+#   abajo, con los cortes de línea como espacio) y text = el porcentaje impreso (capa lay_val); val NA: el nodo, de radio
+#   fijo, no codifica df$value (su relleno es la centralidad, que df no trae).
+# - aristas: una fila por arista significativa del df (series "sig"): si hay un segmento con un extremo en cada uno de
+#   sus dos nodos (a ≤ pos_tol de su x, y del df), frac = 1 y val = el lift decodificado del ancho dibujado (decode: la
+#   inversa del ancho del diseño); si no, frac = 0 y val = 0 (no hay arista que codifique el lift: figures lo ve como
+#   dibujo ≠ df, porque una arista sig tiene lift > 1.2). Cada segmento que no es el de una arista sig del df (otra
+#   pareja, una "no", uno repetido o con un extremo fuera de los nodos) es una fila sobrante (kind "", label "A|B" o
+#   sus extremos) con su val, que figures da como dibujo en una posición sin fila.
+# order = el de la fila del df que ocupa la posición (la red no tiene orden de lectura); las sobrantes, detrás. Unos
+# nombres o porcentajes intercambiados, un nodo desplazado o una arista quitada se ven aquí aunque el multiconjunto de
+# textos sea el mismo y el parecido local no llegue al umbral.
+wjpr_net_drawn <- function(b, nodes, edges, pos_tol, r_node, decode, lay_name, lay_val) {
+  # sin nombres (los de las capas): bind_rows tomaría una lista con nombres por columnas anidadas
+  geo <- function(cls) unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, cls), logical(1))))
+  nl <- geo(c("GeomPolygon", "GeomPoint"))
+  ctr <- tibble(cx = numeric(), cy = numeric())
+  if (length(nl)) {
+    d <- as.data.frame(b$data[[nl[1]]])
+    ctr <- if (inherits(b$plot$layers[[nl[1]]]$geom, "GeomPolygon")) {
+      g <- d$group
+      tibble(cx = as.numeric(tapply(d$x, g, mean)), cy = as.numeric(tapply(d$y, g, mean)))
+    } else tibble(cx = as.numeric(d$x), cy = as.numeric(d$y))
+  }
+  m <- wjpr_net_nearest(ctr$cx, ctr$cy, nodes$x, nodes$y)
+  hit <- !is.na(m$i) & m$d <= pos_tol
+  tx <- wjpr_drawn_texts(b)                            # solo lo que se ve
+  tx <- tx[tx$source == "layer" & tx$layer %in% c(lay_name, lay_val), , drop = FALSE]
+  tn <- wjpr_net_nearest(tx$x, tx$y, ctr$cx, ctr$cy)
+  tx$node <- ifelse(tn$d <= r_node, tn$i, NA_integer_)
+  printed <- function(k, lay) {
+    t <- tx[!is.na(tx$node) & tx$node == k & tx$layer == lay, , drop = FALSE]
+    wjpr_norm_text(paste(t$label[order(-t$y)], collapse = " "))
+  }
+  ki <- ifelse(hit, m$i, NA_integer_)
+  node_rows <- tibble(order = as.integer(nodes$order[ki]), kind = ifelse(hit, nodes$kind[ki], ""),
+                      grouping = ifelse(hit, nodes$grouping[ki], ""),
+                      label = ifelse(hit, nodes$label[ki], sprintf("nodo en (%.3f, %.3f)", ctr$cx, ctr$cy)),
+                      frac = NA_real_, text = vapply(seq_len(nrow(ctr)), printed, "", lay = lay_val),
+                      label_drawn = vapply(seq_len(nrow(ctr)), printed, "", lay = lay_name), val = NA_real_)
+  segs <- bind_rows(tibble(x = numeric(), y = numeric(), xend = numeric(), yend = numeric(), lw = numeric()),
+                    lapply(geo("GeomSegment"), function(i) {
+                      d <- as.data.frame(b$data[[i]])
+                      tibble(x = as.numeric(d$x), y = as.numeric(d$y), xend = as.numeric(d$xend), yend = as.numeric(d$yend),
+                             lw = if ("linewidth" %in% names(d)) as.numeric(d$linewidth) else NA_real_)
+                    }))
+  a <- wjpr_net_nearest(segs$x, segs$y, nodes$x, nodes$y); z <- wjpr_net_nearest(segs$xend, segs$yend, nodes$x, nodes$y)
+  ia <- ifelse(a$d <= pos_tol, a$i, NA_integer_); iz <- ifelse(z$d <= pos_tol, z$i, NA_integer_)
+  pair <- ifelse(is.na(ia) | is.na(iz), NA_character_, paste(pmin(ia, iz), pmax(ia, iz)))
+  e_pair <- paste(pmin(edges$i, edges$j), pmax(edges$i, edges$j))
+  used <- rep(FALSE, nrow(segs)); seg_of <- rep(NA_integer_, nrow(edges))
+  for (k in seq_len(nrow(edges))) {
+    s <- which(!used & !is.na(pair) & pair == e_pair[k])[1]
+    if (!is.na(s)) { seg_of[k] <- s; used[s] <- TRUE }
+  }
+  edge_rows <- tibble(order = as.integer(edges$order), kind = edges$kind, grouping = edges$grouping, label = edges$label,
+                      frac = ifelse(is.na(seg_of), 0, 1), text = "", label_drawn = NA_character_,
+                      val = ifelse(is.na(seg_of), 0, decode(segs$lw[seg_of])))
+  sx <- which(!used)
+  extra_rows <- tibble(order = rep(NA_integer_, length(sx)), kind = "", grouping = "",
+                       label = as.character(ifelse(!is.na(ia[sx]) & !is.na(iz[sx]), paste(nodes$label[ia[sx]], nodes$label[iz[sx]], sep = "|"),
+                                                   sprintf("arista (%.3f, %.3f)-(%.3f, %.3f)", segs$x[sx], segs$y[sx], segs$xend[sx], segs$yend[sx]))),
+                       frac = rep(1, length(sx)), text = "", label_drawn = NA_character_, val = as.numeric(decode(segs$lw[sx])))
+  out <- bind_rows(node_rows, edge_rows, extra_rows)
+  n0 <- max(c(nodes$order, edges$order, 0L), na.rm = TRUE); free <- is.na(out$order)
+  out$order[free] <- as.integer(n0 + seq_len(sum(free)))
+  out %>% arrange(order) %>%
+    transmute(order, kind, grouping, label, frac, frac2 = NA_real_, text, text2 = "", label_drawn,
+              grouping_drawn = NA_character_, val, val2 = NA_real_)
+}
+wjpr_net_drawn_fun <- function(nodes, edges, pos_tol, r_node, decode, lay_name = 3L, lay_val = 4L) {
+  force(nodes); force(edges); force(pos_tol); force(r_node); force(decode); force(lay_name); force(lay_val)
+  function(b) wjpr_net_drawn(b, nodes, edges, pos_tol, r_node, decode, lay_name, lay_val)
+}
+
 wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
                          name_lines = c("Public Services" = "Public\nServices", "Citizenship & ID" = "Citizenship\n& ID",
                                         "Money & Debt" = "Money &\nDebt", "Law Enforcement" = "Law\nEnforcement"),
-                         src_scale = 518.03) {
+                         src_scale = 518.03, h_tol = 0.01) {
   wjpr_require()
   df <- df[order(df$order), ]
+  tag <- sprintf("fig %02d", as.integer(spec$fig %||% 5L))
   nodes <- df[df$kind == "node", ]; edges <- df[df$kind == "edge", ]
   ab <- strsplit(edges$label, "|", fixed = TRUE)
-  e <- tibble(from = vapply(ab, `[`, "", 1), to = vapply(ab, `[`, "", 2), lift = edges$value) %>%
+  # corregido: df trae todas las parejas y series marca las que se dibujan ("sig"); e_all (todas) da la centralidad,
+  # como network_graph.R:116-126 (strength sobre g_full = edges_all), y e (las sig) el dibujo, como edges_sig. Antes
+  # df solo traía las significativas y el relleno salía de ellas: distinto del original en 10 de los 20 países
+  # dibujables (Polonia: 11 de 12 nodos; revisión V1-01). En lo publicado las 66 parejas son sig: mismo dibujo
+  sig <- if ("series" %in% names(edges)) coalesce(edges$series == "sig", FALSE) else rep(TRUE, nrow(edges))
+  e_all <- tibble(from = vapply(ab, `[`, "", 1), to = vapply(ab, `[`, "", 2), lift = edges$value, sig = sig) %>%
     mutate(i = match(from, nodes$label), j = match(to, nodes$label))
-  if (anyNA(c(e$i, e$j))) stop("wjpr_network: aristas con nodos que no están en df", call. = FALSE)
-  e <- e %>% mutate(x = nodes$x[i], y = nodes$y[i], xend = nodes$x[j], yend = nodes$y[j])
+  if (anyNA(c(e_all$i, e_all$j))) stop("wjpr_network: aristas con nodos que no están en df", call. = FALSE)
+  e_all <- e_all %>% mutate(x = nodes$x[i], y = nodes$y[i], xend = nodes$x[j], yend = nodes$y[j])
+  e <- e_all %>% filter(sig)                                        # aristas dibujadas
+  if (nrow(e) == 0) log_msg(tag, " aviso: ninguna pareja significativa (lift > 1.2 y n >= 10): la red sale sin aristas")
   nm <- ifelse(nodes$label %in% names(name_lines), name_lines[nodes$label], nodes$label)
   fam <- wjpr_wjp_family(); pal <- WJPr::wjp_palette()
   base <- "WJP_theme() + wjp_palette() (sin función de red)"
@@ -1499,7 +2714,22 @@ wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
     scale_linewidth(range = c(0.2, 2), guide = "none") +
     labs(x = NULL, y = NULL) +
     WJPr::WJP_theme()
-  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base))
+  # corregido (revisión 4): lo dibujado por fila (wjpr_net_drawn), también sin complementos. Antes la red no lo exponía
+  # y pasaban como ok dos nombres o dos porcentajes de nodo intercambiados (mismo multiconjunto de textos; parecido
+  # local 0.181 y 0.021) y la arista más gruesa o la más fina quitadas (0.444, 0.035). Claves: los nodos del df (x, y)
+  # y las aristas sig con los índices de sus dos nodos; tolerancia de posición 0.5 unidades del SVG fuente (≈ 0.4 pt) y
+  # textos del nodo a ≤ su radio (35 unidades)
+  net_nodes <- nodes %>% select(order, kind, grouping, label, x, y)
+  net_edges <- tibble(order = edges$order[sig], kind = edges$kind[sig], grouping = edges$grouping[sig],
+                      label = edges$label[sig], i = e$i, j = e$j)
+  rl0 <- if (nrow(e) > 0) range(e$lift) else c(0, 0)
+  drawn_of <- function(decode) wjpr_net_drawn_fun(net_nodes, net_edges, 0.5 / src_scale, 35 / src_scale, decode)
+  # corregido (V3-07): los nombres de nodo entran en la comparación de textos (attr(p, "wjpr")$rotulos)
+  if (!isTRUE(complementos)) {
+    # sin complementos el ancho es el de scale_linewidth(range = c(0.2, 2)): lineal entre el lift mínimo y el máximo
+    dec0 <- function(lwd) if (diff(rl0) > 0) rl0[1] + (lwd - 0.2) / 1.8 * diff(rl0) else rep(rl0[1], length(lwd))
+    return(wjpr_meta(p, base = base, rotulos = nm, drawn = drawn_of(dec0)))
+  }
 
   comp <- character()
   W <- spec$w_in * 72
@@ -1507,17 +2737,32 @@ wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
   b <- ks * src_scale                                               # pt por unidad de layout
   r <- 35 / src_scale; pad <- (35 + 6) / src_scale                  # radio y margen en unidades de layout
   lw <- function(pt) pt / (0.75 * ggplot2::.pt)                     # ancho en pt → linewidth de ggplot
+  # corregido: el alto del lienzo depende del layout de cada país y el manifiesto trae el de lo publicado: si el que
+  # pide el layout difiere en más de h_tol, el log da el valor para fijarlo por país (antes la figura salía deformada
+  # con estado ok y sin aviso: Finlandia 6.402 in, Polonia 5.512; revisión V4-02). Lo publicado: 5.8693 frente a 5.869
+  h_need <- ks * (src_scale * diff(range(nodes$y)) + 82) / 72
+  if (is.finite(h_need) && abs(h_need - spec$h_in) > h_tol) {
+    log_msg(tag, " aviso: el layout de ", spec$country %||% "este país", " pide h_in = ", sprintf("%.3f", h_need),
+            " in y el manifiesto da ", sprintf("%.3f", spec$h_in), " (",
+            if (h_need > spec$h_in) "los rótulos se acercan al borde de los nodos y quedan franjas a los lados" else
+              "quedan franjas en blanco arriba y abajo",
+            "): fíjelo en manifest/figures_<slug>.csv con la fila «", spec$fig, ",", sprintf("%.3f", h_need),
+            "» (columnas fig,h_in)")
+  }
   # complemento: aristas del diseño (ancho 0.8-4.2 con gamma 0.8 según el lift, opacidad según el lift, #5D6D7E,
   # extremos redondeados, de la más fina a la más gruesa); WJPr no tiene capa de aristas
-  e <- e %>% mutate(t = (lift - min(lift)) / (max(lift) - min(lift)), w = 0.8 + (4.2 - 0.8) * t^0.8,
+  # corregido: t = 0.5 si las dibujadas tienen todas el mismo lift (una sola arista: antes 0/0 = NaN)
+  rl <- if (nrow(e) > 0) range(e$lift) else c(0, 0)
+  e <- e %>% mutate(t = if (diff(rl) > 0) (lift - rl[1]) / diff(rl) else 0.5, w = 0.8 + (4.2 - 0.8) * t^0.8,
                     alpha = pmin(0.85, (lift - 1) * 0.35 + 0.2)) %>% arrange(w)
   p$layers[[1]] <- geom_segment(data = e, aes(x = x, y = y, xend = xend, yend = yend, linewidth = lw(w * ks), alpha = alpha),
                                 colour = "#5D6D7E", lineend = "round")
   p <- suppressMessages(p + scale_linewidth_identity() + scale_alpha_identity())
   comp <- c(comp, "aristas: ancho y opacidad según el lift")
   # complemento: nodos de radio fijo en datos (polígonos) con relleno por centralidad (#A8A8C8 → #39396B) y borde
-  # #2C3E50; WJPr no tiene escala de centralidad ni el degradado del reporte
-  strength <- vapply(seq_len(nrow(nodes)), function(i) sum(e$lift[e$i == i | e$j == i]), 0)
+  # #2C3E50; WJPr no tiene escala de centralidad ni el degradado del reporte. Centralidad = suma de los lifts de todas
+  # las parejas del nodo (e_all, network_graph.R:116-126), no solo de las dibujadas
+  strength <- vapply(seq_len(nrow(nodes)), function(i) sum(e_all$lift[e_all$i == i | e_all$j == i], na.rm = TRUE), 0)
   cn <- if (diff(range(strength)) == 0) rep(0.5, nrow(nodes)) else (strength - min(strength)) / diff(range(strength))
   fill <- wjpr_mix_rgb("#A8A8C8", "#39396B", cn)
   circ <- wjpr_circle_df(nodes$x, nodes$y, r) %>% mutate(fill = fill[id])
@@ -1547,8 +2792,34 @@ wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
   comp <- c(comp, "lienzo de la red (coord_fixed, sin ejes)")
   # complemento: WJPr fija "Lato Full" en capas y tema, sin argumento para cambiarla
   p <- wjpr_font(p); comp <- c(comp, "fuente Inter Tight (wjpr_font)")
-  wjpr_meta(p, base = base, complementos = comp)
+  # lo dibujado por fila: el lift de cada segmento sale de su ancho invirtiendo el del diseño (linewidth = lw(w·k_s),
+  # w = 0.8 + 3.4·t^0.8, t = (lift − mín) / rango de las dibujadas; con un solo lift, el mínimo)
+  dec <- function(lwd) {
+    w <- lwd * 0.75 * ggplot2::.pt / ks
+    if (diff(rl) > 0) rl[1] + (pmax(w - 0.8, 0) / (4.2 - 0.8))^(1 / 0.8) * diff(rl) else rep(rl[1], length(lwd))
+  }
+  wjpr_meta(p, base = base, complementos = comp, rotulos = nm, drawn = drawn_of(dec))
 }
+## Prueba del bloque (revisión 3, grupo F2, 2026-10-23; pruebas/p04_red.R y p05_barrido.R): relleno de los 12 nodos
+## frente al original (network_graph.R:8-141, strength sobre las 66 parejas) en los 26 países con módulo LNS: 0 nodos
+## distintos (antes 10-12 de 12 en Croatia, Cyprus, Czechia, Estonia, Finland, Luxembourg, Poland, Romania, Slovenia y
+## Sweden); Bulgaria, Greece, Latvia, Lithuania, Malta y Portugal, antes «Weights must be positive», ahora se dibujan
+## (aviso con sus parejas de lift 0). Lo publicado: df de antes + series (66 sig) y SVG idéntico byte a byte. Alto:
+## aviso en 24 países (Finland 6.402, Malta 7.017, Poland 5.512…), ninguno en lo publicado (5.8693) ni en Slovenia
+## (5.875); con manifest/figures_finland.csv «5,6.402» el aviso desaparece. Una sola arista sig: ancho finito (antes
+## 0/0 = NaN); ninguna: red sin aristas, con aviso.
+## Rótulos (2026-10-25, main.R --stage all --figs 05 en las dos builds): con rotulos = los 12 nombres de nodo, textos
+## «iguales» (antes solo se comparaban los 12 «(NN%)»); SVG igual byte a byte.
+## Lo dibujado por fila (revisión 4, 2026-10-27; SCRATCH/fix4/G3/pruebas/t_drawn.R, iny_g3.sh): 78 filas en lo publicado
+## (12 nodos con label_drawn y text, 66 aristas con frac 1 y val = lift decodificado, |Δ| ≈ 0 frente a df), 0 texto y 0
+## dibujo en figures; verify 201/201 (antes 123: + 12 label_drawn, 66 val y el orden de drawn.csv). Cada inyección, una
+## a la vez y solo en el dibujo, con --stage all --figs 05 --strict → exit 1 y «fallo · figures: …», con el multiconjunto
+## de textos «iguales» en todas: nombres Consumer/Land intercambiados (texto · label_drawn), porcentajes (40%)/(18%)
+## (texto · text), arista más gruesa quitada (dibujo · val Law Enforcement|Citizenship & ID 11.78→0), la más fina
+## (dibujo · val Consumer|Public Services 1.57→0), Education desplazado 0.06 unidades con rótulos y aristas (texto: su
+## fila sin nodo y un nodo sobrante; dibujo: 11 aristas → 0 y 11 segmentos sobrantes). Sin complementos los rótulos
+## blancos sobre el geom_point no cuentan como visibles (wjpr_drawn_texts no trata los puntos como marca): label_drawn y
+## text "", igual que el multiconjunto («faltan 24»). Galería --figs 5: «78 filas ok». SVG y PNG idénticos (md5).
 
 ## Bloque wjpr sankey — figuras 11, 16 -----------------------------------------------------------------------------
 ## WJPr 1.1.0 no tiene sankey (ni aluvial). Viable con ggplot: la geometría de chart_sankey (05_charts.R, bloque
@@ -1561,12 +2832,122 @@ wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
 ## colores, opacidades, cajas, tamaños y estilos del diseño. which (assistance | drm) se deduce de los nodos de la
 ## columna 2 ("turned" = drm). Las etiquetas, encabezados y notas son el texto fijo de sankey_def(): la galería cuenta
 ## las etiquetas y la nota como texto sobrante (el contrato solo pone los valores en text).
+## Lo dibujado por fila (revisión 4, contrato extendido; wjpr_sk_drawn): una fila por barra de nodo, con la fila del df
+## que da su posición (columna y puesto de arriba abajo), el valor y la etiqueta impresos en su caja y su alto en % en
+## las columnas 1 y 2 (en la 3 el alto no es df$value). Alto del lienzo: si la caja o el texto más bajo pasa del alto
+## del manifiesto (el de lo publicado, 372 pt), el log da el h_in que lo contiene, como la 5.
 
 # Banda entre (xa, [ya0, ya1]) y (xb, [yb0, yb1]) con las curvas del SVG (M … C xm ya0 xm yb0 xb yb0 L … C … Z)
 wjpr_bezier_band <- function(xa, ya0, ya1, xb, yb0, yb1, n = 40) {
   t <- seq(0, 1, length.out = n); xm <- (xa + xb) / 2
   bez <- function(p0, p1, p2, p3) (1 - t)^3 * p0 + 3 * (1 - t)^2 * t * p1 + 3 * (1 - t) * t^2 * p2 + t^3 * p3
   tibble(x = c(bez(xa, xm, xm, xb), bez(xb, xm, xm, xa)), y = c(bez(ya0, ya0, yb0, yb0), bez(yb1, yb1, ya1, ya1)))
+}
+
+# Límites de las cajas de una capa construida (rect: una por fila; polígono: una por grupo, en orden de aparición),
+# en el orden de las columnas de wjpr_marks_at()
+wjpr_sk_box_bounds <- function(d) {
+  if (all(c("xmin", "xmax", "ymin", "ymax") %in% names(d))) {
+    return(tibble(x0 = pmin(d$xmin, d$xmax), x1 = pmax(d$xmin, d$xmax), y0 = pmin(d$ymin, d$ymax), y1 = pmax(d$ymin, d$ymax)))
+  }
+  g <- if ("group" %in% names(d)) d$group else rep(1L, nrow(d))
+  bind_rows(tibble(x0 = numeric(), x1 = numeric(), y0 = numeric(), y1 = numeric()),
+            lapply(unique(g), function(id) {
+              k <- g == id
+              tibble(x0 = min(d$x[k]), x1 = max(d$x[k]), y0 = min(d$y[k]), y1 = max(d$y[k]))
+            }))
+}
+
+# Lo dibujado por fila del sankey (contrato drawn de wjpr_meta; revisión 4, contrato extendido), leído de b =
+# ggplot_build() del gráfico final (coordenadas construidas: la escala y va invertida, y = −pt, así que la y mayor es la
+# de arriba): cada barra de nodo (rectángulo de ancho BAR; sin complementos las cajas también son geom_rect, más
+# anchas) está en la columna cuya x es la suya (X = X1, X2, X3) y, dentro de ella, en un puesto de arriba abajo; la fila
+# es el nodo del diseño en ese puesto (sankey_def: order1, order2, order3) — la posición, no el df en orden — y order su
+# puesto visual (columnas de izquierda a derecha, cada una de arriba abajo: el del df); sin nodo del diseño en esa
+# posición, una fila sobrante (kind ""). frac = alto dibujado / alto del 100 % (sc · 100 pt; como el drawn de
+# chart_sankey) y val = alto / sc (el % que codifica): en las columnas 1 y 2 el diseño es proporcional (alto =
+# df$value · sc); en la 3 val es NA, porque su alto es la suma de los nodos de la columna 2 que llegan (s$M, % de todos
+# los encuestados) y df$value es otra cifra (access, no_access: % de quienes lo necesitaban; excluded: la suma
+# redondeada), así que el alto no codifica df$value (una barra sobrante sí lleva su val). La caja del nodo es la de la
+# capa lay_box que contiene el centro de la barra (si ninguna, la de su columna que solapa la barra con el centro más
+# cercano): text = el valor impreso y visible en ella (capa lay_val), label_drawn = la clave del nodo cuya etiqueta del
+# diseño (LAB1, LAB2, LAB3: primero las de su columna) es la impresa en ella (capa lay_lab, líneas de arriba abajo; si
+# no es ninguna, lo impreso tal cual; "" si nada) y grouping_drawn = la columna ("1", "2", "3") cuyo encabezado del
+# diseño (s$headers) es el impreso sobre la barra (eje x superior; si no es ninguno, lo impreso; "" si nada). Dos
+# valores o dos etiquetas intercambiados o una barra con el alto de otra se ven aquí aunque el multiconjunto de textos
+# sea el mismo.
+wjpr_sk_drawn <- function(b, s, keys, X, BAR, sc, lay_box = 3L, lay_lab = 4L, lay_val = 5L) {
+  geo <- function(cls) unname(which(vapply(b$plot$layers, function(l) inherits(l$geom, cls), logical(1))))
+  bars <- bind_rows(tibble(x0 = numeric(), x1 = numeric(), y0 = numeric(), y1 = numeric()),
+                    lapply(geo("GeomRect"), function(i) wjpr_sk_box_bounds(as.data.frame(b$data[[i]]))))
+  bars <- bars[abs((bars$x1 - bars$x0) - BAR) < 0.01, , drop = FALSE]
+  ords <- list(s$order1, s$order2, s$order3); off <- cumsum(c(0, lengths(ords)))
+  bars$col <- vapply(bars$x0, function(x) { k <- which(abs(x - X) < 0.5); if (length(k)) k[1] else NA_integer_ }, 0L)
+  bars$rank <- NA_integer_
+  for (cl in unique(stats::na.omit(bars$col))) {
+    k <- which(bars$col %in% cl); bars$rank[k] <- as.integer(rank(-bars$y1[k], ties.method = "first"))
+  }
+  key <- vapply(seq_len(nrow(bars)), function(k) {
+    cl <- bars$col[k]; r <- bars$rank[k]
+    if (is.na(cl) || r > length(ords[[cl]])) NA_character_ else ords[[cl]][r]
+  }, "")
+  ki <- ifelse(is.na(key), NA_integer_, match(paste(bars$col, key), paste(keys$grouping, keys$label)))
+  hit <- !is.na(ki)
+  # caja de cada barra y textos visibles de cada caja
+  db <- if (length(b$data) >= lay_box) as.data.frame(b$data[[lay_box]]) else data.frame()
+  gb <- if (length(b$data) >= lay_box) b$plot$layers[[lay_box]]$geom else NULL
+  bb <- if (nrow(db)) wjpr_sk_box_bounds(db) else tibble(x0 = numeric(), x1 = numeric(), y0 = numeric(), y1 = numeric())
+  cx <- (bars$x0 + bars$x1) / 2; cy <- (bars$y0 + bars$y1) / 2
+  mk <- if (nrow(db)) wjpr_marks_at(db, gb, cx, cy) else NULL
+  box_of <- vapply(seq_len(nrow(bars)), function(k) {
+    h <- if (!is.null(mk)) which(mk$inside[k, ]) else integer()
+    if (length(h)) return(h[1])
+    cand <- which(bb$x0 <= cx[k] & bb$x1 >= cx[k] & bb$y0 <= bars$y1[k] & bb$y1 >= bars$y0[k])
+    if (!length(cand)) return(NA_integer_)
+    cand[which.min(abs((bb$y0[cand] + bb$y1[cand]) / 2 - cy[k]))]
+  }, 0L)
+  tx <- wjpr_drawn_texts(b)                            # solo lo que se ve
+  ax <- tx[tx$source == "axis-x", , drop = FALSE]
+  tl <- tx[tx$source == "layer" & tx$layer %in% c(lay_lab, lay_val), , drop = FALSE]
+  mt <- if (nrow(db) && nrow(tl)) wjpr_marks_at(db, gb, tl$x, tl$y) else NULL
+  tl$box <- if (is.null(mt)) rep(NA_integer_, nrow(tl)) else
+    apply(mt$inside, 1, function(r) { h <- which(r); if (length(h)) h[1] else NA_integer_ })
+  in_box <- function(k, lay) {
+    if (is.na(box_of[k])) return("")
+    t <- tl[!is.na(tl$box) & tl$box == box_of[k] & tl$layer == lay, , drop = FALSE]
+    wjpr_norm_text(paste(t$label[order(-t$y)], collapse = " "))
+  }
+  labs <- list(s$LAB1, s$LAB2, s$LAB3)
+  dict_of <- function(l) setNames(names(l), wjpr_norm_text(vapply(l, paste, "", collapse = " ")))
+  dict_all <- dict_of(c(s$LAB1, s$LAB2, s$LAB3))
+  lab_key <- function(x, c) {
+    if (!nzchar(x)) return("")
+    own <- if (!is.na(c)) dict_of(labs[[c]]) else character()
+    if (x %in% names(own)) unname(own[[x]]) else if (x %in% names(dict_all)) unname(dict_all[[x]]) else x
+  }
+  hdict <- setNames(as.character(seq_along(s$headers)), wjpr_norm_text(vapply(s$headers, paste, "", collapse = " ")))
+  head_of <- function(k) {
+    a <- ax[is.finite(ax$x) & abs(ax$x - cx[k]) <= BAR, , drop = FALSE]
+    if (!nrow(a)) return("")
+    h <- wjpr_norm_text(a$label[which.min(abs(a$x - cx[k]))])
+    if (h %in% names(hdict)) unname(hdict[[h]]) else h
+  }
+  hgt <- bars$y1 - bars$y0
+  n0 <- max(c(off[length(off)], keys$order, 0L), na.rm = TRUE)
+  ord <- ifelse(hit, off[pmax(1L, coalesce(bars$col, 1L))] + bars$rank, NA_integer_)
+  ord[!hit] <- as.integer(n0 + seq_len(sum(!hit)))
+  tibble(order = as.integer(ord), kind = ifelse(hit, keys$kind[ki], ""), grouping = ifelse(hit, keys$grouping[ki], ""),
+         label = as.character(ifelse(hit, keys$label[ki], sprintf("barra en x = %.1f, puesto %s", bars$x0, bars$rank))),
+         frac = hgt / (100 * sc), frac2 = NA_real_,
+         text = vapply(seq_len(nrow(bars)), in_box, "", lay = lay_val), text2 = "",
+         label_drawn = vapply(seq_len(nrow(bars)), function(k) lab_key(in_box(k, lay_lab), bars$col[k]), ""),
+         grouping_drawn = vapply(seq_len(nrow(bars)), head_of, ""),
+         val = ifelse(!hit | bars$col %in% 1:2, hgt / sc, NA_real_), val2 = NA_real_) %>%
+    arrange(order)
+}
+wjpr_sk_drawn_fun <- function(s, keys, X, BAR, sc) {
+  force(s); force(keys); force(X); force(BAR); force(sc)
+  function(b) wjpr_sk_drawn(b, s, keys, X, BAR, sc)
 }
 
 wjpr_sankey <- function(df, spec, complementos = wjpr_complementos(), which = NULL, st = ST_SANKEY) {
@@ -1648,7 +3029,11 @@ wjpr_sankey <- function(df, spec, complementos = wjpr_complementos(), which = NU
     scale_y_reverse(limits = c(H, 50), expand = c(0, 0), breaks = NULL, oob = scales::oob_keep) +
     coord_cartesian(clip = "off") + labs(x = NULL, y = NULL) +
     WJPr::WJP_theme()
-  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base))
+  # corregido (revisión 4): lo dibujado por fila (wjpr_sk_drawn), también sin complementos. Antes el sankey no lo
+  # exponía y dos valores o dos etiquetas de caja intercambiados o una barra con el alto de otra pasaban como ok
+  # (mismo multiconjunto de textos). Capas: 2 = barras de nodo, 3 = cajas, 4 = etiquetas, 5 = valores
+  drawn <- wjpr_sk_drawn_fun(s, df %>% select(order, kind, grouping, label), c(X1, X2, X3), BAR, sc)
+  if (!isTRUE(complementos)) return(wjpr_meta(p, base = base, drawn = drawn))
 
   comp <- character()
   lw <- function(pt) pt / (0.75 * ggplot2::.pt)
@@ -1689,8 +3074,34 @@ wjpr_sankey <- function(df, spec, complementos = wjpr_complementos(), which = NU
   # complemento: encabezados en Bold Italic 700 como el diseño (familia inter_bi700, bloque cards)
   p <- p + theme(axis.text.x.top = element_text(family = wjpr_family_bi700(), face = "italic"))
   comp <- c(comp, "encabezados 700 cursiva (familia inter_bi700)")
-  wjpr_meta(p, base = base, complementos = comp)
+  # corregido (revisión 4): el lienzo mide el h_in del manifiesto (el de lo publicado, 372 pt) y cada caja se centra en
+  # su nodo, así que con nodos bajos al fondo la caja más baja (o su texto) pasaba del borde inferior y se cortaba sin
+  # aviso (hasta 5.3 pt en 12 de 26 países: Malta 5.3, Portugal 4.9, Greece y Cyprus 4.6; Hungría acaba a 366.6 pt).
+  # Como en la 5, si pasa el log da el alto que la contiene con 3 pt de margen (redondeado hacia arriba a 3 decimales)
+  # para manifest/figures_<slug>.csv; el dibujo no cambia (con ese alto el lienzo solo crece hacia abajo: la escala y
+  # va de 50 a H pt a 1 pt por unidad). Fondo de la caja = y0 + h + la mitad de su borde de 0.6 pt; del texto, su línea
+  # base + 0.25 em (descendentes)
+  tag <- sprintf("fig %02d", as.integer(spec$fig %||% 11L))
+  bottom <- max(c(boxes$y0 + boxes$h + 0.6 / 2, rows$y + 0.25 * ifelse(rows$kind == "note", ns, size)))
+  if (is.finite(bottom) && bottom > H + 1e-6) {
+    h_need <- ceiling((bottom + 3) / 72 * 1000) / 1000
+    log_msg(tag, " aviso: el layout de ", spec$country %||% "este país", " pide h_in = ", sprintf("%.3f", h_need),
+            " in y el manifiesto da ", sprintf("%.3f", spec$h_in), " (la caja o el texto más bajo acaba a ",
+            sprintf("%.1f", bottom), " pt y el lienzo mide ", sprintf("%.1f", H), ": se corta por abajo): fíjelo en ",
+            "manifest/figures_<slug>.csv con la fila «", spec$fig, ",", sprintf("%.3f", h_need), "» (columnas fig,h_in)")
+  }
+  wjpr_meta(p, base = base, complementos = comp, drawn = drawn)
 }
+## Prueba del bloque (revisión 4, 2026-10-27; SCRATCH/fix4/G3/pruebas/t_drawn.R, iny_g3.sh, t_sankey_h.R): lo dibujado
+## por fila da 10 filas en la 11 (data()) y 9 en la 16 (referencia), con y sin complementos: text, label_drawn y
+## grouping_drawn iguales a df y val = df$value en las columnas 1-2 (NA en la 3: en la 16 excluded mide 55 y df dice 56);
+## verify de la 11: 56/56 (antes 29). Inyecciones, una a la vez con --stage all --figs 11 --strict → exit 1 y «fallo ·
+## figures: …», multiconjunto «iguales»: valores appropriate/needed_no intercambiados (texto · text 21%→38%), etiquetas
+## Appropriate/Non-appropriate adviser (texto · label_drawn), barra de appropriate con el alto de needed_no (dibujo · val
+## 21.4→37.8). Alto: aviso en Malta (caja hasta 377.6 pt de 372 → «11,5.287»), Portugal (377.2 → «11,5.282») y Greece
+## (377.0 → «11,5.278»), ninguno en Hungría (366.9 con el borde); con esa fila en manifest/figures_<slug>.csv no hay
+## aviso y la caja cabe con 3.0 pt de margen. Galería --figs 11,16: «10 filas ok», «9 filas ok». SVG y PNG de Hungría
+## idénticos (md5).
 
 
 ## Prueba

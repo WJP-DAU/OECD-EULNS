@@ -19,11 +19,24 @@ layout:
   dpi: 300
 verify:
   tol_pp: 0.6                # puntos porcentuales (valor crudo vs referencia)
-  tol_frac: 0.006            # fracción de barra dibujada vs publicada
+  tol_frac: 0.006            # fracción de barra dibujada vs publicada (drawn.csv: chart_<tipo> en svg_r; en wjpr, lo
+                             # dibujado por fila que expone el adaptador: hoy 8 de 13, 29 figuras)
   size_tol_in: 0.01          # alto del SVG vs manifiesto
   min_f1: 0.995              # metodo wjpr: parecido mínimo con el PNG publicado (f1 de tinta a 96 dpi, wjpr_similarity;
                              # 1 = mismo dibujo). Con WJPr 1.1.0@382aee9 las 42 dan 0.996-1.000; con la rama main
                              # (a46c831) y los mismos complementos, la 09 da 0.907 y la 10 0.419 (23-oct)
+  max_local: 0.5             # metodo wjpr: diferencia LOCAL máxima con la publicada (parecido_local; wjpr_similarity):
+                             # peor ventana de local_block_px × local_block_px px a 96 dpi, fracción de píxeles cuyo
+                             # color (máx. |Δ| RGB) difiere en más de local_delta de todos los de la otra imagen a ≤ 1 px,
+                             # o en más de local_delta_flat donde las dos son planas (0 = igual, 1 = ventana entera
+                             # distinta). Calibrado el 23-oct con las 42 de tools/wjpr_gallery.R (las dos builds) y los
+                             # errores provocados por la revisión V3: correctas 0.000-0.444 (0.444 la 06: claves de
+                             # leyenda de 15.2 pt, V3-05; 0.424 la 29; 0.333 la 16), errores 0.833-1.000 (barra +10 pp,
+                             # −5 pp, +1.0 en la 4, colores de banda invertidos, −1 pp en la 7); la 42 da 0.715 por una
+                             # diferencia real (texto de la tarjeta 42 % negro; publicada, blanco)
+  local_block_px: 12         # lado de la ventana (px a 96 dpi = 9 pt)
+  local_delta: 0.2           # |Δ| por píxel (0-1) tolerando 1 px de desplazamiento
+  local_delta_flat: 0.05     # |Δ| en zonas planas de las dos imágenes (colores claros: pista frente a blanco = 0.10)
 checks:                      # comprobaciones de --stage data: se registran en el log, no detienen (tolerancia 0.01)
   ncol_master_csv: 200       # columnas de master equivalentes a data/master.csv (53 study_vars + 147 AJP_/AJD_/AJR_/AJE_)
   national:                  # nat_est(ctx, var): promedio nacional ponderado por NUTS
@@ -33,3 +46,12 @@ checks:                      # comprobaciones de --stage data: se registran en e
     access2rep: 37.68
   journey:                   # journey(ctx)$<campo>
     adv_contacted: 29.17
+figures:                     # datos editoriales de las figuras: elecciones del reporte del país, no salen de los datos
+  fig03:                     # Prevalence and Severity …, by Area of Residence (figures/fig_03: fig03_highlight)
+    highlight:               # categorías destacadas y rotuladas = top_cats de F02.R:33 (puestos 1-4, 8 y 9 de la
+      - "Public Services"    # prevalencia); sin la clave, las 6 de mayor prevalencia no trivial nacional (aviso)
+      - "Consumer"
+      - "Community"
+      - "Money & Debt"
+      - "Housing"
+      - "Family"
