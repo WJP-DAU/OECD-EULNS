@@ -261,6 +261,12 @@ ref_cards <- function(spec) {
     if (is.na(dmax) || dmax > 0.005) stop(basename(f), sprintf(": distinto de %s (|Δ| máx %.4f > 0.005)", CARDS_SRC[[which]], dmax), call. = FALSE)
   }
   r <- round(v); lo <- min(r); hi <- max(r)
+  # corregido (lote 38-42, 2026-10-29): la 41 y la 42 comparten la escala de color (lo publicado: 29/55; la tarjeta del
+  # 30 % de la 42 tiene t = 0.1535 = 0.12 + 0.88 · (30 − 29)/26, medido en el PNG); antes, la escala de cada figura
+  if (which %in% c("exposure", "hardship")) {
+    both <- unlist(lapply(c("exposure", "hardship"), \(w) round(as.numeric(scorecard_def(w)$vals))))
+    lo <- min(both); hi <- max(both)
+  }
   rows <- list()
   for (i in seq_along(s$rows)) for (j in seq_along(s$cols)) {
     is_ref <- (s$ref == "row" && i == 1) || (s$ref == "col" && j == 1)

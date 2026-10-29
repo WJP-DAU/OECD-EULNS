@@ -3,9 +3,22 @@
 ##   eu_est(ctx, 'inside_justice_gap_keepdk') = 47.9 → 48
 ## Método UE: eu_est
 ## Código de origen: report_charts.R:131 chart_grouped ← viz_helpers.R:11 render_grouped (F07.R:14)
-## Estado: pendiente (esqueleto de la Etapa 1; contrato en figures/_template.R)
 
 fig_28 <- list(
-  data = function(ctx) stop("pendiente: fig_28 sin implementar", call. = FALSE),
-  plot = function(df, spec) stop("pendiente: fig_28 sin implementar", call. = FALSE)
+
+  # Promedio nacional ponderado por NUTS por grupo (n < 30 → N/A); dentro de la brecha de justicia (keepDK: el no sabe
+  # cuenta como necesidad no cubierta; a2j_score < 0.67); media UE = media simple de las estimaciones nacionales
+  # (eu_est, 47.9 → 48 %).
+  data = function(ctx) {
+    tbl <- get_results_table(ctx, target = "inside_justice_gap_keepdk", ctype = "short")
+    eu <- eu_est(ctx, "inside_justice_gap_keepdk")
+    log_msg("fig 28: National = ", formatC(tbl$value[tbl$grouping == "National"], format = "f", digits = 2),
+            " · UE eu_est(inside_justice_gap_keepdk) = ", formatC(eu, format = "f", digits = 2),
+            " · N/A = ", sum(is.na(tbl$value)))
+    rows_grouped(tbl, eu = eu, decimals = 0)
+  },
+
+  # Dibujo: WJPr::wjp_groupbars() con sus argumentos (wjpr_grouped_bars, R/09_wjpr.R; WJPr 1.2.0). Respaldo sin WJPr:
+  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en el manifiesto.
+  plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

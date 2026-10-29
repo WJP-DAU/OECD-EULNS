@@ -4,9 +4,23 @@
 ## Método UE: eu_est
 ## Código de origen: report_charts.R:247 chart_columns (ancho W_hbars = 172+12+300+34+6 pt;
 ##   standard_figures.R:474) ← paired_bars (F10.R:60)
-## Estado: pendiente (esqueleto de la Etapa 1; contrato en figures/_template.R)
+
+# Documentos en el orden impreso (1, 3, 2) = variable. origen: F10.R:54 (docs)
+fig37_docs <- c("Official proof of identity" = "vulnerability1", "Written work agreement" = "vulnerability3",
+                "Proof of housing or land tenure" = "vulnerability2")
 
 fig_37 <- list(
-  data = function(ctx) stop("pendiente: fig_37 sin implementar", call. = FALSE),
-  plot = function(df, spec) stop("pendiente: fig_37 sin implementar", call. = FALSE)
+
+  # País = promedio nacional ponderado por NUTS (nat_est; n < 30 → N/A), UE = media simple de las estimaciones
+  # nacionales (eu_est), como F10.R:55-59. Orden fijo del diseño (rows_columns, R/05_charts.R).
+  data = function(ctx) {
+    hu <- vapply(fig37_docs, \(v) nat_est(ctx, v)$value[[1]], numeric(1))
+    eu <- vapply(fig37_docs, \(v) eu_est(ctx, v), numeric(1))
+    log_msg("fig 37: ", paste(sprintf("%s %.2f / UE %.2f", names(hu), hu, eu), collapse = " · "))
+    rows_columns(names(fig37_docs), hu, eu, decimals = 0)
+  },
+
+  # Dibujo: WJPr::wjp_bars() vertical con sus argumentos (wjpr_columns, R/09_wjpr.R; WJPr 1.2.0), del ancho de las
+  # barras horizontales de la 36. Respaldo sin WJPr: chart_columns(df, spec) (sin portar: error legible, R/05_charts.R).
+  plot = function(df, spec) wjpr_columns(df, spec)
 )

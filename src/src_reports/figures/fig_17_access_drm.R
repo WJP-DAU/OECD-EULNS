@@ -10,14 +10,16 @@ fig_17 <- list(
   # sin el grupo Category (omit.cats de worker-viz.R:346 en la llamada publicada); media UE de data4web (cacheada en
   # reference/<slug>/eu_values.csv).
   data = function(ctx) {
-    tbl <- get_results_table(ctx, target = "access2drm", ctype = "full", omit = "Category")
+    # corregido (lote 20-27): con muestra pequeña, también sin Age Group (worker-viz.R:340-341; small_sample)
+    tbl <- get_results_table(ctx, target = "access2drm", ctype = "full",
+                             omit = c("Category", if (small_sample(ctx)) "Age Group"))
     eu <- eu_value(ctx, "data4web", "access2drm")
     log_msg("fig 17: National = ", formatC(tbl$value[tbl$grouping == "National"], format = "f", digits = 2),
             " · UE data4web(access2drm) = ", formatC(eu, format = "f", digits = 2), " · N/A = ", sum(is.na(tbl$value)))
     rows_grouped(tbl, eu = eu, decimals = 0)
   },
 
-  # Dibujo: WJPr::wjp_groupbars() + complementos (wjpr_grouped_bars, R/09_wjpr.R; metodo wjpr). Respaldo sin WJPr:
+  # Dibujo: WJPr::wjp_groupbars() con sus argumentos (wjpr_grouped_bars, R/09_wjpr.R; WJPr 1.2.0). Respaldo sin WJPr:
   # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en el manifiesto.
   plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

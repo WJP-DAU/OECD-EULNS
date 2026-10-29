@@ -7,9 +7,30 @@
 ## Método UE: none
 ## Código de origen: report_charts.R:393 chart_scorecards (reescrito para df$text/text2/lo/hi) +
 ##   standard_figures.R:186-191 scorecard_def('hardship_outcome') (diseño charts5.py:150)
-## Estado: pendiente (esqueleto de la Etapa 1; contrato en figures/_template.R)
+
+# Dificultades (fila impresa = variable) y desenlaces (columnas). origen: A03.R:5-6 (harms) y standard_figures.R:186-191
+# (scorecard_def('hardship_outcome'): rótulos publicados, «Alcohol or drug problems» en vez de «Alcohol/Drug problems»)
+fig32_harms <- c("At least one hardship" = "hardship", "Health issues" = "hardships_health",
+                 "Economic issues" = "hardships_income", "Relationship breakdown" = "hardships_emotional",
+                 "Alcohol or drug problems" = "hardships_drugs")
+fig32_cols <- c("Fully resolved", "Not resolved")
 
 fig_32 <- list(
-  data = function(ctx) stop("pendiente: fig_32 sin implementar", call. = FALSE),
-  plot = function(df, spec) stop("pendiente: fig_32 sin implementar", call. = FALSE)
+
+  # Entre quienes tienen un problema no trivial (has_nt), % con cada dificultad por desenlace (resuelto, de
+  # add_report_vars: resolved = rp_outcome), con el promedio NUTS del reporte (xt, A03.R:7-12; n < 30 → N/A). Tarjeta de
+  # referencia = la primera columna (Fully resolved); escala de color = rango de los valores redondeados (rows_cards).
+  data = function(ctx) {
+    d <- ctx$national %>% filter(has_nt)
+    vals <- t(vapply(fig32_harms, function(v) {
+      x <- xt(ctx, v, "resuelto", df = d); x$pct[match(fig32_cols, x$grupo)]
+    }, numeric(length(fig32_cols))))
+    dimnames(vals) <- list(names(fig32_harms), fig32_cols)
+    log_msg("fig 32: ", paste(sprintf("%s %.2f / %.2f", rownames(vals), vals[, 1], vals[, 2]), collapse = " · "))
+    rows_cards(vals, ref = "col")
+  },
+
+  # Dibujo: WJPr::wjp_cards() con sus argumentos (wjpr_cards, R/09_wjpr.R; WJPr 1.2.0). Respaldo sin WJPr:
+  # chart_scorecards(df, spec) (sin portar: error legible, R/05_charts.R).
+  plot = function(df, spec) wjpr_cards(df, spec)
 )

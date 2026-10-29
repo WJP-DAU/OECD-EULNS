@@ -177,6 +177,9 @@ común y una columna o figura que no existe en el manifiesto es un error. `read_
   nproblems ≥ 6; `# corregido:` en `R/02_variables.R`).
 - Fig 22: media UE 54 % (data4web); `eu_est()` daría 53 %.
 - Fig 12: barra UE = 37.68 → 38 (R03 `rep_c_published`), no la de data4web (54.2).
+- Fig 42 (corregido en la referencia el 2026-10-29): la escala de color de las tarjetas es común con la 41, 29/55 (la
+  tarjeta del 30 % tiene t = 0.1535 en el PNG publicado); la referencia traía 30/55 y el dibujo salía con la tarjeta
+  del 42 % en negro (parecido local 0.715). Con la escala común, la 42 da 0.000.
 
 ## Añadir un país
 Hoy solo Hungría tiene reporte publicado y referencia; para otro país hace falta, además del yml:
@@ -195,8 +198,13 @@ Hoy solo Hungría tiene reporte publicado y referencia; para otro país hace fal
    CLAUDE.md, «Fijar h_in»), el de la red (5: el alto depende del layout del país; el log da la fila a poner, p. ej.
    «5,6.402» en Finlandia) y las notas. Las notas `[conocida: …]` y los números de `fuente_datos` del común son de
    Hungría; los slugs `*_hu_eu` (2, 7, 30) son nombres de archivo y se conservan.
-4. Lo que no es configurable: grupos omitidos por muestra pequeña (`omit` de `get_results_table`, como `omit.cats`
-   para Malta en `src/viz`) y relabels están en el `data()` de cada figura; etiquetas, orden y colores son del diseño.
+4. Muestra pequeña: `small_sample: true` en `config/<pais>.yml` (como `country_config[[país]]$small_sample` de
+   `src/viz/worker-viz.R`, que la pone en Malta) quita los grupos que el original quitaba: Category en 9 y 12; Category y
+   Age Group de la 17 a la 25; Age Group y Problem Status en la 26 (`small_sample()` en `R/03_estimators.R`; cada
+   `data()` decide qué grupos). Con menos filas, su `h_in` va en `manifest/figures_<slug>.csv`. Las barras horizontales
+   13, 14, 18 y 19 usan el estimador publicado, que no suprime n < 30: en Malta las bases de 18 y 19 son de 46 y 43
+   encuestados en una región (decisión del 29-oct: se conserva el estimador publicado). Lo que no es configurable:
+   relabels (en el `data()` de cada figura), etiquetas, orden y colores (del diseño).
 5. Lo que depende del país queda en el log sin cambiar el estado `ok` (los avisos llevan «aviso»: `grep aviso
    output/<slug>/log/run_*.log`): la 3 cuenta los puntos suprimidos por faceta y avisa si no dibuja una faceta con
    menos de 2 puntos (Malta y Bulgaria: Rural, como un `omit.cats` automático); la 5 avisa de las parejas sin

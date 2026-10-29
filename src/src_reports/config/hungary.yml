@@ -1,6 +1,8 @@
 # config/hungary.yml — lo que cambia entre países y lo que pide el encargo. Rutas de la máquina: config/local.yml.
 country: "Hungary"          # country_name_ltn en el .dta y en regions$country
 slug: "hungary"             # reference/<slug>/, output/<slug>/, cache/ctx_<slug>.rds
+small_sample: false         # true en un país de muestra pequeña (Malta en src/viz): las figuras 9, 12, 17, 20-26
+                            # quitan los grupos que quitaba el original (README, «Añadir un país», punto 4)
 report:
   title: "Paths to Justice in Hungary"
   reference_version: "OCT15_v9 / figuras finales 2026-10-16"

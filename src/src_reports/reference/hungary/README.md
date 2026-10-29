@@ -63,7 +63,7 @@ con `reference_src_dir` (finales/datos), `published_dir` (figuras publicadas) y 
 | 39 | trust_prosecutors | texto_publicado | finales/datos/Figure_39_trust_prosecutors.csv; finales/datos/00-verificacion_valores.csv | 24 | 0.6 | 18 valores de 00-verificacion (\|data − frac·100\| máx 0.46); resto v1_frac·100 |
 | 40 | trust_public_defense | texto_publicado | finales/datos/Figure_40_trust_public_defense.csv; finales/datos/00-verificacion_valores.csv | 24 | 0.6 | 18 valores de 00-verificacion (\|data − frac·100\| máx 0.45); resto v1_frac·100 |
 | 41 | trust_by_exposure | texto_publicado | analisis adicionales/A04.csv; finales/datos/Figure_41_trust_by_exposure.csv | 12 | 0.6 | 12 tarjetas = finales/datos (\|Δ\| máx 0.0045); textos y deltas (de valores redondeados) según charts5.py; lo/hi = 29/55 |
-| 42 | trust_by_hardship | texto_publicado | analisis adicionales/A05.csv; finales/datos/Figure_42_trust_by_hardship.csv | 9 | 0.6 | 9 tarjetas = finales/datos (\|Δ\| máx 0.0049); textos y deltas (de valores redondeados) según charts5.py; lo/hi = 30/55 |
+| 42 | trust_by_hardship | texto_publicado | analisis adicionales/A05.csv; finales/datos/Figure_42_trust_by_hardship.csv | 9 | 0.6 | 9 tarjetas = finales/datos (\|Δ\| máx 0.0049); textos y deltas (de valores redondeados) según charts5.py; lo/hi = 29/55 (corregido el 2026-10-29: escala común con la 41, medida en el PNG publicado; antes 30/55) |
 
 ## Medias UE (`eu_values.csv`)
 
