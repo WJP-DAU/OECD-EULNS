@@ -82,12 +82,16 @@ wjpr_build <- function() {
 # corregido (revisión 4): marcas = function(b) con las marcas fijas del diseño que no tienen fila en df y faltan en el
 # dibujo (character(), vacío si están todas; p. ej. la línea de corte de la 7, wjpr_sev_cut_missing): figures da
 # estado "dibujo" si devuelve alguna. NULL: el adaptador no tiene marcas fijas que comprobar.
+# corregido (cierre, revisión de usabilidad): alto = el h_in (in) que pide el diseño (hoy las agrupadas,
+# wjpr_gb_alto): figures da "tamaño" si el manifiesto da menos (el dibujo se recorta abajo) y un aviso si da más
+# (sobra espacio abajo), con el h_in a poner. Sin figura publicada, parecido no ve un alto equivocado. NULL: no lo
+# declara (las demás figuras llenan el lienzo del manifiesto).
 wjpr_meta <- function(p, base, complementos = character(), compara = c("text", "text2"), drawn = NULL,
-                      rotulos = character(), marcas = NULL) {
+                      rotulos = character(), marcas = NULL, alto = NULL) {
   if (!is.null(drawn) && !is.function(drawn)) stop("wjpr_meta: drawn debe ser una función de ggplot_build()", call. = FALSE)
   if (!is.null(marcas) && !is.function(marcas)) stop("wjpr_meta: marcas debe ser una función de ggplot_build()", call. = FALSE)
   attr(p, "wjpr") <- list(base = base, complementos = unique(complementos), compara = compara, drawn = drawn,
-                          rotulos = as.character(rotulos), marcas = marcas)
+                          rotulos = as.character(rotulos), marcas = marcas, alto = alto)
   p
 }
 
@@ -742,6 +746,11 @@ wjpr_gb_design <- function(df, spec) {
 # spec$w_in (std: 26.97 pt), de modo que el tamaño definido del gráfico es el del manifiesto. Si el diseño no cabe
 # (h_in o w_in menores que lo que mide), aviso y el margen o la columna quedan en 0 (el dibujo se saldría del lienzo
 # y lo vería parecido; el alto correcto es el del aviso).
+# Alto (in) que pide el diseño: el de wjpr_gb_layout con el margen inferior del diseño (4 pt), la regla de CLAUDE.md
+# (6 + 15.5 · filas avg y row + 22 · encabezados) / 72 con las medidas de STD
+wjpr_gb_alto <- function(df, g, top = 2) {
+  (top + sum(df$kind == "header") * g$st$header + sum(df$kind %in% c("avg", "row")) * g$st$pitch + 4) / 72
+}
 wjpr_gb_layout <- function(df, g, top = 2) {
   st <- g$st
   body <- sum(df$kind == "header") * st$header + sum(df$kind %in% c("avg", "row")) * st$pitch
@@ -934,7 +943,7 @@ wjpr_grouped_bars <- function(df, spec, complementos = wjpr_complementos(), ...)
     })
     comp <- c(comp, "N/A de la media (label_position end) en la columna de valores")
   }
-  wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = comp, drawn = drawn, marcas = marcas)
+  wjpr_meta(p, base = "WJPr::wjp_groupbars", complementos = comp, drawn = drawn, marcas = marcas, alto = wjpr_gb_alto(df, g))
 }
 ## Prueba del bloque (M1, 2026-10-27/28, WJPr 1.2.0@1664a23; SCRATCH/fix5/M1/pruebas): galería --figs 1,4,9,12,17,
 ## 20-28,31,33,35,38-40 → 20/20 ok, textos iguales, f1 1.000 (p04_medidas.R: 1.0000 con cuatro decimales en las 20),

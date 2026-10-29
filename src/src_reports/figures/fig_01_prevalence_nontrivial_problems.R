@@ -12,6 +12,6 @@ fig_01 <- list(
     rows_grouped(tbl, eu = eu_value(ctx, "data4web", "prevalence2"), decimals = 0)
   },
 
-  # Dibujo: WJPr::wjp_groupbars() + complementos (wjpr_grouped_bars, R/09_wjpr.R; metodo wjpr)
+  # Dibujo: WJPr::wjp_groupbars() con sus argumentos (wjpr_grouped_bars, R/09_wjpr.R; WJPr 1.2.0)
   plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

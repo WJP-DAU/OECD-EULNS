@@ -452,8 +452,11 @@ print_header <- function(cfg, stage, run_id, notes = NULL) {
 # corregido (revisión 4): una figura que figures dejó en texto, dibujo, tamaño o png no sale "ok" (ni "sin dibujo"):
 # se muestra "fallo" con "figures: <motivo>" (verify_figure ya lo hace con figures_status.csv; esto lo asegura en la
 # consola para la corrida actual) y --strict la cuenta (main.R: verify no ok)
+# corregido (cierre, revisión de usabilidad): con --figs, sin las filas «omitida» (42 líneas de ruido con --figs 43);
+# siguen en los CSV de la etapa. Si todas están omitidas, se muestran.
 print_rows <- function(rows) {
   tbl <- rows$verify %||% rows$figures %||% rows$compare
+  if (!is.null(tbl) && any(tbl$estado != "omitida")) tbl <- tbl[tbl$estado != "omitida", , drop = FALSE]
   if (!is.null(rows$verify) && !is.null(rows$figures)) {
     f <- rows$figures[rows$figures$estado == "error", , drop = FALSE]
     i <- which(tbl$fig %in% f$fig & !tbl$estado %in% c("error", "omitida"))

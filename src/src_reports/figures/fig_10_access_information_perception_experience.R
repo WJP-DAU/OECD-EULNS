@@ -15,7 +15,7 @@ fig_10 <- list(
     rows_dumbbell(tbl, decimals = 0)
   },
 
-  # Dibujo: WJPr::wjp_dumbbells() + complementos (wjpr_dumbbell, R/09_wjpr.R; metodo wjpr): percepción (color
+  # Dibujo: WJPr::wjp_dumbbells() con sus argumentos (wjpr_dumbbell, R/09_wjpr.R; WJPr 1.2.0): percepción (color
   # principal) y experiencia (magenta) unidas por un segmento gris. La leyenda es texto fijo del diseño (la de
   # viz_helpers.R:106, impresa en la publicada) y es la que wjpr_dumbbell() trae por defecto («General population:
   # perception» / «People with a non-trivial problem: experience»). Respaldo sin WJPr: chart_dumbbell(df, spec,

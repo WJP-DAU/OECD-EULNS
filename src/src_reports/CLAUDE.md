@@ -3,11 +3,10 @@
 Carpeta autocontenida que produce las figuras del reporte *Paths to Justice* desde los microdatos (carga → variables →
 estimación → figura → verificación). Un solo punto de entrada, desde cualquier directorio:
 
-    Rscript src/src_reports/main.R [--stage data|figures|verify|compare|all] [--figs 09,12] [--country hungary]
+    Rscript src/src_reports/main.R [--stage data|figures|verify|compare|all] [--figs 09,12] [--country hungary]   # o <carpeta>/main.R
                                    [--force] [--no-png] [--strict] [--help]
 
-Rutas de la máquina en `config/local.yml` (copiar de `local.yml.example`; está en .gitignore). Nada aquí hace `source()`
-fuera de la carpeta ni usa `Sys.info()["user"]`.
+Rutas de la máquina en `config/local.yml` (de `local.yml.example`; en .gitignore). Sin `source()` de fuera ni `Sys.info()`.
 
 ## Flujo y archivos
 - `data`: lee el `.dta` una vez → `cache/master.rds` (27 países) → `cache/ctx_<slug>.rds`; comprobaciones en el log.
@@ -15,7 +14,7 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
   `figures/Figure_NN_slug.svg|png` (300 dpi; texto en trazos; tamaño del manifiesto).
 - `verify`: tablas y dibujo frente a `reference/<slug>/` → `tables/00-verificacion.csv`. `compare`: hojas publicada | nueva
   en `output/<slug>/compare/` (+ `index.html`).
-- Consola: solo la tabla resumen (`fig | metodo | estado | verificacion | archivo`). Detalle: `output/<slug>/log/`.
+- Consola: solo la tabla (`fig | metodo | estado | verificacion | archivo`; con `--figs`, las elegidas); detalle en `log/`.
 
 | Archivo | Qué contiene |
 |---|---|
@@ -31,6 +30,7 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
 | `figures/fig_NN_slug.R` | una figura; `_template.R` es el contrato comentado |
 | `manifest/figures.csv` | la verdad de cada figura (columnas en README, «Manifiesto»); `figures_<slug>.csv` las cambia por país |
 | `reference/<slug>/` | valores y fracciones publicadas (verdad para verify); `tools/build_reference.R` los regenera |
+| `tools/inyecciones/` | errores inyectados en el dibujo; `correr.sh` comprueba que figures y verify los ven |
 
 ## Motor de dibujo: WJPr (detalle en README, «WJPr»)
 - Por defecto `metodo wjpr`: `plot = function(df, spec) wjpr_<tipo>(df, spec)` = la función de WJPr 1.2.0 del tipo con
@@ -39,10 +39,9 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
   `metodo svg_r`. Lo que 1.2.0 aún no cubre: `# complemento: <qué falta>` + su propuesta de argumento.
 - `wjpr_require()` exige WJPr ≥ 1.2.0; `deps.csv` fija 1.2.0@1664a23 (exacta); otra con `SRC_REPORTS_LIB=<librería>` da
   `aviso deps.csv: …`; `log/figures_status.csv` guarda la build y los complementos de cada figura.
-- Textos visibles (y `rotulos`) ≠ `df$text/text2` → `texto`. Lo dibujado por fila (`wjpr_meta(…, drawn =)`, las 42;
-  `drawn.csv`): nombre impreso (`label_drawn`, `grouping_drawn`) ≠ df → `texto`; valor de la geometría (`val`) o marca
-  fija ausente (`marcas =`) → `dibujo`. verify: `parecido` (f1 ≥ 0.995 frente a `published/`), `parecido_local` (≤ 0.5)
-  y `drawn.csv` frente a la referencia; un estado de figures distinto de ok sale `fallo`; sin PNG, `sin dibujo` (`--strict` sale con 1).
+- Textos visibles ≠ `df$text/text2` → `texto`; lo dibujado por fila (`drawn.csv`, las 42): nombre impreso ≠ df → `texto`,
+  valor de la geometría o marca fija ausente → `dibujo`. verify: `parecido` (f1 ≥ 0.995), `parecido_local` (≤ 0.5) y
+  `drawn.csv` frente a la referencia; figures no ok → `fallo`; sin PNG, `sin dibujo` (`--strict` sale con 1).
 
 ## Contrato de una figura (detalle en `figures/_template.R`)
 `fig_NN <- list(data = function(ctx) ..., plot = function(df, spec) ...)`
@@ -59,15 +58,17 @@ fuera de la carpeta ni usa `Sys.info()["user"]`.
 
 ## Cómo añadir o arreglar una figura
 1. Leer solo `figures/_template.R`, el bloque del tipo en `R/05_charts.R` y en `R/09_wjpr.R` (`grep -n "^## Bloque"`),
-   una figura aprobada del mismo tipo y `reference/<slug>/Figure_NN_slug.csv` (labels, textos y orden exactos).
-2. Escribir `figures/fig_NN_slug.R` y su fila del manifiesto (la de una figura del mismo tipo; `status`, `verificada` y
-   `wjpr` los actualiza el cierre de cada etapa).
+   una figura del mismo tipo (las 42 son `status ok`) y `reference/<slug>/Figure_NN_slug.csv` (textos y orden exactos).
+2. Escribir `figures/fig_NN_slug.R` y su fila del manifiesto (copia de una del mismo tipo). Figura nueva: slug nuevo
+   en minúsculas_con_guiones (nombra tabla, SVG y referencia), `status todo`, `verificada` y `pagina` vacías, código de
+   origen «nuevo» + las funciones que usa, y la regla de muestra pequeña de su sección (`small_sample(ctx)`).
 3. Iterar con `… main.R --stage figures --figs NN` hasta `ok` (da el motivo de `error`, `tamaño`, `texto` o `png`).
-4. Fijar `h_in` (3 decimales): con wjpr el SVG sale siempre al tamaño del manifiesto y un alto equivocado lo ve
-   `parecido`; con svg_r es el que mide `chart_<tipo>()`. Agrupadas: (6 + 15.5·filas + 22·encabezados) / 72 in;
-   horizontales: (24 + 22·filas) / 72 in. Si cambia solo para un país (la 5 y la 11: el log da el que pide), va en `manifest/figures_<slug>.csv` (`fig,h_in`).
-5. `Rscript src/src_reports/main.R --stage all --figs NN` → `ok` en verify; mirar `output/<slug>/compare/`. 6. Un valor
-   que difiere del publicado no se fuerza: va a la `nota` del manifiesto (`[conocida: <label>=<text>]` → conocida).
+4. `h_in` (3 decimales; el SVG sale a ese alto). Agrupadas: (6 + 15.5·filas + 22·encabezados) / 72 in, filas = `avg` +
+   `row` con las N/A (short: 12 + 4 → 4.104 sin UE, 4.319 con UE): si no cabe, `tamaño` con el h_in; si sobra, aviso.
+   Horizontales: (24 + 22·filas) / 72. Por país (5, 11, agrupadas; el log lo da): `manifest/figures_<slug>.csv`.
+5. `… --stage all --figs NN` → `ok` en verify (sin publicada: «sin referencia»/«sin publicada», y el criterio es `ok`
+   en `log/figures_status.csv`); mirar `output/<slug>/compare/`. 6. Un valor que difiere del publicado no se fuerza: va
+   a la `nota` del manifiesto (`[conocida: <label>=<text>]` → conocida).
 
 ## Reglas duras
 - No modificar, mover ni borrar nada fuera de `src/src_reports/`. Microdatos solo en el caché (`cache/`, `cache_dir` o
