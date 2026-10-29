@@ -99,9 +99,10 @@ fig_05 <- list(
                 series)
   },
 
-  # Dibujo: WJP_theme() + wjp_palette() + complementos (wjpr_network, R/09_wjpr.R; metodo wjpr: WJPr no tiene grafo
-  # de red): aristas (las "sig") con ancho y opacidad según el lift, nodos con relleno por centralidad (suma de los
-  # lifts de todas las parejas) y rótulos nombre + text sobre las coordenadas x, y del df (lienzo = caja de los nodos),
-  # al ancho del manifiesto; aviso en el log si el alto que pide el layout no es el h_in del manifiesto.
+  # Dibujo: WJPr::wjp_network() con sus argumentos (wjpr_network, R/09_wjpr.R; revisión 5, WJPr 1.2.0): aristas (las
+  # "sig") con ancho y opacidad según el lift, nodos con relleno por centralidad (suma de los lifts de todas las
+  # parejas; complemento si alguna no se dibuja) y rótulos nombre + text sobre las coordenadas x, y del df (lienzo =
+  # caja de los nodos), al ancho del manifiesto; aviso en el log si el alto que pide el layout no es el h_in del
+  # manifiesto.
   plot = function(df, spec) wjpr_network(df, spec)
 )

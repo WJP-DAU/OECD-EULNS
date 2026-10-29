@@ -162,9 +162,10 @@ chrome_version <- function(chrome) {
 # deps.csv: paquete, version, origen, modo (exacta | minima | opcional), uso. Falta de 'minima' detiene; desajuste de
 # 'exacta' avisa (cabecera y log); 'opcional' se registra en el log con su versión o "ausente", sin cargarlo (los
 # ausentes quedan en .sr$deps_optional_missing y en el log). En 'exacta', si origen fija un commit
-# ("github worldjusticeproject-org/WJPr@382aee9") se compara también la build instalada (deps_exact_mismatch): dos
-# builds de WJPr con la misma versión 1.1.0 dibujan distinto (la del 13-jul y la rama main). Que una figura con
-# metodo wjpr no se pueda dibujar sin WJPr lo comprueba check_method_deps() en la etapa figures.
+# ("github worldjusticeproject-org/WJPr@1664a23") se compara también la build instalada (deps_exact_mismatch): dos
+# builds de WJPr con la misma versión pueden dibujar distinto (pasó con 1.1.0: la del 13-jul y la rama main). Que una
+# figura con metodo wjpr no se pueda dibujar sin WJPr lo comprueba check_method_deps() en la etapa figures, y que la
+# build sea anterior a la 1.2.0 que necesitan los adaptadores, wjpr_require() (R/09_wjpr.R).
 check_deps <- function(cfg) {
   deps <- read_csv(cfg$paths$deps, col_types = cols(.default = col_character()), na = character())
   ver <- function(p, modo) {
@@ -194,7 +195,7 @@ check_deps <- function(cfg) {
   invisible(deps)
 }
 
-# Commit que fija la columna origen ("github worldjusticeproject-org/WJPr@382aee9" → "382aee9"); NA si no trae "@sha"
+# Commit que fija la columna origen ("github worldjusticeproject-org/WJPr@1664a23" → "1664a23"); NA si no trae "@sha"
 dep_sha_expected <- function(origen) {
   m <- regmatches(origen, regexec("@([0-9a-fA-F]{7,40})([^0-9a-fA-F]|$)", origen))
   vapply(m, function(x) if (length(x) >= 2) tolower(x[2]) else NA_character_, "")
@@ -223,8 +224,10 @@ deps_exact_mismatch <- function(deps) {
 }
 
 # Paquetes sin los que un metodo de dibujo no funciona, aunque deps.csv los declare 'exacta' (que solo avisa): las
-# figuras con metodo wjpr se dibujan con WJPr, y wjp_groupbars y wjp_edgebars usan ggtext (geom_richtext).
-METHOD_DEPS <- list(wjpr = c("WJPr", "ggtext"))
+# figuras con metodo wjpr se dibujan con WJPr. corregido (integración 1.2.0, 2026-10-28): sin ggtext, que ya no usa
+# ningún adaptador (las agrupadas van en modo fila; wjp_edgebars y wjp_groupbars en modo strip, que sí lo usan, no
+# dibujan ninguna figura del reporte)
+METHOD_DEPS <- list(wjpr = c("WJPr"))
 
 # Si alguna figura seleccionada tiene un metodo de METHOD_DEPS y falta uno de sus paquetes, error legible (la etapa
 # figures se detiene antes de dibujar, en vez de un "there is no package called 'WJPr'" por figura) con cómo instalarlo
@@ -529,3 +532,8 @@ closing_line <- function(rows, log = log_path()) {
 ##   diferencias; origen @deadbee → "WJPr 1.1.0@382aee9 ≠ 1.1.0@deadbee"; exacta ausente → instalada NA; origen sin
 ##   commit → solo la versión. main.R con SRC_REPORTS_LIB de la rama main (instalada desde un clon) → cabecera "aviso
 ##   deps.csv: WJPr 1.1.0@local (esperada 1.1.0@382aee9: otra build con la misma versión)".
+## WJPr 1.2.0 (M1, 2026-10-27/28; SCRATCH/fix5/M1/pruebas): con deps.csv en 1.2.0@1664a23 (solo cambian aquí
+##   comentarios) main.R --stage all --figs 01,04,09 --strict sin «aviso deps.csv» y 3/3 ok; con SRC_REPORTS_LIB de
+##   1.1.0@382aee9 → "aviso deps.csv: WJPr 1.1.0@382aee9 (esperada 1.2.0@1664a23)" y la etapa figures se detiene en
+##   wjpr_require() (R/09_wjpr.R) con el error legible. deps.csv entra en la clave del master: tras cambiarlo, la
+##   primera corrida relee el .dta (load_ctx).

@@ -249,8 +249,24 @@ chart_dumbbell <- function(df, spec, legend, st = ST_DUMB) {
 ## 100. Medidas ST_HBARS; label_col hbars (172 pt): W = L + 12 + track + value_w + 6 = 524 pt = 7.278 in (W_hbars,
 ## standard_figures.R:463). Referencia: reference/<slug>/Figure_13_*.csv (y 14, 18, 19, 36). Origen:
 ## report_charts.R:224-242 chart_hbars_axis(spec, L, st) ← src/viz/horizontal_bars.R gen_horizontal_bars (eje 0-100 %).
-## Pendiente (Etapa 3).
-rows_hbars <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## rows_hbars: tbl = tibble(category, value) de contacted_shares() o reason_shares() (R/03_estimators.R). Orden: más
+## citado primero (arrange(desc(value)) estable: los empates conservan el orden de tbl; NA al final), como
+## gen_horizontal_bars (horizontal_bars.R:10) y spec_hbars (standard_figures.R:336); text = fmt_num(value, decimals)
+## ("54%"; el original paste0(round(x), "%") imprimía "NA%" donde el contrato pone "N/A"). chart_hbars_axis
+## (respaldo svg_r) sigue pendiente: dibuja wjpr_hbars.
+# corregido (integración del lote 8-19, 2026-10-28): la implementación de hbars_rows() del agente L2, que vivía en
+# 03_estimators.R mientras este esqueleto seguía en stop("pendiente")
+rows_hbars <- function(tbl, decimals = 0) {
+  need <- c("category", "value")
+  if (!all(need %in% names(tbl))) stop("rows_hbars: tbl debe tener columnas category y value", call. = FALSE)
+  if (nrow(tbl) == 0) stop("rows_hbars: tbl sin filas (ningún encuestado en la base de la figura)", call. = FALSE)
+  out <- tbl %>%
+    arrange(desc(value)) %>%
+    transmute(order = row_number(), kind = "row", grouping = "", label = as.character(category),
+              value = as.numeric(value), value2 = NA_real_, text = fmt_num(value, decimals), text2 = "")
+  log_msg("rows_hbars: ", nrow(out), " filas · ", paste(sprintf("%s %.2f", out$label, out$value), collapse = " / "))
+  out
+}
 chart_hbars_axis <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
 
 
@@ -273,8 +289,17 @@ chart_columns <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
 ## por "\n" y, sin "\n", la ajusta a funnel_label_w con wrap_text() (report_charts.R:285-287): text_width() y
 ## text_path() no aceptan "\n". drawn frac = value / max(value), el ancho de la barra relativo a la más ancha (la primera
 ## etapa: frac 1 en la referencia). Medidas ST_FUNNEL; W = spec$w_in * 72. Origen: report_charts.R:284-309
-## chart_funnel(rows, W, st) (diseño de charts5.py); datos journey(ctx) (03_estimators.R ← R03.R). Pendiente (Etapa 3).
-rows_funnel <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## chart_funnel(rows, W, st) (diseño de charts5.py); datos journey(ctx) (03_estimators.R ← R03.R).
+## rows_funnel: values = vector con nombre (nombre = la etapa tal como se imprime, valor = %), en el orden del diseño
+## (de arriba abajo); frac no va en el df: la calcula el adaptador (wjpr_funnel). chart_funnel (respaldo svg_r) sigue
+## pendiente: dibuja wjpr_funnel.
+# origen: standard_figures.R:108-119 (funnel_rows). La usan fig_08 y fig_34. corregido (integración del lote 8-19,
+# 2026-10-28): la propuesta del agente L1, que armaba el df en fig_08 mientras este esqueleto seguía pendiente
+rows_funnel <- function(values, decimals = 0) {
+  v <- unname(as.numeric(values))
+  tibble(order = seq_along(v), kind = "stage", grouping = "", label = names(values), value = v, value2 = NA_real_,
+         text = fmt_num(v, decimals), text2 = "")
+}
 chart_funnel <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
 
 

@@ -10,7 +10,7 @@
 ## (respaldo: chart_out de chart_<tipo>(), R/05_charts.R), ggplot (lienzo × base_pt / text_pt) y static.
 ## Usa de 00_setup.R: load_figure(), figure_file(), figure_stem(), log_msg(), first_line(), check_method_deps(); de
 ## 01_load.R: secs(), rel_path(), ctx_key(); de 04_svg.R: svg_size(), outline_svg_text(), set_size(),
-## count_live_text(); de 09_wjpr.R: wjpr_require(), wjpr_build(), wjpr_native_font(), wjpr_complementos(),
+## count_live_text(); de 09_wjpr.R: wjpr_require(), wjpr_build(), wjpr_complementos(),
 ## wjpr_texts(), wjpr_text_diff(), wjpr_drawn(), wjpr_drawn_complete(), wjpr_norm_text().
 ## drawn.csv (revisión 4, contrato extendido): order, kind, grouping, label, frac, frac2, text, text2 (WJPR_DRAWN_COLS)
 ## + label_drawn, grouping_drawn, val, val2 (WJPR_DRAWN_OPT; NA = no expuesto), en todos los métodos.
@@ -491,15 +491,15 @@ export_figure <- function(spec, ctx, cfg, run_id, png = TRUE) {
 # manifiesto; spec$selected == FALSE → "omitida". Estados: ok | error | png | tamaño | texto | dibujo | omitida
 # (dibujo: el valor que codifica la geometría, val/val2 de lo dibujado por fila, no es el de df; revisión 4).
 # Antes de dibujar, check_method_deps() (00_setup.R) detiene la etapa con un error legible si una figura seleccionada
-# con metodo wjpr no tiene WJPr o ggtext; con WJPr, wjpr_require() fija la fuente nativa si la build la tiene (como
-# la galería) y el log registra la build que dibuja.
+# con metodo wjpr no tiene WJPr o ggtext; con WJPr, wjpr_require() exige WJPr ≥ 1.2.0 y fija options(wjpr.family)
+# (como la galería) y el log registra la build que dibuja.
 run_figures <- function(specs, ctx, cfg, run_id, png = TRUE) {
   if (png && is.na(cfg$paths$chrome)) log_msg("Chrome no encontrado: se omiten los PNG")
   if (!png) log_msg("PNG omitidos (png = FALSE)")
   check_method_deps(specs, cfg)
   if (any(vapply(specs, function(s) isTRUE(s$selected %||% TRUE) && identical(s$metodo, "wjpr"), logical(1)))) {
     wjpr_require()
-    log_msg("WJPr ", wjpr_build(), " · fuente nativa ", wjpr_native_font(), " · complementos ", wjpr_complementos())
+    log_msg("WJPr ", wjpr_build(), " · complementos ", wjpr_complementos())
   }
   rows <- lapply(specs, function(spec) {
     if (!isTRUE(spec$selected %||% TRUE)) {

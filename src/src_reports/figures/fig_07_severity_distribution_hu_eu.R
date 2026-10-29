@@ -42,8 +42,8 @@ fig_07 <- list(
                 value2 = NA_real_, text = "", text2 = "")
   },
 
-  # Dibujo: WJPr::wjp_bars() vertical + complementos (wjpr_severity_bars, R/09_wjpr.R; metodo wjpr): series lado a
-  # lado (dodge 0.8, ancho 0.75), leyenda arriba ({country} | EU Average), línea de corte discontinua en 3.5 (umbral de
-  # no trivial) y el tema de F03 en pt finales.
+  # Dibujo: WJPr::wjp_bars() vertical de WJPr 1.2.0 con sus argumentos, sin complementos (wjpr_severity_bars,
+  # R/09_wjpr.R; metodo wjpr; revisión 5): series lado a lado (dodge 0.8, ancho 0.75), leyenda arriba ({country} | EU
+  # Average), línea de corte discontinua en 3.5 (umbral de no trivial, ref_lines) y el tema de F03 en pt finales.
   plot = function(df, spec) wjpr_severity_bars(df, spec)
 )

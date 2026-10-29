@@ -20,11 +20,11 @@ layout:
 verify:
   tol_pp: 0.6                # puntos porcentuales (valor crudo vs referencia)
   tol_frac: 0.006            # fracción de barra dibujada vs publicada (drawn.csv: chart_<tipo> en svg_r; en wjpr, lo
-                             # dibujado por fila que expone el adaptador: hoy 8 de 13, 29 figuras)
+                             # dibujado por fila que expone el adaptador: los 13, las 42 figuras)
   size_tol_in: 0.01          # alto del SVG vs manifiesto
   min_f1: 0.995              # metodo wjpr: parecido mínimo con el PNG publicado (f1 de tinta a 96 dpi, wjpr_similarity;
-                             # 1 = mismo dibujo). Con WJPr 1.1.0@382aee9 las 42 dan 0.996-1.000; con la rama main
-                             # (a46c831) y los mismos complementos, la 09 da 0.907 y la 10 0.419 (23-oct)
+                             # 1 = mismo dibujo). Con WJPr 1.2.0@1664a23 y sus argumentos (28-oct) las 42 dan
+                             # 0.997-1.000; el 23-oct, con 1.1.0@382aee9 y complementos, 0.996-1.000
   max_local: 0.5             # metodo wjpr: diferencia LOCAL máxima con la publicada (parecido_local; wjpr_similarity):
                              # peor ventana de local_block_px × local_block_px px a 96 dpi, fracción de píxeles cuyo
                              # color (máx. |Δ| RGB) difiere en más de local_delta de todos los de la otra imagen a ≤ 1 px,

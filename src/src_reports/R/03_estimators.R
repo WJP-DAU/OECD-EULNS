@@ -3,8 +3,9 @@
 ## adaptada a ctx); src/hungary/setup.R:125-166 (nat_est, eu_est, nuts_mean_long; adaptadas a ctx); src/hungary/R03.R:4-38
 ## (journey_vars; literal); src/hungary/F06.R:3-15 (perception_experience; adaptada a ctx); src/hungary/analysis_helpers.R:20-51
 ## (xt, xt_nat, diff_stratified; adaptadas a ctx); src/hungary/F02.R:3-12 (problems_long, figuras 3 y 7; literal, al
-## final); src/hungary/F01.R:6-7 (cooc_flags, figuras 5 y 6; adaptada a ctx, al final). Nuevas: memo(), eu_value(),
-## journey(), JOURNEY_VARS, with_journey(), fn_id().
+## final); src/hungary/F01.R:6-7 (cooc_flags, figuras 5 y 6; adaptada a ctx, al final); src/analysis/module_2_2.R:235-263,
+## 303-348 y module_2_3.R:203-231, 300-346 (contacted_shares, reason_shares; figuras 13, 14, 18, 19; al final). Nuevas:
+## memo(), eu_value(), journey(), JOURNEY_VARS, with_journey(), fn_id().
 ## Adaptación común a ctx: `regions` global → ctx$regions; `hu`/`master` → df (por defecto ctx$national); `pct` → `value`;
 ## el país es ctx$country (sin study_countries). Sin efectos secundarios: nada escribe ni imprime (log_msg solo agregados).
 ## Firma: ctx primero en todo, salvo problems_long(df, extra), que es literal y no estima: solo pasa a formato largo el
@@ -654,3 +655,74 @@ cooc_flags <- function(ctx) {
 ## 1_5_lift_matrix_<país>.csv (66 parejas, |Δ| ≤ 2e-15) y prevalencias = P_A/P_B de 1_5_lift_top_pairs.csv.
 ## Revisión 3 (grupo F2, 2026-10-23): solo comentarios (encabezado y estas dos secciones); problems_long y cooc_flags
 ## sin cambios de código (las tablas de 3, 5, 6 y 7 del país del reporte son las de antes).
+
+## Barras horizontales: a quién se acudió y motivos para no acudir (figuras 13, 14, 18, 19) ----------------------
+## Las cuatro comparten el estimador del original, que no es get_nuts_avg/get_wgt_national_avg: por región NUTS, casos /
+## encuestados de la región × regionpoppct, sumado sobre las regiones del país × 100, SIN renormalizar a las regiones
+## con dato y SIN suprimir n < 30. 13 y 18 (contactados) comparten la agregación; 14 y 19 (motivos) toda la función.
+
+# origen: module_2_2.R:235-263 (contacted_advisers, fig 13) = module_2_3.R:203-231 (contacted_mechanisms, fig 18), la
+# agregación ponderada, literal salvo lo marcado. df_full = una fila por encuestado del país con country_name_ltn,
+# nuts_id, none (lógico: no acudió a nadie) y las columnas cols (lógicas: acudió o no a cada uno), ya recodificadas por
+# la figura (la recodificación difiere entre 13 y 18 y vive en su archivo). Devuelve tibble(category = cols, value) en
+# el orden de cols (value % 0-100, sin redondear). Un NA en cols (código fuera de la recodificación) da NA en su región
+# y en el país, como sum(x) del original. adaptado: regions → ctx$regions; across(everything()) y
+# starts_with("AJD_adviser_"/"AJR_") → all_of(cols) (mismas columnas); sin pivot a la columna del país (country_name_ltn
+# = "national_avg"): una sola columna value.
+contacted_shares <- function(ctx, df_full, cols) {
+  regions <- ctx$regions
+  out <- df_full %>%
+    group_by(country_name_ltn, nuts_id) %>%
+    filter(none == FALSE) %>%
+    summarise(across(all_of(cols), \(x) sum(x)), nuts_size = n(), .groups = "keep") %>%
+    left_join(regions %>% select(nuts_id, wgt = regionpoppct), by = "nuts_id") %>%
+    mutate(across(all_of(cols), \(x) (x/nuts_size)*wgt)) %>%
+    group_by(country_name_ltn) %>%
+    summarise(across(all_of(cols), \(x) sum(x)*100)) %>%
+    pivot_longer(!country_name_ltn, names_to = "category", values_to = "value") %>%
+    select(category, value)
+  # nuevo: solo agregados al log (base, base con none == FALSE, regiones; los valores los registra rows_hbars)
+  log_msg("contacted_shares: base ", nrow(df_full), " encuestados · ", sum(df_full$none %in% FALSE), " con none == FALSE · ",
+          n_distinct(df_full$nuts_id), " regiones NUTS")
+  out
+}
+
+# origen: module_2_2.R:303-348 (access2representation_barriers, fig 14) = module_2_3.R:300-346 (access2DRM_barriers,
+# fig 19), literal salvo lo marcado. Motivo `target` (código) entre los encuestados con `filter_var` == 0 y motivo con
+# etiqueta; recode = el case_when de códigos a etiquetas de cada figura (función; NA = sin etiqueta → fuera). Por NUTS:
+# casos del motivo / encuestados de la región × regionpoppct; país = suma × 100 (na.rm, sin renormalizar ni n < 30).
+# Devuelve tibble(category, value) en el orden de summarise (etiqueta, locale C). adaptado: df por defecto
+# ctx$national (el original corría sobre los 27 países y filtraba después), regions → ctx$regions; sin write_csv
+# (2_x_5_*.csv), sin kable y sin pivot_wider a la columna del país.
+reason_shares <- function(ctx, target, filter_var, recode, df = NULL) {
+  if (is.null(df)) df <- ctx$national
+  regions <- ctx$regions
+  base <- df %>%
+    select(country_name_ltn, nuts_id, target = all_of(target), filtering = all_of(filter_var)) %>%
+    mutate(target = recode(target)) %>%
+    filter(filtering == 0 & !is.na(target))
+  # nuevo: solo agregados al log (base y motivos presentes; los valores los registra rows_hbars)
+  log_msg("reason_shares(", target, " entre ", filter_var, " == 0): base ", nrow(base), " encuestados · ",
+          n_distinct(base$target), " motivos · ", n_distinct(base$nuts_id), " regiones NUTS")
+  base %>%
+    group_by(country_name_ltn, nuts_id) %>%
+    mutate(total_sample = n()) %>%
+    group_by(country_name_ltn, nuts_id, target) %>%
+    summarise(reason_count = n(), total_sample = first(total_sample), .groups = "keep") %>%
+    left_join(regions %>% select(nuts_id, weight = regionpoppct), by = "nuts_id") %>%
+    mutate(proportion_weighted = (reason_count/total_sample)*weight) %>%
+    group_by(country_name_ltn, target) %>%
+    summarise(proportion_national = sum(proportion_weighted, na.rm = TRUE)*100, .groups = "keep") %>%
+    ungroup() %>%
+    select(category = target, value = proportion_national)
+}
+
+# rows_hbars() (R/05_charts.R) arma el df de las barras horizontales desde contacted_shares() y reason_shares().
+## Prueba (2026-10-28, copia fix5/L2): cd /private/tmp && Rscript L2/pruebas/p01_explorar.R (PR_COUNTRY = hungary,
+## poland, malta; ctx de cache/; solo agregados) y main.R --country <país> --stage all --figs 13,14,18,19 [--strict]
+## con WJPr 1.1.0 (SRC_REPORTS_LIB) y 1.2.0: país del reporte 4/4 ok en verify en las dos builds (etiquetas, textos y
+## orden = reference/hungary; max |Δ| 0.0013 en la 13, 0.0019 en la 18, < 0.0001 en 14 y 19); los valores de control
+## del plan (13: 54.32/22.26/21.15; 18: 59.75/56.03/51.19) salen en la línea rows_hbars del log. across() del mutate de
+## la 13 ve none creada en ese mismo mutate (TRUE → TRUE, NA → FALSE): sin eso filter(none == FALSE) vaciaría la tabla.
+## Sin códigos fuera de la recodificación (ningún NA) en el país del reporte, Poland ni Malta (configs de prueba):
+## figures ok, verify «sin referencia»; Malta da 7 filas en la 14 (sin el código 9). Nada de lo existente cambió.

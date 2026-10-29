@@ -85,7 +85,7 @@ fig_02 <- list(
                 text = fmt_num(pais, 0), text2 = fmt_num(eu, 0))
   },
 
-  # Dibujo: WJPr::wjp_bars() + complementos (wjpr_paired_bars, R/09_wjpr.R; metodo wjpr): país y UE lado a lado, con
-  # la leyenda {country} | EU Average de spec$country. Respaldo svg_r: chart_paired() de R/05_charts.R (pendiente).
+  # Dibujo: WJPr::wjp_bars() de WJPr 1.2.0 con sus argumentos, sin complementos (wjpr_paired_bars, R/09_wjpr.R;
+  # metodo wjpr; revisión 5): país y UE lado a lado, con la leyenda {country} | EU Average de spec$country. Respaldo svg_r: chart_paired() de R/05_charts.R (pendiente).
   plot = function(df, spec) wjpr_paired_bars(df, spec)
 )
