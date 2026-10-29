@@ -374,7 +374,12 @@ verify_figure <- function(spec, cfg, status = NULL) {
   }
   if (!file.exists(f_table)) return(done("sin salida"))
   if (identical(spec$metodo, "static")) return(done("estatica", "SVG estático: no se verifica"))
-  if (!file.exists(f_ref)) return(done("sin referencia", "corra tools/build_reference.R"))
+  # corregido (cierre, revisión de usabilidad): sin publicada (figura nueva o país sin reporte) no hay referencia que
+  # construir; antes el motivo pedía siempre tools/build_reference.R
+  if (!file.exists(f_ref)) {
+    pub <- file.path(cfg$paths$reference, "published", paste0(figure_stem(spec), ".png"))
+    return(done("sin referencia", if (file.exists(pub)) "corra tools/build_reference.R" else "sin publicada: figura nueva o país sin reporte"))
+  }
   st <- is_stale(status, f_table, f_svg, cfg, f_drawn)
   if (st$stale) return(done("desactualizada", st$why))
   wjpr <- identical(spec$metodo, "wjpr")

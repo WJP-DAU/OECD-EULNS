@@ -20,7 +20,7 @@ fig_15 <- list(
     rows_dumbbell(tbl, decimals = 0)
   },
 
-  # Dibujo: WJPr::wjp_dumbbells() + complementos (wjpr_dumbbell, R/09_wjpr.R; metodo wjpr), con la leyenda fija de
+  # Dibujo: WJPr::wjp_dumbbells() con sus argumentos (wjpr_dumbbell, R/09_wjpr.R; WJPr 1.2.0), con la leyenda fija de
   # dos líneas que trae por defecto (la misma de la 10). Respaldo sin WJPr: chart_dumbbell(df, spec, legend = <la
   # misma>) con metodo svg_r.
   plot = function(df, spec) wjpr_dumbbell(df, spec)

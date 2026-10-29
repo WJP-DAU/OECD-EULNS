@@ -5,9 +5,10 @@ de `EU_GPP_2024.dta`, con el mismo diseño, tamaño y tipografía que las public
 publicados. Pensada para reutilizarse con otro país (`config/<pais>.yml` + lo que lista «Añadir un país»); copiable tal
 cual a `automatic-reports/reports/pathways-to-justice-hungary/pipeline` (no hace `source()` de nada fuera de la carpeta).
 
-> Estado: **Etapa 3**, 2026-10-28: figuras 1-19 desde los microdatos y verificadas (lotes 1-7 y 8-19); las 42 se dibujan
-> con WJPr 1.2.0@1664a23 y sus argumentos (`metodo wjpr`; 6 figuras con un complemento, las demás con ninguno; ver
-> «WJPr»). Faltan los lotes 20-27, 28-37 y 38-42; Etapa 4 = cierre.
+> Estado: **cerrado** (Etapa 4, 2026-10-29): las 42 figuras salen de los microdatos y verifican 42/42 con `--strict`
+> (también desde una copia limpia, sin caché: 4.4 min). Se dibujan con WJPr 1.2.0@1664a23 y sus argumentos (`metodo
+> wjpr`; 6 figuras con un complemento, las demás con ninguno; ver «WJPr»). Los errores inyectados en el dibujo se
+> detectan (`tools/inyecciones/`).
 
 ## Requisitos
 - R 4.6.x con los paquetes de `deps.csv` (librería del sistema; no hace falta renv). `check_deps()` detiene si falta uno
@@ -47,7 +48,8 @@ La consola muestra solo la tabla resumen; el detalle va a `output/<slug>/log/run
 
 ## Consola, errores y códigos de salida
 - La consola muestra la cabecera (país, etapa, id de corrida, librería, renv, Chrome, locale y avisos), la tabla
-  `fig | metodo | estado | verificacion | archivo` y una línea de cierre con la ruta del log; el detalle va a
+  `fig | metodo | estado | verificacion | archivo` (con `--figs`, solo las elegidas; las omitidas siguen en los CSV) y una
+  línea de cierre con la ruta del log; el detalle va a
   `output/<slug>/log/run_<id>.log` (el id lleva milisegundos y PID: dos corridas a la vez no comparten log).
 - Un error que detiene una etapa se ve como `Error en la etapa <x>: <primera línea>` + `Detalle: <log>`, y la salida
   es 1. Una figura que falla no detiene a las demás: queda en `error` con su motivo (en `--stage all`, verify la
@@ -168,7 +170,7 @@ común y una columna o figura que no existe en el manifiesto es un error. `read_
 | `metodo_ue` | none · data4web · eu_est · eu_est_category · eu_est_distribution | `tools/build_reference.R` (con `eu_id`) |
 | `eu_id` | id de la media UE (varios con `;`) o "" | `tools/build_reference.R`: ids de data4web → `eu_values.csv` |
 | `wjpr` | adoptada (las 42 desde WJPr 1.2.0: cada tipo parte de su función, `wjp_groupbars`, `wjp_bars`, `wjp_dumbbells`, `wjp_funnel`, `wjp_cards`, `wjp_heatmap`, `wjp_scatter`, `wjp_network`, `wjp_upset` o `wjp_sankey`) · tema (histórico, 1.1.0: solo `WJP_theme()`/`wjp_palette()`) | documentación (`main.R` la lee para una nota de cabecera) |
-| `status`, `verificada` | plan de la figura (hoy `todo`) y fecha de su verificación (vacía) | nadie: los actualiza el cierre de cada etapa |
+| `status`, `verificada` | `ok` y fecha de su última verificación (las 42: 2026-10-29); una figura nueva entra con `todo` y vacía | nadie: los actualiza el cierre de cada etapa |
 | `nota` | texto libre + `[conocida: <label>=<text>]` | 07 (discrepancias conocidas) |
 
 ## Discrepancias conocidas con lo publicado (no se fuerzan)
@@ -195,7 +197,8 @@ Hoy solo Hungría tiene reporte publicado y referencia; para otro país hace fal
    fuentes no son del país (carpeta `output/viz/<country>`, `<country>_jg_upset.svg`, columna del país en F03.csv, títulos de
    `00-INDICE.csv`). Sin referencia, verify da "sin referencia" y compare "sin publicada".
 3. Manifiesto del país (`manifest/figures_<slug>.csv`): el `h_in` de las figuras cuyo número de filas cambia (ver
-   CLAUDE.md, «Fijar h_in»), el de la red (5: el alto depende del layout del país; el log da la fila a poner, p. ej.
+   CLAUDE.md, paso 4 de «Cómo añadir o arreglar una figura»: en las agrupadas figures da `tamaño` si no cabe y un aviso
+   con el h_in si sobra espacio), el de la red (5: el alto depende del layout del país; el log da la fila a poner, p. ej.
    «5,6.402» en Finlandia) y las notas. Las notas `[conocida: …]` y los números de `fuente_datos` del común son de
    Hungría; los slugs `*_hu_eu` (2, 7, 30) son nombres de archivo y se conservan.
 4. Muestra pequeña: `small_sample: true` en `config/<pais>.yml` (como `country_config[[país]]$small_sample` de
@@ -268,8 +271,8 @@ manifiesto y `plot = function(df, spec) chart_<tipo>(df, spec)` vuelven a la fig
     donde las dos son planas, para los colores claros) ≤ `max_local` = 0.5 (`wjpr_similarity()`). Ve una barra unos pp
     más larga, colores de banda o de serie cambiados, un tono de relleno; la nota da el centro de la peor ventana en
     pulgadas. Calibrado el 23-oct con las 42 de la galería y los errores provocados de la revisión V3: correctas
-    0.000-0.444, errores 0.833-1.000. La 42 (desde la referencia) daba 0.715 por una diferencia real: el texto de su
-    tarjeta 42 % sale negro (publicada: blanco).
+    0.000-0.444, errores 0.833-1.000. La 42 daba 0.715 con la escala de color 30/55 de la referencia (tarjeta del 42 %
+    en negro); con la escala común 29/55 de la publicada (corregida el 29-oct) da 0.000.
   - por fila (`drawn.csv`, como en svg_r), en los adaptadores que exponen lo dibujado (`attr(p, "wjpr")$drawn`, leído
     de `ggplot_build()`): en cada posición, la fila del df que la ocupa según el dibujo (`order, kind, grouping,
     label`), la fracción de su barra (`frac`, `frac2`), el texto impreso en ella (`text`, `text2`), el nombre impreso
@@ -332,7 +335,8 @@ manifiesto y `plot = function(df, spec) chart_<tipo>(df, spec)` vuelven a la fig
 `data()` si la figura existe; si no, desde la referencia) y mide textos (la regla de figures), fuente, parecido con lo
 publicado (f1 y local, con los umbrales de verify) y lo dibujado por fila frente a la referencia →
 `output/<slug>/wjpr/00-wjpr.csv` (columnas `f1_publicada`, `local_publicada`, `local_xy_in`, `por_fila`, `dibujo` = ok o
-lo que no pasaría verify), `index.html` y `compare/`. Barras agrupadas con 1.2.0@1664a23 (27-oct): 20/20 ok, textos
+lo que no pasaría verify), `index.html` y `compare/`. Las 42 con 1.2.0@1664a23 y su `data()` (29-oct): 42/42 ok, textos
+iguales, f1 0.997-1.000, local ≤ 0.354, por fila «n filas ok». Barras agrupadas con 1.2.0@1664a23 (27-oct): 20/20 ok, textos
 iguales, f1 1.000, local 0.000, por fila «n filas ok», 0 complementos, SVG idénticos con y sin `--sin-complementos` y del
 tamaño exacto del manifiesto (antes, con 1.1.0@382aee9 y 9-11 complementos: los mismos f1 y local). Resultado del
 23-oct con 1.1.0@382aee9 y con main (a46c831), las 42: f1 0.996-1.000, local 0.000-0.444 en 41 y 0.715 en la 42; 367
@@ -368,9 +372,12 @@ Salidas del piloto en `output/<slug>/compare/`: `pilot_wjpr_figNN.svg|png`, `pil
 `pilot_wjpr_criterios.csv` (fig, tipo, función, criterio, esperado, obtenido, cumple); `Rscript
 src/src_reports/tools/pilot_wjpr.R` lo repite.
 
-## Tiempos (medidos el 2026-10-22 y 23, MacBook, .dta ya descargado)
+## Tiempos (medidos el 2026-10-22, 23 y 29, MacBook, .dta ya descargado)
 | Etapa | Tiempo |
 |---|---|
+| Las 42 desde una copia limpia (sin `cache/` ni `output/`; 29-oct, WJPr 1.2.0) | 4.4 min: data 77 s, figures 159 s (con PNG), verify 21 s, compare 7 s |
+| `--stage all --strict`, las 42, con caché (29-oct) | 132 s |
+| `tools/inyecciones/correr.sh` (47 por main.R + 43 simuladas) | 30-60 min |
 | `--stage data` en frío (`--force`) | 33 s (lectura del `.dta` 3 s; variables y master de 27 países 28 s) · la primera vez OneDrive tarda además ~50 s en descargar los 295 MB |
 | `--stage data` con caché | 3 s |
 | `--stage data` tras cambiar 01/02 o `deps.csv` (reconstruye el master, 23-oct) | 40-63 s |

@@ -283,7 +283,7 @@ save_ggplot_svg <- function(plot, spec, cfg, svg) {
 save_figure <- function(out, df, spec, cfg, png = TRUE) {
   p <- figure_paths(spec, cfg); tag <- sprintf("fig %02d", spec$fig)
   if (anyNA(c(spec$w_in, spec$h_in))) stop("w_in/h_in faltan en el manifiesto (fig ", spec$fig, ")", call. = FALSE)
-  dif <- NULL; vdif <- NULL; mk <- character(); dud <- NULL; wj <- NULL; wt <- NULL
+  dif <- NULL; vdif <- NULL; mk <- character(); talla <- NA_character_; dud <- NULL; wj <- NULL; wt <- NULL
   if (identical(spec$metodo, "static")) {
     src <- file.path(cfg$paths$root, "static", paste0(p$stem, ".svg"))
     if (!file.exists(src)) stop("No existe static/", basename(src), " (metodo static)", call. = FALSE)
@@ -351,6 +351,20 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
         })
         if (length(mk)) log_msg(tag, ": marca fija del diseño ausente del dibujo: ", paste(mk, collapse = "; "))
       }
+      # corregido (cierre, revisión de usabilidad): el alto que pide el diseño (attr(p, "wjpr")$alto, hoy las agrupadas)
+      # frente al h_in del manifiesto: menor → estado "tamaño" (el dibujo se recorta abajo); mayor → aviso con el h_in
+      # que pide (sobra espacio abajo; un país con menos filas, p. ej. small_sample). Antes los dos quedaban ok y, sin
+      # figura publicada (una figura nueva), nada lo veía
+      if (is.numeric(meta$alto) && length(meta$alto) == 1 && is.finite(meta$alto)) {
+        d_in <- spec$h_in - meta$alto; tol_in <- cfg$verify$size_tol_in %||% 0.01
+        if (d_in < -tol_in) {
+          talla <- sprintf("el diseño pide h_in = %.3f in y el manifiesto da %s: se recorta abajo", meta$alto, fmt_in(spec$h_in))
+        } else if (d_in > tol_in) {
+          log_msg(tag, " aviso: el diseño pide h_in = ", sprintf("%.3f", meta$alto), " in y el manifiesto da ", fmt_in(spec$h_in),
+                  " (sobra espacio abajo): fíjelo en manifest/figures_<slug>.csv con la fila «", as.integer(spec$fig), ",",
+                  sprintf("%.3f", meta$alto), "» (columna h_in)")
+        }
+      }
       wj <- list(build = wjpr_build(), complementos = if (is.null(meta)) NA_integer_ else length(meta$complementos),
                  textos = wt$resumen, drawn = if (is.null(dr)) NA_integer_ else nrow(dr))
       log_msg(tag, ": WJPr ", wj$build, " · base ", meta$base %||% "?", " · ", wj$complementos, " complementos (",
@@ -370,6 +384,7 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
   if (abs(size$width_in - spec$w_in) > 0.001 || abs(size$height_in - spec$h_in) > cfg$verify$size_tol_in) {
     flag("tamaño", sprintf("tamaño %s×%s in ≠ %s×%s del manifiesto", fmt_in(size$width_in), fmt_in(size$height_in), fmt_in(spec$w_in), fmt_in(spec$h_in)))
   }
+  if (!is.na(talla)) flag("tamaño", talla)
   n_text <- count_live_text(p$svg)
   if (n_text > 0) {
     flag("texto", sprintf("%d <text> vivos en el SVG", n_text))

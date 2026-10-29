@@ -24,7 +24,7 @@ fig_16 <- list(
     rows_sankey(j, "drm")
   },
 
-  # Dibujo: WJP_theme()/wjp_palette() + complementos (wjpr_sankey, R/09_wjpr.R; metodo wjpr: WJPr no tiene sankey),
+  # Dibujo: WJPr::wjp_sankey() con sus argumentos (wjpr_sankey, R/09_wjpr.R; WJPr 1.2.0),
   # con los rótulos y encabezados fijos de sankey_def("drm"), que el adaptador deduce del nodo "turned" de la columna
   # 2; ancho del manifiesto (8.4 in). Respaldo sin WJPr: chart_sankey(df, spec, "drm") con metodo svg_r.
   plot = function(df, spec) wjpr_sankey(df, spec)

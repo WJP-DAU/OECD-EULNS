@@ -3,11 +3,11 @@
 ## rellene el encabezado y las dos funciones. main.R lo carga con sys.source() en un entorno propio y espera
 ## que el archivo termine definiendo fig_NN <- list(data, plot). Nada más se ejecuta al cargar.
 ##
-## Encabezado obligatorio (4 líneas, antes del objeto):
+## Encabezado obligatorio (4 campos antes del objeto; un campo largo sigue en líneas «##   »):
 ##   ## Figura NN · <titulo del manifiesto, con {country}>
 ##   ## Fuente de datos: <variables y estimador; de dónde sale la media UE si la hay>
 ##   ## Método UE: none | data4web | eu_est | eu_est_category | eu_est_distribution
-##   ## Código de origen: <archivo:líneas del repo de donde se portó>
+##   ## Código de origen: <archivo:líneas del repo de donde se portó> (figura nueva: «nuevo» + las funciones que usa)
 ##
 ## Contrato (también en CLAUDE.md):
 ##  - data(ctx) devuelve un tibble con las 8 columnas fijas: order, kind, grouping, label, value, value2, text,
@@ -47,7 +47,9 @@
 ## Ejemplo completo: barras agrupadas con media UE de data4web (patrón de 1, 9, 17, 20, 22, 23, 25 y 38-40).
 ## Sustituya fig_NN por el número real. corregido: la lista anterior mezclaba figuras con eu_est o sin media UE.
 ## Las demás agrupadas cambian la media UE: eu = eu_est(ctx, "<var>") en 12, 28 y 31, y con transform =
-## binary_agree en 33 y 35; eu = NULL en 4, 21, 24 y 26. La 4 es además una media 0-10 (decimals = 1 y scale = 10
+## binary_agree en 33 y 35; sin media UE (21, 24, 26) rows_grouped(tbl, decimals = 0), como fig_21. Muestra pequeña:
+## las de las secciones 2.1-2.5 quitan grupos con small_sample(ctx) (9, 12: Category; 17-25: + Age Group; 26: Age
+## Group y Problem Status); una figura nueva sigue la regla de su sección o lo anota en la nota del manifiesto. La 4 es además una media 0-10 (decimals = 1 y scale = 10
 ## en rows_grouped) y la 27 no usa rows_grouped (sin fila National; ver su encabezado): wjpr_grouped_bars(df, spec)
 ## reconoce las dos por spec$fig (respaldo svg_r de la 4: chart_grouped(df, spec, track = FALSE, value_at_end =
 ## TRUE, scale = 10)).
@@ -67,7 +69,7 @@ fig_NN <- list(
   # short + Category + Co-occurrent Problems; trust = short + Problem Status + Non-Trivial Problem Experienced;
   # custom_1 = short + Problem Status + Resolution. omit = c("Category") quita grupos por su nombre (clabel).
   data = function(ctx) {
-    tbl <- get_results_table(ctx, target = "access2info", ctype = "full")
+    tbl <- get_results_table(ctx, target = "access2info", ctype = "full", omit = if (small_sample(ctx)) "Category")
     rows_grouped(tbl, eu = eu_value(ctx, "data4web", "access2info"), decimals = 0)
   },
 

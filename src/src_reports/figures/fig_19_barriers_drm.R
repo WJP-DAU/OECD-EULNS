@@ -29,7 +29,7 @@ fig_19 <- list(
       rows_hbars(decimals = 0)
   },
 
-  # Dibujo: WJPr::wjp_bars(direction = "horizontal") + complementos (wjpr_hbars, R/09_wjpr.R; metodo wjpr). Respaldo
+  # Dibujo: WJPr::wjp_bars(direction = "horizontal") con sus argumentos (wjpr_hbars, R/09_wjpr.R; WJPr 1.2.0). Respaldo
   # sin WJPr: chart_hbars_axis(df, spec) de R/05_charts.R con metodo svg_r (sin portar: error legible).
   plot = function(df, spec) wjpr_hbars(df, spec)
 )
