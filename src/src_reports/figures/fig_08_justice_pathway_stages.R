@@ -29,6 +29,6 @@ fig_08 <- list(
 
   # Dibujo: WJPr::wjp_funnel() con sus argumentos (wjpr_funnel, R/09_wjpr.R; WJPr 1.2.0): barras centradas de ancho
   # value / max, conectores y rótulos a la izquierda con el salto de línea del df. Respaldo sin WJPr: chart_funnel(df,
-  # spec) con metodo svg_r (pendiente en R/05_charts.R).
+  # spec) con metodo svg_r (sin portar: error legible, R/05_charts.R).
   plot = function(df, spec) wjpr_funnel(df, spec)
 )

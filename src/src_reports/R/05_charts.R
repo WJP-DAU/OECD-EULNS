@@ -3,8 +3,11 @@
 ## vez de la spec con v1_frac / v1_text); report_charts.R:180-217 (chart_dumbbell, cuerpo literal; v1 = percepción,
 ## v2 = experiencia) con la pista de standard_figures.R:469-471; report_charts.R:311-382 y standard_figures.R:126-171
 ## (bloque sankey: chart_sankey, sankey_def, rows_sankey); figure_specs.R:186 (formato de los valores impresos:
-## formatC(round(x, decimals), format = "f", digits = decimals)). Los demás bloques (report_charts.R:150-178, 220-310,
-## 383-431) se portan en la Etapa 3: aquí solo el encabezado con el mapeo de columnas y stop("pendiente").
+## formatC(round(x, decimals), format = "f", digits = decimals)). corregido (cierre, 2026-10-29): desde la adopción
+## de WJPr (23-oct) las 42 se dibujan con wjpr_<tipo>() (R/09_wjpr.R); de los respaldos chart_<tipo>() solo se
+## portaron los de agrupadas, pesas y sankey; los demás dan un error legible (chart_sin_respaldo). Los rows_<tipo>()
+## que usan dos o más figuras viven aquí (agrupadas, pesas, sankey, barras horizontales, columnas, embudo, tarjetas);
+## los tipos de una sola figura (pareadas, red, dispersión, matriz, severidad, upset) arman su df en su archivo.
 ## Convención: rows_<tipo>(…) devuelve el df de §4.4 — order, kind, grouping, label, value, value2, text, text2 — con
 ## todo número impreso en text/text2 vía fmt_num(); chart_<tipo>(df, spec, …) dibuja df$text tal cual (no formatea ni
 ## recalcula), toma L de LABEL_COL[[spec$label_col]] y W de spec$w_in, y devuelve chart_out (04_svg.R) con drawn = lo
@@ -14,6 +17,13 @@
 ## rows_grouped() ordena los grupos por los niveles del factor; chart_grouped() admite fill_w y comprueba que el diseño
 ## mide el ancho de la figura; encabezados de bloque alineados con las referencias. Solo define funciones: nada se
 ## ejecuta al cargar.
+
+# corregido (cierre, 2026-10-29): un respaldo svg_r no portado da un error legible (antes stop("pendiente")): las
+# figuras de esos tipos se dibujan con WJPr (metodo wjpr); para usar metodo svg_r habría que portar su chart_<tipo>()
+chart_sin_respaldo <- function(fn, spec) {
+  stop(fn, "(): sin respaldo svg_r para el tipo ", spec$tipo %||% "?", " (fig ", spec$fig %||% "?", "): estas figuras se ",
+       "dibujan con WJPr (metodo wjpr, ", spec$funcion %||% "wjpr_<tipo>", "; README «WJPr»)", call. = FALSE)
+}
 
 
 ## Formato de los números impresos ------------------------------------------------------------------------------------
@@ -142,10 +152,9 @@ chart_grouped <- function(df, spec, track = TRUE, value_at_end = FALSE, scale = 
 ## mide su propia columna con label_column()); medidas ST_WIDE2; la pista llena el ancho de la figura: fill_w =
 ## spec$w_in * 72 (8.4 in; standard_figures.R:233, 471), como en chart_grouped. Leyenda c(spec$country, "EU Average"):
 ## spec$country = cfg$country lo añade read_manifest (plot() no lee ctx ni cfg; nunca un literal de país). Referencia:
-## reference/<slug>/Figure_02_*.csv. Origen: report_charts.R:150-178 chart_paired(spec, L, legend, st). Pendiente
-## (Etapa 3).
-rows_paired <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-chart_paired <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## reference/<slug>/Figure_02_*.csv. Origen: report_charts.R:150-178 chart_paired(spec, L, legend, st). Respaldo svg_r sin portar
+## (WJPr es el motor).
+chart_paired <- function(df, spec) chart_sin_respaldo("chart_paired", spec)
 
 
 ## Bloque dumbbell — figuras 10, 15 ---------------------------------------------------------------------------------
@@ -253,7 +262,7 @@ chart_dumbbell <- function(df, spec, legend, st = ST_DUMB) {
 ## citado primero (arrange(desc(value)) estable: los empates conservan el orden de tbl; NA al final), como
 ## gen_horizontal_bars (horizontal_bars.R:10) y spec_hbars (standard_figures.R:336); text = fmt_num(value, decimals)
 ## ("54%"; el original paste0(round(x), "%") imprimía "NA%" donde el contrato pone "N/A"). chart_hbars_axis
-## (respaldo svg_r) sigue pendiente: dibuja wjpr_hbars.
+## (respaldo svg_r) sin portar (chart_sin_respaldo): dibuja wjpr_hbars.
 # corregido (integración del lote 8-19, 2026-10-28): la implementación de hbars_rows() del agente L2, que vivía en
 # 03_estimators.R mientras este esqueleto seguía en stop("pendiente")
 rows_hbars <- function(tbl, decimals = 0) {
@@ -267,7 +276,7 @@ rows_hbars <- function(tbl, decimals = 0) {
   log_msg("rows_hbars: ", nrow(out), " filas · ", paste(sprintf("%s %.2f", out$label, out$value), collapse = " / "))
   out
 }
-chart_hbars_axis <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
+chart_hbars_axis <- function(df, spec) chart_sin_respaldo("chart_hbars_axis", spec)
 
 
 ## Bloque columns — figuras 30, 37 ----------------------------------------------------------------------------------
@@ -277,9 +286,15 @@ chart_hbars_axis <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FAL
 ## spec$w_in * 72 (30: 6.5 in = W_CALLOUT; 37: 7.278 in, el ancho de las barras horizontales de la 36, que comparte su
 ## página; standard_figures.R:283, 296, 463). Leyenda c(spec$country, "EU Average"), como en paired. Referencia:
 ## reference/<slug>/Figure_30_*.csv y Figure_37_*.csv. Origen: report_charts.R:247-279 chart_columns(spec, W, legend,
-## st). Pendiente (Etapa 3).
-rows_columns <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-chart_columns <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## st). rows_columns: labels = categorías en el orden impreso, value = % del país, value2 = % UE; chart_columns
+## (respaldo svg_r) sin portar (chart_sin_respaldo): dibuja wjpr_columns.
+# Nuevo (lote 28-37, 2026-10-29). La usan fig_30 y fig_37
+rows_columns <- function(labels, value, value2, decimals = 0) {
+  tibble(order = seq_along(labels), kind = "row", grouping = "", label = as.character(labels),
+         value = as.numeric(value), value2 = as.numeric(value2), text = fmt_num(value, decimals),
+         text2 = fmt_num(value2, decimals))
+}
+chart_columns <- function(df, spec) chart_sin_respaldo("chart_columns", spec)
 
 
 ## Bloque funnel — figuras 8, 34 ------------------------------------------------------------------------------------
@@ -291,8 +306,8 @@ chart_columns <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
 ## etapa: frac 1 en la referencia). Medidas ST_FUNNEL; W = spec$w_in * 72. Origen: report_charts.R:284-309
 ## chart_funnel(rows, W, st) (diseño de charts5.py); datos journey(ctx) (03_estimators.R ← R03.R).
 ## rows_funnel: values = vector con nombre (nombre = la etapa tal como se imprime, valor = %), en el orden del diseño
-## (de arriba abajo); frac no va en el df: la calcula el adaptador (wjpr_funnel). chart_funnel (respaldo svg_r) sigue
-## pendiente: dibuja wjpr_funnel.
+## (de arriba abajo); frac no va en el df: la calcula el adaptador (wjpr_funnel). chart_funnel (respaldo svg_r) sin
+## portar (chart_sin_respaldo): dibuja wjpr_funnel.
 # origen: standard_figures.R:108-119 (funnel_rows). La usan fig_08 y fig_34. corregido (integración del lote 8-19,
 # 2026-10-28): la propuesta del agente L1, que armaba el df en fig_08 mientras este esqueleto seguía pendiente
 rows_funnel <- function(values, decimals = 0) {
@@ -300,7 +315,7 @@ rows_funnel <- function(values, decimals = 0) {
   tibble(order = seq_along(v), kind = "stage", grouping = "", label = names(values), value = v, value2 = NA_real_,
          text = fmt_num(v, decimals), text2 = "")
 }
-chart_funnel <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
+chart_funnel <- function(df, spec) chart_sin_respaldo("chart_funnel", spec)
 
 
 ## Bloque sankey — figuras 11, 16 -----------------------------------------------------------------------------------
@@ -487,9 +502,29 @@ chart_sankey <- function(df, spec, which, st = ST_SANKEY) {
 ## resolved); en la 41 y la 42 la primera fila de cada columna (ref = "row", Without a non-trivial problem). Extras lo,
 ## hi = rango de la escala de color POR FIGURA, como lo publicado (32: 2/62, 41: 29/55, 42: 30/55; no es común a 41 y
 ## 42). Medidas ST_CARDS. Origen: report_charts.R:389-431 mix_col, chart_scorecards(row_labels, col_labels, vals, ref,
-## W, lohi, st); datos A03.R / A04.R / A05.R (add_report_vars + estimación). Pendiente (Etapa 3).
-rows_cards <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-chart_scorecards <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## W, lohi, st); datos A03.R / A04.R / A05.R (add_report_vars + estimación). corregido (lote 38-42): en la 41 y la 42
+## la escala ES común (29/55 en lo publicado: la tarjeta del 30 % de la 42 tiene t = 0.1535 = 0.12 + 0.88 · 1/26,
+## medido en el PNG); la referencia de la 42 traía 30/55. rows_cards: vals = matriz con dimnames (filas y columnas
+## impresas, en el orden de la figura); lohi por defecto = range(round(vals)). chart_scorecards (respaldo svg_r) sin
+## portar (chart_sin_respaldo): dibuja wjpr_cards.
+# Nuevo (lote 28-37, 2026-10-29). La usan fig_32, fig_41 y fig_42. origen: report_charts.R:420-424 (delta)
+rows_cards <- function(vals, ref = c("row", "col"), lohi = NULL, decimals = 0) {
+  ref <- match.arg(ref)
+  if (!is.matrix(vals) || is.null(rownames(vals)) || is.null(colnames(vals))) {
+    stop("rows_cards: vals debe ser una matriz con nombres de filas y columnas", call. = FALSE)
+  }
+  if (is.null(lohi)) lohi <- range(round(vals), na.rm = TRUE)
+  g <- tidyr::expand_grid(i = seq_len(nrow(vals)), j = seq_len(ncol(vals)))
+  v <- vals[cbind(g$i, g$j)]
+  is_ref <- if (ref == "row") g$i == 1 else g$j == 1
+  base <- if (ref == "row") vals[cbind(1, g$j)] else vals[cbind(g$i, 1)]
+  d <- round(v) - round(base)
+  delta <- ifelse(is.na(d), "", paste0(ifelse(d > 0, "+", ifelse(d < 0, "\u2212", "\u00b1")), abs(d), " points"))
+  tibble(order = seq_along(v), kind = "card", grouping = rownames(vals)[g$i], label = colnames(vals)[g$j],
+         value = as.numeric(v), value2 = if_else(is_ref, NA_real_, as.numeric(base)), text = fmt_num(v, decimals),
+         text2 = if_else(is_ref, "", delta), lo = lohi[1], hi = lohi[2])
+}
+chart_scorecards <- function(df, spec) chart_sin_respaldo("chart_scorecards", spec)
 
 
 ## Bloque network — figura 5 ----------------------------------------------------------------------------------------
@@ -500,9 +535,8 @@ chart_scorecards <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FAL
 ## (sale de [0, 1]), y 0-1; verify compara x, y con tol_xy 0.01 y el lift con 0.05. Sin columna n. Referencia:
 ## reference/<slug>/Figure_05_*.csv. Origen: nuevo (manifiesto: chart_network (nuevo)); la publicada solo se reescaló
 ## (standard_figures.R:16) desde analisis adicionales/cooccurrence_network.svg; layout igraph (deps.csv: exacta).
-## Pendiente (Etapa 3).
-rows_network <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-chart_network <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## Respaldo svg_r sin portar (WJPr es el motor).
+chart_network <- function(df, spec) chart_sin_respaldo("chart_network", spec)
 
 
 ## Bloques ggplot — figuras 3 (scatter), 6 (matrix), 7 (severity_bars), 29 (upset) ------------------------------------
@@ -515,11 +549,7 @@ chart_network <- function(df, spec) stop("pendiente (Etapa 2/3)", call. = FALSE)
 ## orden fijo de la referencia ("Access to Assistance + Access to Information"), filas en el orden en que ComplexUpset
 ## dibuja las intersecciones, value %, text "12.3%", extra n; set: label = conjunto, text "36.5%". Referencias:
 ## reference/<slug>/Figure_03_*.csv, _06_, _07_ y _29_. Origen: render_figure.R, src/viz/jg_upset.R, module_1.R.
-## Pendiente.
-rows_scatter <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-rows_matrix <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-rows_severity_bars <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
-rows_upset <- function(...) stop("pendiente (Etapa 2/3)", call. = FALSE)
+## Sin rows_<tipo> ni respaldo svg_r: data() arma el df en el archivo de la figura y dibuja WJPr.
 
 
 ## Prueba -----------------------------------------------------------------------------------------------------------

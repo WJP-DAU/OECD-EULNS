@@ -43,7 +43,7 @@ fig_18 <- list(
   },
 
   # Dibujo: WJPr::wjp_bars(direction = "horizontal") + complementos (wjpr_hbars, R/09_wjpr.R; metodo wjpr). Respaldo
-  # sin WJPr: chart_hbars_axis(df, spec) de R/05_charts.R con metodo svg_r (hoy pendiente).
+  # sin WJPr: chart_hbars_axis(df, spec) de R/05_charts.R con metodo svg_r (sin portar: error legible).
   plot = function(df, spec) wjpr_hbars(df, spec)
 )
 

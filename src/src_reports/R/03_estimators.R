@@ -726,3 +726,33 @@ reason_shares <- function(ctx, target, filter_var, recode, df = NULL) {
 ## la 13 ve none creada en ese mismo mutate (TRUE → TRUE, NA → FALSE): sin eso filter(none == FALSE) vaciaría la tabla.
 ## Sin códigos fuera de la recodificación (ningún NA) en el país del reporte, Poland ni Malta (configs de prueba):
 ## figures ok, verify «sin referencia»; Malta da 7 filas en la 14 (sin el código 9). Nada de lo existente cambió.
+
+# Nuevo (lote 20-27, 2026-10-29): ¿muestra pequeña? Clave small_sample de config/<pais>.yml (FALSE si falta), como
+# country_config[[country]]$small_sample de src/viz/worker-viz.R:166 y siguientes. Cada figura decide qué grupos quita
+# entonces (omit de get_results_table), con las listas de worker-viz.R: 9 y 12 Category (:166-167, 236-237); 17 y
+# 20-25 además Age Group (:340-341, 417-584); 26 Age Group y Problem Status (:616-617). Con menos filas, el h_in del
+# país va en manifest/figures_<slug>.csv (regla de CLAUDE.md, «Fijar h_in»).
+small_sample <- function(ctx) isTRUE(ctx$cfg$small_sample)
+
+# Nuevo (lote 38-42, 2026-10-29): confianza por escalera (figuras 41 y 42; A04.R:18-21, A05.R:26-28). Por actor
+# (TRUST_ACTORS: trust_TRT_* de add_report_vars = binary_agree de TRT_*), xt() sobre todos los encuestados del país
+# (como build_analysis_frame) por el corte `cut` (exposicion o escalera_hardship), en el orden `levels`. Devuelve una
+# matriz levels × actores (% sin redondear). trust_cards_scale(): la escala de color común a las dos figuras, rango de
+# los valores redondeados de ambas (lo publicado: 29/55).
+TRUST_ACTORS <- c("Judges" = "trust_TRT_judges", "Prosecutors" = "trust_TRT_prosecutors",
+                  "Public defense attorneys" = "trust_TRT_pda")
+# origen: standard_figures.R:195, 200 (orden publicado de las filas; no el de ladder_levels)
+TRUST_LADDERS <- list(
+  exposicion = c("No non-trivial problem", "Problem, did not need a DRM", "Needed a DRM, had access", "Needed a DRM, no access"),
+  escalera_hardship = c("No non-trivial problem", "Problem, no hardship", "Problem, with hardship")
+)
+trust_ladder <- function(ctx, cut) {
+  levels <- TRUST_LADDERS[[cut]]
+  if (is.null(levels)) stop("trust_ladder: corte desconocido: ", cut, call. = FALSE)
+  t <- imap_dfr(TRUST_ACTORS, \(v, lab) xt(ctx, v, cut, lab, cut))
+  m <- vapply(names(TRUST_ACTORS), \(a) t$pct[t$desenlace == a][match(levels, t$grupo[t$desenlace == a])], numeric(length(levels)))
+  matrix(m, nrow = length(levels), dimnames = list(levels, names(TRUST_ACTORS)))
+}
+trust_cards_scale <- function(ctx) {
+  range(round(c(trust_ladder(ctx, "exposicion"), trust_ladder(ctx, "escalera_hardship"))), na.rm = TRUE)
+}
