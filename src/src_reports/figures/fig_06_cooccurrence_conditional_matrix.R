@@ -36,9 +36,9 @@ fig_06 <- list(
       transmute(order = row_number(), kind = "cell", grouping, label, value, value2 = NA_real_, text, text2)
   },
 
-  # Dibujo: WJP_theme() + wjp_palette() + complementos (wjpr_matrix, R/09_wjpr.R; metodo wjpr: WJPr no tiene mapa
-  # de calor): filas = grouping de arriba abajo, columnas = label en el orden de df$order, relleno = banda (text2)
-  # con la escala ordinal del reporte asignada por nombre de banda (fig06_bands), títulos de eje fijos del diseño y
-  # tamaños divididos por base_pt / 10.
+  # Dibujo: WJPr::wjp_heatmap() con sus argumentos (wjpr_matrix, R/09_wjpr.R; revisión 5, WJPr 1.2.0): filas =
+  # grouping de arriba abajo, columnas = label en el orden de df$order, relleno = banda (text2) con la escala ordinal
+  # del reporte asignada por nombre de banda (fig06_bands), títulos de eje fijos del diseño y tamaños divididos por
+  # base_pt / 10.
   plot = function(df, spec) wjpr_matrix(df, spec, bands = fig06_bands)
 )

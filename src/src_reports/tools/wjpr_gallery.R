@@ -34,7 +34,7 @@ if (!grepl("^/", out_dir)) out_dir <- file.path(getwd(), out_dir)
 dir.create(file.path(out_dir, "compare"), recursive = TRUE, showWarnings = FALSE)
 log_open(file.path(out_dir, "wjpr_gallery.log"))
 ctx <- tryCatch(load_ctx(cfg, build = FALSE)$ctx, error = function(e) { log_msg("sin ctx: ", conditionMessage(e)); NULL })
-log_msg("WJPr ", wjpr_build(), " · complementos ", wjpr_complementos(), " · fuente nativa ", wjpr_native_font(), " · ", length(specs), " figuras")
+log_msg("WJPr ", wjpr_build(), " · complementos ", wjpr_complementos(), " · ", length(specs), " figuras")
 
 lp <- verify_local_params(cfg); min_f1 <- cfg$verify$min_f1 %||% MIN_F1; tol_frac <- cfg$verify$tol_frac %||% 0.006
 `%|NA|%` <- function(x, y) if (is.null(x) || length(x) == 0 || is.na(x[1])) y else x

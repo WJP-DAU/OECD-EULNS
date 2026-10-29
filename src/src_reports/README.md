@@ -5,18 +5,17 @@ de `EU_GPP_2024.dta`, con el mismo diseño, tamaño y tipografía que las public
 publicados. Pensada para reutilizarse con otro país (`config/<pais>.yml` + lo que lista «Añadir un país»); copiable tal
 cual a `automatic-reports/reports/pathways-to-justice-hungary/pipeline` (no hace `source()` de nada fuera de la carpeta).
 
-> Estado: **Etapa 2 (piloto)**, 2026-10-23: figuras 09, 10 y 11 implementadas y verificadas (3/3, idénticas a las
-> publicadas); WJPr adoptado como motor de dibujo de las 42 (`metodo wjpr`, con complementos; ver «WJPr»); revisión
-> adversarial del esqueleto aplicada (89 hallazgos de 7 revisores). Etapa 3 = las 39 restantes por lotes (1-7, 8-19,
-> 20-27, 28-37, 38-42); Etapa 4 = cierre.
+> Estado: **Etapa 3**, 2026-10-28: figuras 1-19 desde los microdatos y verificadas (lotes 1-7 y 8-19); las 42 se dibujan
+> con WJPr 1.2.0@1664a23 y sus argumentos (`metodo wjpr`; 6 figuras con un complemento, las demás con ninguno; ver
+> «WJPr»). Faltan los lotes 20-27, 28-37 y 38-42; Etapa 4 = cierre.
 
 ## Requisitos
 - R 4.6.x con los paquetes de `deps.csv` (librería del sistema; no hace falta renv). `check_deps()` detiene si falta uno
   en modo `minima` (ggtext entre ellos), avisa si una versión `exacta` difiere (WJPr, igraph, ComplexUpset, ggplot2,
   svglite, systemfonts, textshaping, ggrepel: cambian el dibujo aunque no los valores; en WJPr, además, el commit
-  `@382aee9` de `origen` frente al `RemoteSha` instalado, "local" si se instaló desde un clon) y solo registra los
+  `@1664a23` de `origen` frente al `RemoteSha` instalado, "local" si se instaló desde un clon) y solo registra los
   `opcional` (showtext). Las figuras con `metodo wjpr` no se dibujan sin WJPr ni ggtext: la etapa figures se detiene
-  con un error que dice cómo instalarlos (`check_method_deps()`).
+  con un error que dice cómo instalarlos (`check_method_deps()`), y con una WJPr anterior a la 1.2.0 (`wjpr_require()`).
 - Chrome o Chromium para los PNG (se busca en `CHROMOTE_CHROME`, `config/local.yml`, rutas habituales y `PATH`; sin él
   los PNG se omiten con aviso, `--no-png` los omite a propósito).
 - Las fuentes Inter Tight (OFL) ya están en `fonts/`.
@@ -72,9 +71,10 @@ La consola muestra solo la tabla resumen; el detalle va a `output/<slug>/log/run
 - Media UE: según la figura, `data4web` (ids en la columna `eu_id` del manifiesto; valores cacheados en
   `reference/<slug>/eu_values.csv`) o `eu_est()` (media simple de las estimaciones nacionales de los 27 países). La
   fuente se declara en el código de cada figura y en el manifiesto (`metodo_ue`, `eu_id`).
-- Diseño: WJPr, el paquete de diseño de WJP (`R/09_wjpr.R`: la función de WJPr del tipo, o `WJP_theme()`/`wjp_palette()`
-  donde no tiene una, + complementos), exportado con svglite y texto en trazos para las 42. El SVG propio (`R/04_svg.R`,
-  `R/05_charts.R`, portado de `src/hungary/finales/`) queda de respaldo (`metodo svg_r`). Tamaños exactos del `00-INDICE`.
+- Diseño: WJPr 1.2.0, el paquete de diseño de WJP (`R/09_wjpr.R`: la función de WJPr del tipo con sus argumentos y las
+  medidas del diseño, + lo que aún le falte como complemento), exportado con svglite y texto en trazos para las 42. El
+  SVG propio (`R/04_svg.R`, `R/05_charts.R`, portado de `src/hungary/finales/`) queda de respaldo (`metodo svg_r`).
+  Tamaños exactos del `00-INDICE`.
 
 ## Arquitectura y contratos
 `main.R` hace `source()` de `R/00..09` en orden en el entorno global; `figures/fig_NN_slug.R` se cargan con `sys.source()`
@@ -167,7 +167,7 @@ común y una columna o figura que no existe en el manifiesto es un error. `read_
 | `fuente_datos`, `codigo_origen` | texto | nadie: se copian al encabezado de la figura |
 | `metodo_ue` | none · data4web · eu_est · eu_est_category · eu_est_distribution | `tools/build_reference.R` (con `eu_id`) |
 | `eu_id` | id de la media UE (varios con `;`) o "" | `tools/build_reference.R`: ids de data4web → `eu_values.csv` |
-| `wjpr` | adoptada (33: parten de `wjp_groupbars`, `wjp_bars` o `wjp_dumbbells`) · tema (9: solo `WJP_theme()`/`wjp_palette()`, WJPr no tiene esa gráfica) | documentación (`main.R` la lee para una nota de cabecera) |
+| `wjpr` | adoptada (las 42 desde WJPr 1.2.0: cada tipo parte de su función, `wjp_groupbars`, `wjp_bars`, `wjp_dumbbells`, `wjp_funnel`, `wjp_cards`, `wjp_heatmap`, `wjp_scatter`, `wjp_network`, `wjp_upset` o `wjp_sankey`) · tema (histórico, 1.1.0: solo `WJP_theme()`/`wjp_palette()`) | documentación (`main.R` la lee para una nota de cabecera) |
 | `status`, `verificada` | plan de la figura (hoy `todo`) y fecha de su verificación (vacía) | nadie: los actualiza el cierre de cada etapa |
 | `nota` | texto libre + `[conocida: <label>=<text>]` | 07 (discrepancias conocidas) |
 
@@ -211,25 +211,46 @@ reconstruye. Sin acceso al `.dta`: si la clave difiere solo en el `.dta`, se usa
 difiere en el código, `regions.csv`, `deps.csv`, los paquetes o R, se detiene y pide `--stage data` con acceso al `.dta`.
 
 ## WJPr
-**Motor de dibujo (adoptado el 2026-10-23).** Las 42 figuras se dibujan con WJPr, el paquete de diseño de WJP: `metodo
-wjpr` y `funcion wjpr_<tipo>` en el manifiesto, `plot = function(df, spec) wjpr_<tipo>(df, spec)` en cada figura.
-`R/09_wjpr.R` tiene un adaptador por tipo (13) que parte de la función de WJPr del tipo (`wjp_groupbars`, `wjp_bars`,
-`wjp_dumbbells`: columna `wjpr` = `adoptada`, 33 figuras) o de `WJP_theme()`/`wjp_palette()` donde WJPr no tiene esa
-gráfica (`tema`, 9: tarjetas, matriz, dispersión, UpSet, red y sankey) y la complementa hasta el diseño publicado; cada
-complemento lleva `# complemento: <qué le falta a WJPr>` (la fuente del documento de brechas del paquete). Los
-`chart_<tipo>()` de `R/05_charts.R` quedan de respaldo: `metodo svg_r` en la fila del manifiesto y `plot =
-function(df, spec) chart_<tipo>(df, spec)` vuelven a la figura propia, que verify compara con su `drawn.csv`.
+**Motor de dibujo: WJPr 1.2.0 (desde el 2026-10-27; adoptado el 23-oct con 1.1.0 + complementos).** Las 42 figuras se
+dibujan con WJPr, el paquete de diseño de WJP: `metodo wjpr` y `funcion wjpr_<tipo>` en el manifiesto, `plot =
+function(df, spec) wjpr_<tipo>(df, spec)` en cada figura. `R/09_wjpr.R` tiene un adaptador por tipo (13) que es la
+función de WJPr 1.2.0 del tipo con sus argumentos (`layout = wjp_layout(…)`, `value_*`, `label_*`, `header_*`,
+`national_value` con nombres, `na_label`, `scale_max`, `position = "dodge"`, `ref_lines`, `wjp_funnel`, `wjp_cards`,
+`wjp_heatmap`, `wjp_scatter`, `wjp_network`, `wjp_upset`, `wjp_sankey`, `ptheme = WJP_theme(…) + theme(…)`), como los
+`fid_<tipo>` de `dev/report-fidelity*.R` del paquete, pero con el df del contrato de entrada (`value` crudo, `text`
+impreso) y las medidas del diseño de `STD`/`ST_*`/`LABEL_COL` (`R/04_svg.R`) y de `spec` (`w_in`, `h_in`, `base_pt`);
+las elecciones editoriales del país salen de df o de la config, nunca de listas fijas. Lo que 1.2.0 aún no cubre queda
+como complemento mínimo, `# complemento: <qué falta>` con su propuesta de argumento (la fuente del documento de brechas
+para el autor del paquete). Los `chart_<tipo>()` de `R/05_charts.R` quedan de respaldo: `metodo svg_r` en la fila del
+manifiesto y `plot = function(df, spec) chart_<tipo>(df, spec)` vuelven a la figura propia.
+- **Build exigida y fijada**: `wjpr_require()` se detiene con un error legible si la build cargada es anterior a la
+  1.2.0 («WJPr 1.1.0@382aee9 es anterior a la 1.2.0 que necesitan los adaptadores …: instale la build de deps.csv … o
+  defina SRC_REPORTS_LIB»); `deps.csv` fija `WJPr,1.2.0,github worldjusticeproject-org/WJPr@1664a23,exacta` y
+  `check_deps()` compara también el commit con el `RemoteSha` instalado ("local" si se instaló desde un clon con `R CMD
+  INSTALL`). ggtext sigue en `minima` (WJPr 1.2.0 lo sugiere para `wjp_edgebars`, `wjp_radar`, `wjp_rose` y
+  `wjp_groupbars` en modo strip; las agrupadas del reporte van en modo fila, sin él), ggrepel en `exacta` (rótulos de
+  la 3, también vía `wjp_scatter(repel = TRUE, seed =)`) e igraph en `exacta` (layout de la red en `fig_05`; WJPr no
+  lo usa). deps.csv entra en la clave del caché del master: tras cambiarlo, `--stage data` relee el `.dta`.
+- **Fuente**: `options(wjpr.family = "inter")` (`wjpr_require()`); 1.2.0 la aplica en todas sus capas y temas, y las
+  caras de los valores, promedios y encabezados (`"semibold.italic"`) caen en el `bold.italic` de "inter", que
+  `setup_fonts()` registra como Inter Tight SemiBold Italic. `wjpr_font()` (la «Lato Full» fija de 1.1.0) ya no
+  existe; `wjpr_theme()` (= `WJP_theme()`) queda como punto de partida del `ptheme` de tres adaptadores.
+- **Tamaño**: con `layout` el gráfico tiene un tamaño definido; cada adaptador lo ajusta con los argumentos de WJPr
+  (p. ej. el ancho de la columna de valores y el margen inferior de `wjp_layout()`) para que mida `w_in × h_in` del
+  manifiesto: el SVG sale a ese tamaño y el dibujo llena el lienzo como la publicada.
 - **Exportación** (`R/06_export.R`): svglite a `w_in × h_in` con k = 1 (WJPr ya da los tamaños en pt; sin `base_pt`),
   texto en trazos y PNG con Chrome, como `wjpr_render()` de la galería. Los textos dibujados (`wjpr_texts()`) deben ser
   los de `df` en las columnas `attr(p, "wjpr")$compara` (+ los rótulos que el adaptador declare en `$rotulos`), con la
   regla que usa también la galería (`drawn_text_diff_wjpr()`: solo sobran los valores que df no trae): si no, estado
-  `texto`. Los textos que cuentan son los que se ven (`wjpr_drawn_texts()`: no un texto con alfa 0, del color de lo que
-  tiene debajo o tapado). Si el adaptador expone lo dibujado por fila (`attr(p, "wjpr")$drawn`), figures lo escribe en
+  `texto`. Los textos salen de `WJPr::wjp_drawn(p, "text")` y cuentan solo los que se ven (`wjpr_drawn_texts()`: no un
+  texto con alfa 0, del color de lo que tiene debajo o tapado; Markdown de ggtext leído; las etiquetas de eje y strip,
+  en coordenadas de datos). Si el adaptador expone lo dibujado por fila (`attr(p, "wjpr")$drawn`), figures lo escribe en
   `drawn.csv` y compara cada fila con la de df: el texto, el nombre impreso en su posición (`label_drawn` con `label`,
   `grouping_drawn` con `grouping`) → estado `texto`, y el valor que codifica la geometría (`val`, `val2` con `value`,
-  `value2`, tolerancia max(1e-6, 0.005 · máx |value|); un `val` donde df trae NA también falla) → estado `dibujo`.
-  `log/figures_status.csv` guarda `wjpr_build` (versión@commit), `wjpr_complementos`, `wjpr_textos` y `wjpr_drawn`
-  (filas de `drawn.csv`; NA si no lo expone).
+  `value2`, tolerancia max(1e-6, 0.005 · máx |value|); un `val` donde df trae NA también falla) → estado `dibujo`; una
+  marca fija del diseño ausente (`marcas =`, p. ej. la pista 0-100 % de cada barra agrupada o la línea de corte de la
+  7) → `dibujo`. `log/figures_status.csv` guarda `wjpr_build` (versión@commit), `wjpr_complementos`, `wjpr_textos` y
+  `wjpr_drawn` (filas de `drawn.csv`; NA si no lo expone).
 - **Verificación** (`R/07_verify.R`; umbrales en `config/<pais>.yml`, `verify`): además de la tabla, el dibujo de cada
   figura `metodo wjpr` se comprueba con:
   - `parecido`: f1 de tinta (gris < 0.75, ±2 px) del PNG nuevo frente a la publicada a 96 dpi ≥ `min_f1` = 0.995. Ve la
@@ -238,66 +259,80 @@ function(df, spec) chart_<tipo>(df, spec)` vuelven a la figura propia, que verif
     canal RGB a más de `local_delta` = 0.2 del rango de la otra imagen en ±1 px, o a más de `local_delta_flat` = 0.05
     donde las dos son planas, para los colores claros) ≤ `max_local` = 0.5 (`wjpr_similarity()`). Ve una barra unos pp
     más larga, colores de banda o de serie cambiados, un tono de relleno; la nota da el centro de la peor ventana en
-    pulgadas. Calibrado el 23-oct con las 42 de la galería (las dos builds) y los errores provocados de la revisión V3:
-    correctas 0.000-0.444 (0.444 la 06, por las claves de su leyenda; 0.389 la 29; 0.243 la 16; 0.153 la 03), errores
-    0.833-1.000 (barra +10 pp en la 1, −5 pp en la 2, +1.0 en la 4, colores de banda invertidos en la 6, −1 pp en la 7).
-    La 42 (desde la referencia) da 0.715 por una diferencia real: el texto de su tarjeta 42 % sale negro (publicada:
-    blanco).
+    pulgadas. Calibrado el 23-oct con las 42 de la galería y los errores provocados de la revisión V3: correctas
+    0.000-0.444, errores 0.833-1.000. La 42 (desde la referencia) daba 0.715 por una diferencia real: el texto de su
+    tarjeta 42 % sale negro (publicada: blanco).
   - por fila (`drawn.csv`, como en svg_r), en los adaptadores que exponen lo dibujado (`attr(p, "wjpr")$drawn`, leído
-    de `ggplot_build()`; 8 de los 13 adaptadores, 29 figuras: agrupadas, pareadas, severidad, pesas, matriz,
-    dispersión, red y sankey): en cada posición, la fila del df que la ocupa según el dibujo (`order, kind, grouping,
-    label`), la fracción de su barra (`frac`, `frac2`), el texto impreso en ella (`text`, `text2`) y, con el contrato extendido, el nombre impreso en esa posición (`label_drawn`: etiqueta del
-    eje, rótulo o nombre del nodo; `grouping_drawn`: el encabezado bajo el que queda; NA = no expuesto, "" = nada
-    impreso) y el valor decodificado de la geometría en las unidades de df (`val`, `val2`; NA = no lo codifica). verify
-    compara `frac` ± `tol_frac` = 0.006, el texto y el nombre impreso exactos (espacios normalizados), `val`/`val2` con
-    la tol de la referencia y el orden. Ve un valor en la fila equivocada, dos etiquetas o dos encabezados
-    intercambiados y un valor oculto, que no cambian ni el parecido ni el multiconjunto de textos. Un `drawn.csv` o un
-    `figures_status.csv` anterior a estas columnas da `desactualizada` («corra --stage figures»). Una marca dibujada sin
-    fila en la referencia (un nodo, una arista o un rótulo de más) da una fila `extra`. Las marcas fijas del diseño sin
-    fila en df (la línea de corte de la 7) las declara el adaptador con `wjpr_meta(…, marcas = function(b) …)`: una que
-    falta da estado `dibujo` en figures. Por tipo: la red (5) da una fila por nodo (nombre y porcentaje impresos) y por
-    arista (`val` = lift leído del ancho; 0 si falta); el sankey (11, 16), una por caja (`val` = alto en %, salvo la
-    tercera columna); la matriz (6), una por celda (`text2` = banda leída del color); la dispersión (3), una por punto
-    (`val`, `val2` = x, y; `label_drawn` = el rótulo anclado; `text2` = «n < 30» si el punto es hueco, la marca que
-    pone `data()`). Hbars, columnas, embudo, tarjetas y UpSet (13 figuras) dan una fila `frac` `suprimido` («no expone
-    lo dibujado por fila»); para exponerlo: `wjpr_meta(…, drawn = function(b) …)` con `wjpr_slots()`/`wjpr_slot_of()` (la fila de cada posición) y `wjpr_drawn_texts()` (lo impreso y
-    visible en cada posición, con la forma de `WJPr::wjp_drawn(what = "text")`, aún en ninguna build; `R/09_wjpr.R`).
+    de `ggplot_build()`): en cada posición, la fila del df que la ocupa según el dibujo (`order, kind, grouping,
+    label`), la fracción de su barra (`frac`, `frac2`), el texto impreso en ella (`text`, `text2`), el nombre impreso
+    en esa posición (`label_drawn`; `grouping_drawn`: el encabezado bajo el que queda; NA = no expuesto, "" = nada
+    impreso) y el valor decodificado de la geometría en las unidades de df (`val`, `val2`). verify compara `frac` ±
+    `tol_frac` = 0.006, el texto y el nombre impreso exactos (espacios normalizados), `val`/`val2` con la tol de la
+    referencia y el orden. Ve un valor en la fila equivocada, dos etiquetas o dos encabezados intercambiados y un valor
+    oculto, que no cambian ni el parecido ni el multiconjunto de textos. Lo exponen los 13 adaptadores (las 42
+    figuras): una fila por línea en agrupadas, pareadas, barras horizontales y pesas, por columna o barra en columnas
+    y severidad, por etapa en el embudo, por tarjeta en las tarjetas (`val` = el valor que dice su color), por celda en
+    la matriz (`text2` = banda leída del color), por punto en la dispersión (`val`, `val2` = x, y; `label_drawn` = el
+    rótulo anclado; `text2` = «n < 30» si es hueco), por nodo y arista en la red (`val` = lift leído del ancho; 0 si
+    falta), por caja en el sankey (`val` = alto en %, salvo la tercera columna) y, en el UpSet, por barra de
+    intersección y por conjunto. Una marca dibujada sin fila en la referencia da una fila `extra`. En las barras agrupadas (modo fila de 1.2.0:
+    un panel con y continua) cada línea es una posición de la columna de etiquetas y su fila la da la línea de WJPr
+    que la dibuja (los datos de la capa); para exponerlo en otro tipo: `wjpr_meta(…, drawn = function(b) …)` con
+    `wjpr_slots()`/`wjpr_slot_of()` o `wjpr_pos_slots()` (la fila de cada posición en un eje discreto),
+    `WJPr::wjp_drawn(p, "marks")` (las marcas con sus columnas) y `wjpr_drawn_texts()` (lo impreso y visible).
   - `textos`: multiconjunto de los textos dibujados frente a df, medido en figures; sin textos esperados ni valores
     dibujados (figs 3 y 7), `suprimido` con la nota «sin textos que comparar».
   - Sin PNG nuevo (`--no-png`, sin Chrome) o sin publicada, `parecido` y `parecido_local` quedan `suprimido` y la figura
     `sin dibujo`: no es `ok`, no cuenta como verificada en la línea de cierre y `--strict` sale con 1.
-- **Build fijada**: `deps.csv` declara WJPr 1.1.0 en modo `exacta` con el commit `@382aee9` en `origen` (la build del
-  13-jul con la que la galería da 42/42) y ggtext en `minima`. Dos builds con el mismo número de versión dibujan
-  distinto, así que `check_deps()` compara también el commit con el `RemoteSha` instalado ("local" si se instaló desde
-  un clon con `R CMD INSTALL`).
-- **Otra build** (p. ej. la rama main del paquete): instalarla en una librería aparte y correr
-  `SRC_REPORTS_LIB=<librería> Rscript src/src_reports/main.R --stage all --figs 09,10,11` (o `tools/wjpr_gallery.R`
-  con `--out` para no mezclar salidas). La cabecera dice `aviso deps.csv: WJPr 1.1.0@local (esperada 1.1.0@382aee9:
-  otra build con la misma versión)`, verify añade la fila `entorno` y, si la build cambia el dibujo, la figura queda
-  `fallo · parecido: ≥ 0.995→<f1>` aunque la tabla y los textos estén bien. Así se vio el 23-oct con la rama main
-  (a46c831) y los complementos escritos para 1.1.0: 09 → 0.907 (`wjp_groupbars` ordena las categorías de arriba abajo,
-  f4f3b8f, y el complemento las dejaba invertidas) y 10 → 0.419 (`wjp_dumbbells` activa su leyenda por defecto). Tras
-  adaptar los complementos (detectan el sentido del orden y usan `show_legend`, `label_offset` y la fuente nativa), las
-  42 dan lo mismo con las dos builds. Una build nueva se adopta cuando verify vuelve a dar `ok`
-  (y la galería 42/42): los adaptadores usan `wjpr_has_fun()`/`wjpr_has_arg()` para lo que la build ya trae (p. ej. la
-  fuente nativa de main, `options(wjpr.family = )`, que hace innecesario `wjpr_font()`) y se cambia el commit de
-  `deps.csv`.
-- `options(wjpr.complementos = FALSE)` dibuja con WJPr sola (la línea de base de la galería, `--sin-complementos`).
+- **Otra build**: instalarla en una librería aparte y correr `SRC_REPORTS_LIB=<librería> Rscript src/src_reports/main.R
+  --stage all --figs …` (o `tools/wjpr_gallery.R` con `--out` para no mezclar salidas). Una anterior a la 1.2.0 se
+  detiene en `wjpr_require()`; una ≥ 1.2.0 con otro commit da en la cabecera `aviso deps.csv: WJPr <versión>@<commit>
+  (esperada 1.2.0@1664a23)`, verify añade la fila `entorno` y, si cambia el dibujo, la figura queda `fallo · parecido`
+  aunque la tabla y los textos estén bien. Una build nueva se adopta cuando verify vuelve a dar `ok` (y la galería
+  42/42) y se cambia el commit de `deps.csv`.
+- `options(wjpr.complementos = FALSE)` dibuja con la llamada a WJPr sola (la galería con `--sin-complementos`): con
+  1.2.0 debe quedar igual o casi a la completa.
+
+| Build | Origen | Uso |
+|---|---|---|
+| 1.2.0@1664a23 | `github worldjusticeproject-org/WJPr@1664a23` | fijada en `deps.csv` (`exacta`); la que dibuja desde el 27-oct |
+| 1.1.0@382aee9 | `github worldjusticeproject-org/WJPr@382aee9` (13-jul) | la de la adopción (23-oct, con 5-13 complementos por figura); `wjpr_require()` la rechaza |
+| main a46c831 | clon de la rama main (23-oct; `1.1.0@local`) | histórica: midió el 23-oct que una build con la misma versión cambia el dibujo |
+
+**Complementos que quedan con 1.2.0** (cada uno con `# complemento:` y su propuesta en `R/09_wjpr.R`):
+- Barras agrupadas (20 figuras: 1, 4, 9, 12, 17, 20-28, 31, 33, 35, 38-40): ninguno (antes 9-11). `wjp_groupbars()` en
+  modo fila con `wjp_layout()` dibuja los dos promedios, los encabezados en la columna de etiquetas, la columna de
+  valores, las «N/A», la media 0-10 de la 4 (`scale_max = 10`, `show_complement = FALSE`) y la 27 (pista de 6.5 in, sin
+  promedios) solo con argumentos.
+- Lectura del dibujo (infraestructura): `wjp_drawn()` lista también lo que no se ve (propuesta `visible = TRUE`), no
+  lee el Markdown de ggtext ni el color de su `<span>`, da las etiquetas de eje en 0-1 del panel y por eje de pantalla
+  (propuesta `coords = "data"`) y no lee la leyenda (propuesta `what = "legend"`): lo suplen `wjpr_drawn_texts()` y
+  `wjpr_legend_drawn()`.
+- `wjp_bars` (pareadas 2, severidad 7, barras horizontales 13, 14, 18, 19, 36, columnas 30, 37): ninguno (antes 6-8).
+  En las columnas, solo si una etiqueta no cabe en su grupo, el ajuste de línea en pt (`label_wrap` cuenta caracteres).
+- Pesas (10, 15), embudo (8, 34) y UpSet (29): ninguno (antes 13, 8 y 5).
+- Tarjetas (32, 41, 42): uno, los encabezados en Inter Tight Bold Italic 700 (`wjpr_cards_family`; propuesta
+  `header_weight`): la familia "inter" del proyecto registra bold.italic como SemiBoldItalic (600).
+- Sankey (11, 16): uno, los encabezados 700 (propuesta `header_family`); en Polonia y Malta otro, la escala al 100 %
+  (propuesta `total = 100`).
+- Matriz (6): uno, el margen del título (propuesta `title_margin`). Dispersión (3): ninguno en Hungría; en Malta, la
+  faceta sin puntos (propuesta `min_points`). Red (5): ninguno en Hungría; en Polonia y Malta, la centralidad sobre
+  todas las parejas (propuesta `centrality_edges`). Agrupadas: en Polonia y Malta, la «N/A» de la 4 en la columna de
+  valores (propuesta `na_position = "column"`).
 
 **Galería** (`Rscript src/src_reports/tools/wjpr_gallery.R [--figs …] [--out …] [--sin-complementos]`): dibuja las 42 (con
 `data()` si la figura existe; si no, desde la referencia) y mide textos (la regla de figures), fuente, parecido con lo
 publicado (f1 y local, con los umbrales de verify) y lo dibujado por fila frente a la referencia →
 `output/<slug>/wjpr/00-wjpr.csv` (columnas `f1_publicada`, `local_publicada`, `local_xy_in`, `por_fila`, `dibujo` = ok o
-lo que no pasaría verify), `index.html` y `compare/`. Resultado del 23-oct, igual con 1.1.0@382aee9 y con main
-(a46c831): 42/42 con textos idénticos («sin textos que comparar» en la 3 y la 7), 0 textos dudosos y f1 0.996-1.000
-(≥ 0.999 en 40; 0.997 la 16 desde la referencia y 0.996 la 29); local 0.000-0.444 en 41 (0.444 la 06, 0.389 la 29,
-0.243 la 16, 0.153 la 03) y 0.715 en la 42 (diferencia real: texto de una tarjeta negro en vez de blanco, `dibujo
-local`); por fila 20/20 (las barras agrupadas) sin diferencias. Complementos: 367 con 1.1.0 (5-13 por figura) y 333
-con main (5-12): main ahorra 34, casi todos la fuente. WJPr sola: mediana 0.647 con 1.1.0 (41 figuras con la fuente de
-reemplazo) y 0.623 con main (fuente resuelta). Las brechas del paquete están en el documento «WJPr: brechas para
-automatizar las figuras de Paths to Justice».
+lo que no pasaría verify), `index.html` y `compare/`. Barras agrupadas con 1.2.0@1664a23 (27-oct): 20/20 ok, textos
+iguales, f1 1.000, local 0.000, por fila «n filas ok», 0 complementos, SVG idénticos con y sin `--sin-complementos` y del
+tamaño exacto del manifiesto (antes, con 1.1.0@382aee9 y 9-11 complementos: los mismos f1 y local). Resultado del
+23-oct con 1.1.0@382aee9 y con main (a46c831), las 42: f1 0.996-1.000, local 0.000-0.444 en 41 y 0.715 en la 42; 367
+complementos con 1.1.0 (5-13 por figura) y 333 con main. Las brechas del paquete están en el documento «WJPr: brechas
+para automatizar las figuras de Paths to Justice».
 
-**Piloto sin complementos (histórico, `tools/pilot_wjpr.R`, 2026-10-23).** Para cada tipo con posible equivalente se
+**Piloto sin complementos (histórico, `tools/pilot_wjpr.R`, 2026-10-23).** Con WJPr 1.2.0 la tabla ya no vale: los 13
+tipos tienen función propia y se dibujan con sus argumentos. Para cada tipo con posible equivalente se
 dibujó la figura publicada con la función de WJPr 1.1.0 (`worldjusticeproject-org/WJPr@382aee9`) usando solo argumentos
 documentados y el tema por `ptheme`, y se midieron 45 criterios sobre el ggplot construido y el SVG. Ninguna los cumplía
 todos: la familia "Lato Full" está fijada dentro de las capas (sin esa fuente el texto cae en una de reemplazo con otras

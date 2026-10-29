@@ -56,12 +56,12 @@ fig_03 <- list(
 
   # Un punto por área × categoría (2 × 12): value = prevalencia no trivial (% de los encuestados del área),
   # value2 = severidad media 0-10 (NA = suprimida: el punto no se dibuja), n = encuestados con problema no trivial en
-  # la categoría (el adaptador dibuja hueco si n < 30 o sin severidad, = n_insuficiente de F02.R:24), series =
-  # "destacada" (rotulada; fig03_highlight) o "". Nada impreso (text = ""). Orden: facetas Rural y Urban; dentro,
-  # categorías en orden alfabético (categories).
+  # la categoría, series = "destacada" (rotulada; fig03_highlight) o "". Nada impreso (text = ""). Orden: facetas
+  # Rural y Urban; dentro, categorías en orden alfabético (categories).
   # corregido (revisión 4): text2 = WJPR_SCATTER_HUECO ("n < 30") en los puntos dibujables (prevalencia y severidad)
-  # con n < 30, los que el adaptador dibuja huecos; no se imprime (compara = "text"): lo compara lo dibujado por punto
-  # (wjpr_scatter_drawn), que antes no veía un punto hueco con n ≥ 30
+  # con n < 30, los que el adaptador dibuja huecos (revisión 5: es la marca que lee, hollow de wjp_scatter, =
+  # n_insuficiente de F02.R:24 en los puntos que se dibujan); no se imprime (compara = "text"): lo compara lo dibujado
+  # por punto (wjpr_scatter_drawn), que antes no veía un punto hueco con n ≥ 30
   data = function(ctx) {
     dest <- fig03_highlight(ctx)
     category_profile(ctx, "residence") %>%
@@ -72,9 +72,9 @@ fig_03 <- list(
                 n = n_con_problema_nt, series = if_else(category %in% dest, "destacada", ""))
   },
 
-  # Dibujo: ggplot sobre WJP_theme()/wjp_palette() + complementos (wjpr_scatter, R/09_wjpr.R; metodo wjpr: WJPr no
-  # tiene dispersión x-y): tendencia lineal discontinua por faceta, destacadas (series) con su rótulo, ejes 0-50 % y
+  # Dibujo: WJPr::wjp_scatter() con sus argumentos (wjpr_scatter, R/09_wjpr.R; revisión 5, WJPr 1.2.0): tendencia
+  # lineal discontinua por faceta, destacadas (series) con su rótulo (seed 7), huecos (text2 «n < 30»), ejes 0-50 % y
   # 4-8; tamaños sobre base_pt 12 del manifiesto. Los puntos suprimidos no se dibujan (cuántos por faceta, al log) y
-  # una faceta con menos de 2 puntos no se dibuja (aviso en el log).
+  # una faceta con menos de 2 puntos no se dibuja (aviso en el log; complemento).
   plot = function(df, spec) wjpr_scatter(df, spec)
 )
