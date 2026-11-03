@@ -15,6 +15,13 @@ fig08_stages <- c(
 
 fig_08 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "funnel", metodo = "wjpr", w_in = 6.5, h_in = 2.278, callout = TRUE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("3 valores impresos no contados en los 404; primera etapa a todo el ancho; df armado en",
+                           "fig_08 (fig08_stages: rótulos de standard_figures.R:110-112) mientras rows_funnel() siga",
+                           "pendiente; wjpr_funnel no expone lo dibujado por fila (verify: frac suprimido)")),
+
   # Promedios nacionales ponderados por NUTS (n < 30 → NA → "N/A"): las variables del recorrido salen de journey(ctx)
   # (memorizado; R03.R:19, 33: variantes publicadas, sin "no lo necesitó" ni "razón desconocida") y access2info de
   # nat_est, el estimador de la fila National de la tabla 2_1_1 (standard_figures.R:113 la leía de ese CSV). Una fila

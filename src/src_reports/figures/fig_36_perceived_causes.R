@@ -42,6 +42,11 @@ fig36_causes <- function(ctx) {
 
 fig_36 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "hbars", metodo = "wjpr", w_in = 7.278, h_in = 3.389, callout = FALSE, label_col = "hbars",
+              metodo_ue = "none",
+              nota = "10 valores no contados en los 404 (hoy fracciones de barra)"),
+
   # Una barra por causa percibida, la más citada primero (rows_hbars, R/05_charts.R).
   data = function(ctx) rows_hbars(fig36_causes(ctx), decimals = 0),
 

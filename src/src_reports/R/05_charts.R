@@ -151,7 +151,7 @@ chart_grouped <- function(df, spec, track = TRUE, value_at_end = FALSE, scale = 
 ## = value / 100 y frac2 = value2 / 100. Orden de la referencia (% país descendente; F04.R). label_col own (la figura
 ## mide su propia columna con label_column()); medidas ST_WIDE2; la pista llena el ancho de la figura: fill_w =
 ## spec$w_in * 72 (8.4 in; standard_figures.R:233, 471), como en chart_grouped. Leyenda c(spec$country, "EU Average"):
-## spec$country = cfg$country lo añade read_manifest (plot() no lee ctx ni cfg; nunca un literal de país). Referencia:
+## spec$country = cfg$country lo añade read_specs (plot() no lee ctx ni cfg; nunca un literal de país). Referencia:
 ## reference/<slug>/Figure_02_*.csv. Origen: report_charts.R:150-178 chart_paired(spec, L, legend, st). Respaldo svg_r sin portar
 ## (WJPr es el motor).
 chart_paired <- function(df, spec) chart_sin_respaldo("chart_paired", spec)
@@ -533,8 +533,8 @@ chart_scorecards <- function(df, spec) chart_sin_respaldo("chart_scorecards", sp
 ## "(40%)" / ""; text2 ""; extras x, y solo en los nodos (NA en las aristas) = coordenadas de datos del layout de
 ## network_graph.R:148-199 (layout_with_fr + pad 0.16, min_dist 0.28, hstretch 1.15) sin renormalizar: x ≈ 0.5 ± 0.575
 ## (sale de [0, 1]), y 0-1; verify compara x, y con tol_xy 0.01 y el lift con 0.05. Sin columna n. Referencia:
-## reference/<slug>/Figure_05_*.csv. Origen: nuevo (manifiesto: chart_network (nuevo)); la publicada solo se reescaló
-## (standard_figures.R:16) desde analisis adicionales/cooccurrence_network.svg; layout igraph (deps.csv: exacta).
+## reference/<slug>/Figure_05_*.csv. Origen: nuevo (chart_network); la publicada solo se reescaló
+## (standard_figures.R:16) desde analisis adicionales/cooccurrence_network.svg; layout igraph (versión de renv.lock).
 ## Respaldo svg_r sin portar (WJPr es el motor).
 chart_network <- function(df, spec) chart_sin_respaldo("chart_network", spec)
 

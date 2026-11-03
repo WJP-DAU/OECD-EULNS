@@ -43,6 +43,11 @@ prev_category_by_country <- function(master, regions) {
 
 fig_02 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "paired_bars", metodo = "wjpr", w_in = 8.4, h_in = 3.833, callout = FALSE, label_col = "own",
+              metodo_ue = "eu_est_category",
+              nota = "ancho 8.4 in (sin recuadro) con columna propia; función portada en fig_02 (única usuaria)"),
+
   # País y media UE por categoría. origen: F04.R:5-11: los países sin módulo LNS (ningún prevalence2: Irlanda) → NA
   # y la media UE es la media simple de los que tienen dato (cuántos, al log). Orden: % del país descendente
   # (F04.R:21; empates en desc(diferencia), F04.R:16). value/value2 sin redondear; text/text2 = round() + "%"

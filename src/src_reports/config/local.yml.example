@@ -6,7 +6,7 @@
 # --stage data sin caché y para tools/build_reference.R; con el caché construido, figures/verify/compare no lo usan.
 path2EU: "/Users/<usuario>/Library/CloudStorage/OneDrive-WorldJusticeProject/EU Subnational/EUROVOICES 2024/EU-S Data"
 chrome: ""             # binario de Chrome/Chromium para los PNG; vacío = CHROMOTE_CHROME, rutas habituales de macOS/Linux, PATH
-cache_dir: ""          # vacío = <carpeta>/cache (microdatos; ignorada por git); conviene una ruta fuera de OneDrive
+cache_dir: ""          # vacío = <carpeta>/data (microdatos; ignorados por git salvo regions.csv); conviene fuera de OneDrive
 published_dir: ""      # PNG publicados (Figure_NN_slug.png, 300 dpi) del país del yml; solo tools/build_reference.R
 reference_src_dir: ""  # CSV de valores de esas figuras (…/output/viz/<country>/finales/datos); solo tools/build_reference.R,
                        # que se detiene si estas dos rutas no son del país de --country

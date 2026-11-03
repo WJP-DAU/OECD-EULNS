@@ -6,7 +6,7 @@
 ## de <text>; de 09_wjpr.R: wjpr_similarity() (metodo wjpr), wjpr_norm_text() y WJPR_DRAWN_OPT (contrato por fila).
 ##
 ##   run_verify(specs, cfg)           → tibble(fig, metodo, estado, verificacion, archivo) (§4.7), una fila por spec en
-##                                      el orden del manifiesto; actualiza output/<slug>/tables/00-verificacion.csv (fig,
+##                                      orden de fig;   actualiza output/<slug>/tables/00-verificacion.csv (fig,
 ##                                      slug, kind, grouping, label, campo, esperado, obtenido, tol, resultado, nota): las
 ##                                      filas de las figuras verificadas en la corrida se reemplazan y las de las demás se
 ##                                      conservan (upsert por fig: una corrida con --figs no borra el resto); registra una
@@ -39,7 +39,7 @@
 ## los textos dibujados con df que hizo figures (wjpr_textos en figures_status; "sin textos que comparar" →
 ## suprimido); una salida sin wjpr_build en figures_status (dibujada con otro metodo) está desactualizada;
 ## (6) archivo: ancho exacto (±0.001) y alto ± size_tol_in, PNG = round(w_in·dpi) × round(h_in·dpi), 0 <text>,
-## versiones 'exacta' de deps.csv (aviso, campo entorno); un PNG que falta da obtenido "ausente"; figures en texto,
+## versiones de renv.lock (aviso, campo entorno); un PNG que falta da obtenido "ausente"; figures en texto,
 ## dibujo, tamaño o png → fila "figures" fallida y verificacion "figures: <motivo>"; (7) conocida: una fila fallida cuyo label y text obtenido
 ## aparezcan en spec$nota como [conocida: <label>=<text>] pasa a "conocida" (ni ok ni fallo; una figura solo con
 ## conocidas queda "ok" y su verificacion empieza por "conocida").
@@ -49,7 +49,7 @@
 ## `order`, no en el orden físico del CSV; el texto de drawn.csv no añade filas: la fila text/text2 falla (nota
 ## "drawn.csv") si lo dibujado no es la referencia aunque la tabla lo sea; sin PNG → "suprimido" (omitido con --no-png o
 ## sin Chrome) salvo que figures_status diga estado "png" → fallo; el PNG se acepta con ±1 px de ancho y
-## ±round(size_tol_in·dpi) px de alto (= 3) porque el alto real del SVG puede diferir del h_in del manifiesto dentro de
+## ±round(size_tol_in·dpi) px de alto (= 3) porque el alto real del SVG puede diferir del h_in de la spec dentro de
 ## size_tol_in. Los PNG publicados miden exactamente round(w_in·300) × round(h_in·300) (fig 9: 1821×2512; 2513 =
 ## ceiling(8.375·300) es la ventana de Chrome antes del recorte, no el PNG).
 
@@ -268,13 +268,12 @@ is_stale <- function(status, f_table, f_svg, cfg, f_drawn = NULL) {
   no
 }
 
-# Paquetes 'exacta' de deps.csv con build instalada distinta (tibble paquete, version, instalada) o NULL: versión y, si
-# origen fija un commit ("…/WJPr@382aee9"), también el commit ("1.1.0@local" ≠ "1.1.0@382aee9"; deps_exact_mismatch)
+# Paquetes de renv.lock con build instalada distinta (tibble paquete, version, instalada) o NULL: versión y, si
+# origen fija un commit (WJPr), también el commit ("1.1.0@local" ≠ "1.1.0@382aee9"; deps_exact_mismatch)
 deps_mismatch <- function(cfg) {
-  f <- cfg$paths$deps
+  f <- cfg$paths$lock
   if (is.null(f) || is.na(f) || !file.exists(f)) return(NULL)
-  deps <- read_csv(f, col_types = cols(.default = col_character()), na = character(), show_col_types = FALSE, progress = FALSE)
-  dm <- deps_exact_mismatch(deps)
+  dm <- deps_exact_mismatch(lock_deps(f))
   if (nrow(dm) == 0) NULL else transmute(dm, paquete, version = esperada, instalada = coalesce(instalada, "-"))
 }
 
@@ -530,7 +529,7 @@ verify_figure <- function(spec, cfg, status = NULL) {
   dm <- deps_mismatch(cfg)
   if (!is.null(dm) && nrow(dm) > 0) {
     add(vrow("entorno", paste(dm$paquete, dm$version, collapse = ", "), paste(dm$paquete, dm$instalada, collapse = ", "), "ok",
-             nota = "aviso: versiones 'exacta' de deps.csv distintas de las instaladas (no es fallo)"))
+             nota = "aviso: versiones de renv.lock distintas de las instaladas (no es fallo)"))
   }
 
   # corregido (revisión 4): una figura que figures dejó en texto, dibujo, tamaño o png no sale "ok": la fila

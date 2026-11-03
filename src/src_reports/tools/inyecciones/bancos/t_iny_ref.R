@@ -6,7 +6,7 @@
 ROOT <- Sys.getenv("INY_ROOT"); if (!nzchar(ROOT)) stop("INY_ROOT: la copia de src_reports donde correr (tools/inyecciones/correr.sh)", call. = FALSE)
 for (f in sort(list.files(file.path(ROOT, "R"), pattern = "^[0-9]{2}_.*\\.R$", full.names = TRUE))) source(f)
 cfg <- load_config(ROOT, "hungary"); setup_fonts(cfg); wjpr_require()
-specs <- read_manifest(cfg)
+specs <- read_specs(cfg)
 tol_frac <- cfg$verify$tol_frac %||% 0.006; tol_pp <- cfg$verify$tol_pp %||% 0.6
 
 edit_data <- function(p, pick, f) {           # rehace las capas pick(l) con data f(data) (sin p$layers[[k]] <- …)

@@ -4,7 +4,7 @@
 ##   por pareja; el df lleva todas las parejas (series "sig" = lift > 1.2 y n >= 10, las que se dibujan: 66 de 66 en
 ##   lo publicado; "no" = solo cuentan para la centralidad de los nodos), layout_with_fr(lift², niter 1000) sobre las
 ##   parejas con lift > 0, con RNGkind + set.seed(42), pad 0.16, min_dist 0.28, hstretch 1.15. Alto: el del
-##   manifiesto es el de lo publicado; el que pide el layout de otro país lo da el log (manifest/figures_<slug>.csv).
+##   spec es el de lo publicado; el que pide el layout de otro país lo da el log (figures: figNN: de config/<pais>.yml).
 ##   Contraste: tabs/csv/1_5_lift_matrix_<país>.csv
 ## Método UE: none
 ## Código de origen: F01.R:43-52 + network_graph.R:35-199 (datos; sin el dibujo ni el ggsave :200-300) +
@@ -38,6 +38,15 @@ net_layout <- function(g) {
 }
 
 fig_05 <- list(
+
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "network", metodo = "wjpr", w_in = 6.5, h_in = 5.869, callout = TRUE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("12 valores impresos (prevalencia sin ponderar) no contados en los 404; referencia desde",
+                           "analisis adicionales/cooccurrence_network.svg (12 circle + 66 line); layout depende de",
+                           "igraph 2.3.1 (renv.lock); texto 7.96 pt por tope de ancho; h_in = el de lo publicado: el",
+                           "alto que pide el layout de otro país sale en el log (figures: fig05: h_in de",
+                           "config/<pais>.yml)")),
 
   # Nodos (12: label = categoría, value = prevalencia % sin ponderar, text "(40%)", x, y del layout; series "") y
   # todas las parejas (label "A|B" en el orden de edges_all: A antes que B en cats; value = lift; x, y NA; series
@@ -102,7 +111,7 @@ fig_05 <- list(
   # Dibujo: WJPr::wjp_network() con sus argumentos (wjpr_network, R/09_wjpr.R; revisión 5, WJPr 1.2.0): aristas (las
   # "sig") con ancho y opacidad según el lift, nodos con relleno por centralidad (suma de los lifts de todas las
   # parejas; complemento si alguna no se dibuja) y rótulos nombre + text sobre las coordenadas x, y del df (lienzo =
-  # caja de los nodos), al ancho del manifiesto; aviso en el log si el alto que pide el layout no es el h_in del
-  # manifiesto.
+  # caja de los nodos), al ancho de la spec; aviso en el log si el alto que pide el layout no es el h_in del
+  # spec.
   plot = function(df, spec) wjpr_network(df, spec)
 )

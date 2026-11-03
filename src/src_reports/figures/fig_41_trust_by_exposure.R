@@ -11,6 +11,13 @@
 
 fig_41 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "cards", metodo = "wjpr", w_in = 6.5, h_in = 3.506, callout = FALSE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("escala de color común con la 42 (lo/hi 29/55, medida en la publicada); 11 pt; text2 =",
+                           "delta de valores redondeados con signo U+2212 y sufijo ' points'; referencia de A04.csv",
+                           "confirmada con finales/datos (12 tarjetas)")),
+
   # Confianza (1-2) en cada actor por exposición al sistema (exposicion de add_report_vars, A04.R:3-12), sobre todos los encuestados del país (trust_ladder, R/03_estimators.R:
   # xt con el promedio NUTS del reporte; n < 30 → N/A), en el orden publicado de las filas; la primera fila («No
   # non-trivial problem», impresa «Without a non-trivial problem») es la de referencia. Escala de color común a la 41 y

@@ -11,6 +11,11 @@ fig34_stages <- c("Reported knowledge of their legal rights", "Had access to inf
 
 fig_34 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "funnel", metodo = "wjpr", w_in = 6.5, h_in = 2.278, callout = TRUE, label_col = "none",
+              metodo_ue = "none",
+              nota = "3 valores no contados en los 404; mismos valores que F09.csv"),
+
   # Promedios nacionales ponderados por NUTS: conocimiento de derechos (AJE_legalrights con binary_agree, la fila
   # National de 4_1), acceso a información (access2info, la de 2_1_1) y la percepción de JSE_access2info (fila National
   # Average de perception_experience, F06.R). frac = value / max la calcula wjpr_funnel().

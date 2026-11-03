@@ -17,6 +17,12 @@ fig27_stages <- c(
 
 fig_27 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "grouped_bars", metodo = "wjpr", w_in = 6.5, h_in = 3, callout = TRUE, label_col = "std",
+              metodo_ue = "none",
+              nota = paste("6 valores no contados en los 404 (referencia desde A01.csv); hoy se compara con",
+                           "A01_resolucion_segun_acceso.svg (solo en la nube)")),
+
   # Por etapa, el problema totalmente resuelto (resolved = rp_outcome, add_report_vars) entre quienes tuvieron acceso (1)
   # y quienes no (0): fila «Sin control» de diff_stratified() (A01.R:9 y 17: report_bars con con/sin, sin estratos), con
   # el promedio NUTS del reporte (n < 30 → N/A). Sin filas avg: cada etapa es un header y sus filas With/Without access.

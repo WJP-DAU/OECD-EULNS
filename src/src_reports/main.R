@@ -6,8 +6,9 @@
 ##   Rscript main.R [--stage data|figures|verify|compare|all] [--figs 09,12] [--country hungary]
 ##                  [--force] [--no-png] [--strict] [--help]
 ##
-## Variables de entorno (opcionales): SRC_REPORTS_LIB (librería R que se antepone a .libPaths()),
-## SRC_REPORTS_CACHE (carpeta de caché), SRC_REPORTS_ROOT (raíz si junto a main.R no está R/00_setup.R),
+## Paquetes: renv (renv.lock; renv::restore() la primera vez). R/00_setup.R activa el renv de la carpeta aunque Rscript
+## se lance desde otro directorio. Variables de entorno (opcionales): SRC_REPORTS_CACHE (carpeta del caché; defecto
+## data/), SRC_REPORTS_ROOT (raíz si junto a main.R no está R/00_setup.R),
 ## SRC_REPORTS_ARGS (argumentos cuando no llegan por la línea de comandos, p. ej. con source() desde RStudio),
 ## CHROMOTE_CHROME (binario de Chrome). Rutas de la máquina: config/local.yml (ver local.yml.example).
 ## Consola: cabecera, tabla resumen (fig | metodo | estado | verificacion | archivo) y línea de cierre con la ruta del
@@ -15,9 +16,6 @@
 ## "Error en la etapa <x>: <primera línea>" + "Detalle: <log>" y la salida es 1.
 ## Con source() (sesión interactiva u otro script) no se llama quit(): source("main.R")$value es el código de salida.
 ## ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-lib <- Sys.getenv("SRC_REPORTS_LIB")
-if (nzchar(lib)) .libPaths(unique(c(lib, .libPaths())))
 
 # Raíz = primera carpeta con R/00_setup.R entre: la del archivo que recibió source() (RStudio, otro script), la del
 # --file= de Rscript (Rscript cambia los espacios por "~+~"), SRC_REPORTS_ROOT y el directorio de trabajo. Las rutas
@@ -91,7 +89,7 @@ parse_figs <- function(x) {
 usage <- function() cat(
   "Uso: Rscript main.R [--stage data|figures|verify|compare|all] [--figs 09,12] [--country hungary]\n",
   "                    [--force] [--no-png] [--strict] [--help]\n",
-  "  data     lee el .dta (path2EU en config/local.yml) y construye cache/ (master y ctx del país)\n",
+  "  data     lee el .dta (path2EU en config/local.yml) y construye el caché en data/ (master y ctx del país)\n",
   "  figures  escribe output/<slug>/tables/*.csv y figures/*.svg|png de las figuras seleccionadas\n",
   "  verify   compara output/<slug>/tables con reference/<slug> y escribe tables/00-verificacion.csv\n",
   "  compare  hojas publicada | nueva en output/<slug>/compare/\n",
@@ -144,20 +142,20 @@ main <- function(argv) {
       log_msg("Chrome: ", if (is.na(cfg$paths$chrome)) "no encontrado" else cfg$paths$chrome)
       check_deps(cfg)
       setup_fonts(cfg)
-      specs <- read_manifest(cfg)
-      if (length(attr(specs, "avisos"))) notes <- c(notes, sprintf("avisos del manifiesto: %d (ver log)", length(attr(specs, "avisos"))))
+      specs <- read_specs(cfg)
+      if (length(attr(specs, "avisos"))) notes <- c(notes, sprintf("avisos de las specs: %d (ver log)", length(attr(specs, "avisos"))))
       # --figs solo se aplica si hay etapas de figuras; las que no existen se avisan y ninguna coincidencia detiene
       fig_stages <- intersect(stages, c("figures", "verify", "compare"))
       figs <- if (length(fig_stages)) args$figs else NULL
       if (!is.null(args$figs) && is.null(figs)) notes <- c(notes, "--figs no aplica a --stage data")
       unknown <- setdiff(figs, vapply(specs, function(s) as.integer(s$fig), 1L))
       if (length(unknown)) {
-        notes <- c(notes, paste0("--figs sin figura en el manifiesto: ", paste(sprintf("%02d", unknown), collapse = ", ")))
-        log_msg("--figs sin figura en el manifiesto: ", paste(sprintf("%02d", unknown), collapse = ", "))
+        notes <- c(notes, paste0("--figs sin figura en figures/: ", paste(sprintf("%02d", unknown), collapse = ", ")))
+        log_msg("--figs sin figura en figures/: ", paste(sprintf("%02d", unknown), collapse = ", "))
       }
       specs <- lapply(specs, function(s) { s$selected <- is.null(figs) || s$fig %in% figs; s })   # no seleccionada → "omitida"
       if (length(fig_stages) && !any(vapply(specs, `[[`, logical(1), "selected"))) {
-        stop("Ninguna figura del manifiesto coincide con --figs ", paste(sprintf("%02d", figs), collapse = ","), call. = FALSE)
+        stop("Ninguna figura de figures/ coincide con --figs ", paste(sprintf("%02d", figs), collapse = ","), call. = FALSE)
       }
       # WJPr ya no es opcional: con figuras metodo wjpr, check_method_deps() (R/00_setup.R) lo exige en run_figures()
       specs

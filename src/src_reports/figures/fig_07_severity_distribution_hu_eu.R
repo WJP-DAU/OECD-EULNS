@@ -21,6 +21,11 @@ severity_distribution <- function(ctx, long, groups = NULL) {
 
 fig_07 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "severity_bars", metodo = "wjpr", w_in = 6.36, h_in = 2.726, callout = TRUE, label_col = "none",
+              base_pt = 13, metodo_ue = "eu_est_distribution",
+              nota = "22 barras verificadas por tabla; UE dibujada"),
+
   # Dos barras por valor de severidad (11 × 2): el país y la media UE. Como run_F03, la serie del país sale de la
   # misma tabla de países que la UE (ctx$master; = ctx$national). value = % de los problemas (sin redondear; NA si
   # todas las regiones del país quedan suprimidas); nada impreso. Orden: severidad 0-10 y, dentro, país antes que la

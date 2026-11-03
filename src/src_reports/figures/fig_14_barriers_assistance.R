@@ -8,6 +8,12 @@
 
 fig_14 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "hbars", metodo = "wjpr", w_in = 7.278, h_in = 2.778, callout = FALSE, label_col = "hbars",
+              metodo_ue = "none",
+              nota = paste("8 motivos: access2rep == 0 exige AJD_noadvice_reason ∈ {4-10, 98} (02_variables.R:462),",
+                           "1-3 no salen; referencia = fracciones de las barras publicadas (v1_frac·100)")),
+
   # Entre quienes no tuvieron acceso a asistencia apropiada (access2rep == 0), % que dio cada motivo. Solo aparecen los
   # motivos presentes en la base: access2rep == 0 exige AJD_noadvice_reason ∈ {4, ..., 10, 98} (02_variables.R:462),
   # así que 1-3 nunca salen. Valores de control (2026-10-27): 20.85 / 17.04 / 16.63 / 16.30 / 12.94 / 8.00 / 4.34 / 3.79.

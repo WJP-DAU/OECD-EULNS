@@ -1,19 +1,19 @@
 ## tools/wjpr_gallery.R — galería de las figuras dibujadas con WJPr + complementos, y su fidelidad -------------------
-## Para cada figura del manifiesto cuyo tipo tiene wjpr_<tipo>() en R/09_wjpr.R: toma el df de su data() si la figura
-## ya está implementada (status ok en el manifiesto) o de la referencia publicada si no, dibuja con wjpr_<tipo>(df,
-## spec), exporta como las figuras ggplot (svglite → trazos → tamaño del manifiesto → PNG) y mide: textos dibujados
+## Para cada figura de figures/ cuyo tipo tiene wjpr_<tipo>() en R/09_wjpr.R: toma el df de su data() si la figura
+## ya está implementada (su data() corre) o de la referencia publicada si no, dibuja con wjpr_<tipo>(df,
+## spec), exporta como las figuras ggplot (svglite → trazos → tamaño de la spec → PNG) y mide: textos dibujados
 ## frente a df$text/text2 (drawn_text_diff_wjpr, la regla de figures), fuente (familias de svglite y textos dudosos),
 ## parecido visual con la publicada (f1 de tinta y diferencia local a 96 dpi, wjpr_similarity), lo dibujado por fila
 ## frente a la referencia si el adaptador lo expone (frac ± verify$tol_frac y texto exacto, como verify) y, si existe,
 ## el parecido de la figura propia (svg_r) de output/<slug>/figures/. Columna dibujo: ok o lo que no pasaría verify
 ## con los umbrales de config/<pais>.yml (min_f1, max_local, tol_frac).
 ## Salidas en output/<slug>/wjpr/: Figure_NN_slug.svg|png, compare/Figure_NN_slug.png (publicada | WJPr), 00-wjpr.csv,
-## index.html y wjpr_gallery.log. No toca el resto de output/ ni el manifiesto.
+## index.html y wjpr_gallery.log. No toca el resto de output/ ni figures/.
 ## Uso: Rscript src/src_reports/tools/wjpr_gallery.R [--figs 09,13] [--country hungary] [--out <carpeta>] [--sin-complementos]
 ## --sin-complementos: options(wjpr.complementos = FALSE): cada figura con WJPr sola (lo que el paquete logra sin ayuda).
-## Otra build de WJPr: SRC_REPORTS_LIB=<librería que la contiene> (se antepone a .libPaths()); queda en la columna wjpr_build.
+## Otra build de WJPr: en una copia de la carpeta, renv::install("worldjusticeproject-org/WJPr@<commit>") (sin snapshot);
+## queda en la columna wjpr_build.
 
-lib <- Sys.getenv("SRC_REPORTS_LIB"); if (nzchar(lib)) .libPaths(unique(c(lib, .libPaths())))
 ROOT <- local({
   f <- grep("^--file=", commandArgs(FALSE), value = TRUE)
   r <- if (length(f) > 0) dirname(dirname(gsub("~\\+~", " ", sub("^--file=", "", f[1])))) else ""
@@ -26,7 +26,7 @@ a <- commandArgs(trailingOnly = TRUE)
 opt <- function(k) { i <- match(k, a); if (is.na(i) || i == length(a)) NULL else a[i + 1] }
 cfg <- load_config(ROOT, opt("--country")); check_deps(cfg); setup_fonts(cfg); wjpr_require()
 if ("--sin-complementos" %in% a) options(wjpr.complementos = FALSE)
-specs <- read_manifest(cfg)
+specs <- read_specs(cfg)
 figs <- if (is.null(opt("--figs"))) NULL else as.integer(strsplit(opt("--figs"), ",")[[1]])
 if (!is.null(figs)) specs <- Filter(function(s) s$fig %in% figs, specs)
 out_dir <- opt("--out") %||% file.path(cfg$paths$output, "wjpr")       # --out: otra carpeta (p. ej. otra versión de WJPr)

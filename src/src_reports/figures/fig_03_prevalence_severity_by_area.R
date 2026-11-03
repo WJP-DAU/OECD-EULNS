@@ -54,6 +54,11 @@ fig03_highlight <- function(ctx) {
 
 fig_03 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "scatter", metodo = "wjpr", w_in = 7.382, h_in = 3.445, callout = FALSE, label_col = "none",
+              base_pt = 12, metodo_ue = "none",
+              nota = "sin valores impresos: verify compara 24 puntos (x tol 0.6; y tol 0.06); compare/ obligatorio"),
+
   # Un punto por área × categoría (2 × 12): value = prevalencia no trivial (% de los encuestados del área),
   # value2 = severidad media 0-10 (NA = suprimida: el punto no se dibuja), n = encuestados con problema no trivial en
   # la categoría, series = "destacada" (rotulada; fig03_highlight) o "". Nada impreso (text = ""). Orden: facetas
@@ -74,7 +79,7 @@ fig_03 <- list(
 
   # Dibujo: WJPr::wjp_scatter() con sus argumentos (wjpr_scatter, R/09_wjpr.R; revisión 5, WJPr 1.2.0): tendencia
   # lineal discontinua por faceta, destacadas (series) con su rótulo (seed 7), huecos (text2 «n < 30»), ejes 0-50 % y
-  # 4-8; tamaños sobre base_pt 12 del manifiesto. Los puntos suprimidos no se dibujan (cuántos por faceta, al log) y
+  # 4-8; tamaños sobre base_pt 12 de la spec. Los puntos suprimidos no se dibujan (cuántos por faceta, al log) y
   # una faceta con menos de 2 puntos no se dibuja (aviso en el log; complemento).
   plot = function(df, spec) wjpr_scatter(df, spec)
 )

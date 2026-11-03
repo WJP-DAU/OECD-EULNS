@@ -8,6 +8,12 @@
 
 fig_18 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "hbars", metodo = "wjpr", w_in = 7.278, h_in = 2.472, callout = FALSE, label_col = "hbars",
+              metodo_ue = "none",
+              nota = paste("reproducida desde los microdatos (59.75/56.03/51.19/…; antes leída del SVG; sin",
+                           "filter(none) daría 55.21/51.84)")),
+
   # Entre quienes acudieron a un mecanismo de resolución (access2drm == 1), % que acudió a cada uno, con el estimador
   # del original (contacted_shares). Valores de control (2026-10-27): 59.75 / 56.03 / 51.19 / 49.63 / 42.04 / 27.69 /
   # 13.55 (sin filter(none == FALSE) darían 55.21 / 51.84 / …).

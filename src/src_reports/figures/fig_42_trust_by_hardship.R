@@ -10,6 +10,13 @@
 
 fig_42 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "cards", metodo = "wjpr", w_in = 6.5, h_in = 2.756, callout = FALSE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("idem 41 (9 tarjetas; lo/hi 29/55, la escala común con la 41: la tarjeta del 30 % tiene t",
+                           "= 0.1535 en la publicada; la referencia traía 30/55 hasta el 29-oct); referencia de",
+                           "A05.csv confirmada con finales/datos")),
+
   # Confianza (1-2) en cada actor por experiencia de dificultades (escalera_hardship de add_report_vars, A05.R:11-13), sobre todos los encuestados del país (trust_ladder, R/03_estimators.R:
   # xt con el promedio NUTS del reporte; n < 30 → N/A), en el orden publicado de las filas; la primera fila («No
   # non-trivial problem», impresa «Without a non-trivial problem») es la de referencia. Escala de color común a la 41 y

@@ -10,8 +10,8 @@
 ## vecino más cercano por índices), ambas sobre fondo blanco a la misma altura (relleno blanco abajo), separador gris
 ## de 20 px, publicada a la izquierda; una comparación que no es ok borra el compuesto anterior. compare/index.csv
 ## guarda la última comparación de cada figura (fig, slug, estado, verificacion, archivo, fecha; upsert por fig, así
-## una corrida con --figs parciales no pisa las demás). index.html: una fila por figura del manifiesto (fig, título,
-## tamaño del manifiesto, última comparación con su fecha) y las dos imágenes lado a lado (<img width="50%">), con
+## una corrida con --figs parciales no pisa las demás). index.html: una fila por figura de figures/ (fig, título,
+## tamaño de la spec, última comparación con su fecha) y las dos imágenes lado a lado (<img width="50%">), con
 ## rutas relativas a compare/.
 ## Devuelve (§4.7) tibble(fig, metodo, estado, verificacion, archivo): ok | sin salida | sin publicada | error | omitida.
 
@@ -158,7 +158,7 @@ update_compare_log <- function(log_rows, cfg) {
   todo
 }
 
-# Una fila por figura del manifiesto: fig, título (sección · página · tipo · método), tamaño del manifiesto, última
+# Una fila por figura de figures/: fig, título (tipo · método), tamaño de la spec, última
 # comparación registrada (estado, verificacion, fecha y enlace al compuesto si fue ok) y las dos imágenes lado a lado
 # (<img width="50%">). Antes salía el estado de la corrida actual ("omitida" en las no seleccionadas) junto a
 # compuestos de corridas anteriores, sin fecha
@@ -179,7 +179,7 @@ write_compare_index <- function(specs, hist, cfg) {
       '<tr id="fig', r$fig, '">',
       '<td class="num">', r$fig, '</td>',
       '<td>', html_escape(s$titulo), '<br><span class="meta">',
-      html_escape(paste(s$seccion, paste0("p. ", s$pagina), s$tipo, s$metodo, sep = " · ")), '</span></td>',
+      html_escape(paste(s$tipo, s$metodo, sep = " · ")), '</span></td>',
       '<td class="num">', sprintf("%.3f × %.3f in", s$w_in, s$h_in), '<br><span class="meta">',
       sprintf("%d × %d px a %d dpi", round(s$w_in * COMPARE_DPI), round(s$h_in * COMPARE_DPI), COMPARE_DPI), '</span></td>',
       '<td><span class="estado ', gsub(" ", "-", r$estado, fixed = TRUE), '">', html_escape(r$estado), '</span>',
@@ -216,7 +216,7 @@ write_compare_index <- function(specs, hist, cfg) {
            'Derecha: PNG nuevo (output/', html_escape(cfg$slug), '/figures, ', cfg$layout$dpi, ' dpi; el navegador lo escala al mismo ancho). ',
            'Compuesto: ambas a ', COMPARE_DPI, ' dpi, misma altura, separador gris de ', COMPARE_SEP_PX, ' px.</p>'),
     '<table>',
-    '<thead><tr><th>fig</th><th>figura</th><th>tamaño (manifiesto)</th><th>estado</th><th>publicada | nueva</th></tr></thead>',
+    '<thead><tr><th>fig</th><th>figura</th><th>tamaño (spec)</th><th>estado</th><th>publicada | nueva</th></tr></thead>',
     '<tbody>', tr, '</tbody>', '</table>', '</body>', '</html>')
   path <- file.path(dir, "index.html")
   writeLines(enc2utf8(html), path, useBytes = TRUE)
@@ -226,7 +226,7 @@ write_compare_index <- function(specs, hist, cfg) {
 
 ## Etapa ----------------------------------------------------------------------------------------------------------
 
-# run_compare(specs, cfg) → tibble(fig, metodo, estado, verificacion, archivo) en el orden del manifiesto (§4.7).
+# run_compare(specs, cfg) → tibble(fig, metodo, estado, verificacion, archivo) en orden de fig (§4.7).
 # Escribe output/<slug>/compare/Figure_NN_slug.png por figura seleccionada con publicada y nueva, actualiza
 # compare/index.csv y después index.html con todas las figuras. Nada va a consola: el detalle queda en el log.
 run_compare <- function(specs, cfg) {

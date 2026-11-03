@@ -7,6 +7,12 @@
 
 fig_15 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "dumbbell", metodo = "wjpr", w_in = 6.5, h_in = 5.25, callout = TRUE, label_col = "dumb",
+              metodo_ue = "none",
+              nota = paste("leyenda fija de dos líneas, la misma de la 10; 18-24 sin ningún valor (n < 30 en las dos",
+                           "series): solo la etiqueta")),
+
   # Estimación. perception_experience() devuelve la fila nacional y los cortes Gender, Age Group, Financial
   # Situation y Area of Residence (promedio nacional ponderado por NUTS; n < 30 → NA). La experiencia es la variante
   # publicada del acceso a asistencia (rep_c_published: sin "no lo necesitó" ni "razón desconocida", R03.R:19), que

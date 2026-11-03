@@ -9,5 +9,6 @@ recalcula aquí).
 
 Define qué países entran en la media UE (`eu_est()`) y las ponderaciones de todas las estimaciones nacionales.
 
-Aquí no se guardan microdatos: el `.dta` se lee desde `path2EU` (config/local.yml) y el caché va en `cache/`
-(ignorada por git) o en `cache_dir`.
+Caché de microdatos: `--stage data` escribe aquí `master.rds` (27 países, un encuestado por fila), `ctx_<slug>.rds` y
+sus claves (`master.key`, `ctx_<slug>.key`), salvo que `cache_dir` (config/local.yml) o `SRC_REPORTS_CACHE` digan otra
+carpeta. `data/` está en `.gitignore`: solo se versionan `regions.csv` y este README. El `.dta` se lee desde `path2EU`.

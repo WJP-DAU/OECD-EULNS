@@ -5,7 +5,7 @@ for (f in sort(list.files(file.path(ROOT, "R"), pattern = "^[0-9]{2}_.*\\.R$", f
 fig <- as.integer(commandArgs(TRUE)[1])
 cfg <- load_config(ROOT, "hungary"); setup_fonts(cfg); wjpr_require()
 log_open(file.path(tempdir(), "iny_fig.log"))   # el log de la simulación, fuera de la copia
-spec <- Filter(function(s) s$fig == fig, read_manifest(cfg))[[1]]
+spec <- Filter(function(s) s$fig == fig, read_specs(cfg))[[1]]
 use_data <- identical(spec$status, "ok")
 df <- if (use_data) load_figure(spec, cfg)$data(load_ctx(cfg, build = FALSE)$ctx) else wjpr_ref_df(spec, cfg)
 p <- get(paste0("wjpr_", spec$tipo))(df, spec)

@@ -11,6 +11,11 @@ fig37_docs <- c("Official proof of identity" = "vulnerability1", "Written work a
 
 fig_37 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "columns", metodo = "wjpr", w_in = 7.278, h_in = 3.34, callout = FALSE, label_col = "none",
+              metodo_ue = "eu_est", eu_id = "vulnerability1;vulnerability3;vulnerability2",
+              nota = "columnas verticales; mismo ancho que la 36"),
+
   # País = promedio nacional ponderado por NUTS (nat_est; n < 30 → N/A), UE = media simple de las estimaciones
   # nacionales (eu_est), como F10.R:55-59. Orden fijo del diseño (rows_columns, R/05_charts.R).
   data = function(ctx) {

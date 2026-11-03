@@ -2,7 +2,8 @@
 ## tools/inyecciones/correr.sh — corre los bancos de errores inyectados en el dibujo y comprueba que la verificación los
 ## detecta. Cada inyección cambia solo el dibujo (df intacto): dos etiquetas o celdas intercambiadas, un valor oculto,
 ## una barra +5 pp, una arista quitada, la línea de corte quitada… Trabaja en una copia temporal de la carpeta (sin
-## output/; con cache/ y config/local.yml), así que no toca R/09_wjpr.R ni las salidas del proyecto.
+## output/; con el caché de data/, renv/ —su librería son enlaces al caché de renv— y config/local.yml), así que no toca
+## R/09_wjpr.R ni las salidas del proyecto.
 ## Uso: bash src/src_reports/tools/inyecciones/correr.sh        (unos 30-60 min; WJPr y Chrome como en main.R)
 ## Salida: una línea por inyección y, al final, «N de M detectadas»; exit 0 si se detectan todas las de main.R.
 ## Bancos (bancos/): se añaden al final de R/09_wjpr.R de la copia y envuelven el adaptador; INY = nombre de la

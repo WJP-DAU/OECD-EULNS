@@ -2,8 +2,8 @@
 ## Origen: src/data/data-loading.R:7-18 (lectura del .dta); src/data/worker-data.R:22-82 (study_vars y flujo
 ## quality check → add_special_demographics → add_a2j_vars → select); src/analysis/eu_main_indicators.R:8-60
 ## (los 27 países de regions.csv y non_trivial_problem_broader). El caché, ctx y las comprobaciones son nuevos.
-## Caché: cache/master.key = componentes de master_key_parts() (.dta, regions.csv, 01/02, paquetes, R, deps.csv);
-## cache/ctx_<slug>.key = ctx_key() (+ eu_values.csv, slug, país). Sin .dta solo se reutiliza un caché cuya clave difiera
+## Caché (data/, en .gitignore): master.key = componentes de master_key_parts() (.dta, regions.csv, 01/02, paquetes, R,
+## renv.lock); ctx_<slug>.key = ctx_key() (+ eu_values.csv, slug, país). Sin .dta solo se reutiliza un caché cuya clave difiera
 ## únicamente en la parte del .dta (nota "sin comprobar"); si difiere en otra cosa, load_ctx() se detiene. Las claves se
 ## escriben solo después de guardar bien el .rds (--force no borra nada antes).
 ## Usa de 02_variables.R: apply_a2j_quality_check(), add_special_demographics(), add_a2j_vars() (que además
@@ -123,7 +123,7 @@ build_ctx <- function(cfg, master, jg, regions, key) {
   jg_nat <- jg$keepDK %>% semi_join(national, by = "country_year_id")
   add <- setdiff(c("country_name_ltn", "nuts_id"), names(jg_nat))
   if (length(add) > 0) jg_nat <- left_join(jg_nat, select(national, country_year_id, all_of(add)), by = "country_year_id")
-  deps <- read_csv(cfg$paths$deps, show_col_types = FALSE)
+  deps <- lock_deps(cfg$paths$lock)
   list(
     cfg = cfg[setdiff(names(cfg), "paths")],
     country = cfg$country,
@@ -135,7 +135,7 @@ build_ctx <- function(cfg, master, jg, regions, key) {
     eu_values = load_eu_values(cfg),
     meta = list(
       key = key, ctx_key = ctx_key(cfg, key), built = format(Sys.time(), "%Y-%m-%d %H:%M:%S"), r = R.version.string,
-      packages = setNames(vapply(deps$paquete, pkg_ver, ""), deps$paquete),
+      packages = setNames(coalesce(vapply(deps$paquete, pkg_installed, ""), "-"), deps$paquete),
       dta = list(path = cfg$paths$dta, sig = file_sig(cfg$paths$dta)),
       n_master = nrow(master), countries = sort(unique(master$country_name_ltn)), n_national = nrow(national),
       reference_version = cfg$report$reference_version
@@ -150,7 +150,7 @@ file_sig <- function(p) if (!is.na(p) && file.exists(p)) paste0(file.size(p), "|
 pkg_ver <- function(p) if (requireNamespace(p, quietly = TRUE)) as.character(packageVersion(p)) else "-"
 
 # Componentes de la clave del master, con nombre: el .dta (tamaño|fecha|ruta), regions.csv, el código de carga/variables
-# (md5 de 01_load.R,02_variables.R), los paquetes de lectura, R y deps.csv. Por componentes para poder decir, sin el
+# (md5 de 01_load.R,02_variables.R), los paquetes de lectura, R y renv.lock. Por componentes para poder decir, sin el
 # .dta, qué cambió (load_ctx).
 master_key_parts <- function(cfg) {
   root <- cfg$paths$root
@@ -161,7 +161,7 @@ master_key_parts <- function(cfg) {
     code = paste(unname(tools::md5sum(file.path(root, "R", c("01_load.R", "02_variables.R")))), collapse = ","),
     pkgs = paste(pk, vapply(pk, pkg_ver, ""), sep = "=", collapse = ","),
     R = paste(R.version$major, R.version$minor, sep = "."),
-    deps = unname(tools::md5sum(cfg$paths$deps))
+    deps = unname(tools::md5sum(cfg$paths$lock))
   )
 }
 
@@ -179,7 +179,7 @@ key_parts <- function(key) {
 # el mensaje de load_ctx(); character(0) si solo cambia el .dta
 key_mismatch <- function(stored, parts, cfg) {
   old <- key_parts(stored)
-  if (is.null(old)) return("formato de clave en cache/master.key")
+  if (is.null(old)) return("formato de clave en master.key")
   split <- function(x) strsplit(x, ",", fixed = TRUE)[[1]]
   dif <- setdiff(names(parts)[!mapply(identical, unname(old[names(parts)]), unname(parts))], "dta")
   unname(vapply(dif, function(k) switch(k,
@@ -191,7 +191,7 @@ key_mismatch <- function(stored, parts, cfg) {
     pkgs = paste0("paquete ", paste(setdiff(split(old[["pkgs"]]), split(parts[["pkgs"]])), collapse = ", "),
                   " (ahora ", paste(setdiff(split(parts[["pkgs"]]), split(old[["pkgs"]])), collapse = ", "), ")"),
     R = paste0("R ", old[["R"]], " (ahora ", parts[["R"]], ")"),
-    deps = "deps.csv"
+    deps = "renv.lock"
   ), ""))
 }
 
@@ -333,7 +333,7 @@ data_checks <- function(ctx, cfg) {
 write_inputs_md5 <- function(cfg) {
   p <- cfg$paths
   fonts <- list.files(p$fonts, pattern = "\\.ttf$", full.names = TRUE)
-  files <- c(regions = p$regions, eu_values = p$eu_values, manifest = p$manifest, deps = p$deps, setNames(fonts, basename(fonts)))
+  files <- c(regions = p$regions, eu_values = p$eu_values, renv_lock = p$lock, setNames(fonts, basename(fonts)))
   tbl <- tibble(
     insumo = c("dta", names(files)),
     ruta = c(p$dta, unname(files)),

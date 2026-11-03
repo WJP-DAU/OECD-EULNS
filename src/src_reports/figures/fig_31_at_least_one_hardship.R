@@ -6,6 +6,10 @@
 
 fig_31 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "grouped_bars", metodo = "wjpr", w_in = 6.069, h_in = 5.486, callout = TRUE, label_col = "std",
+              metodo_ue = "eu_est", eu_id = "hardship"),
+
   # Promedio nacional ponderado por NUTS por grupo (n < 30 → N/A); al menos una dificultad por el problema; sin el grupo
   # Category (F07.R:30); media UE eu_est (45.8 → 46 %).
   data = function(ctx) {
@@ -17,6 +21,6 @@ fig_31 <- list(
   },
 
   # Dibujo: WJPr::wjp_groupbars() con sus argumentos (wjpr_grouped_bars, R/09_wjpr.R; WJPr 1.2.0). Respaldo sin WJPr:
-  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en el manifiesto.
+  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en la spec.
   plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

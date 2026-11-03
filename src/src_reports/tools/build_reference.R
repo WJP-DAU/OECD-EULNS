@@ -2,11 +2,11 @@
 ## tools/build_reference.R — construye reference/<slug>/ (la verdad que usa --stage verify) desde lo publicado
 ##
 ## Produce, para el país de config/<pais>.yml:
-##   reference/<slug>/Figure_NN_slug.csv   una por figura del manifiesto (contratos §4.4/§4.6): order, kind, grouping,
+##   reference/<slug>/Figure_NN_slug.csv   una por figura de figures/ (contratos §4.4/§4.6): order, kind, grouping,
 ##                                         label, value, value2, text, text2, frac, frac2, tol (+ tol2 en la 3;
 ##                                         tol_xy, x, y en la red; lo, hi en las tarjetas; n en el scatter y el upset)
 ##   reference/<slug>/eu_values.csv        medias UE de data4web: id, value (0-100), fuente, archivo, md5, fecha, nota;
-##                                         ids = columna eu_id del manifiesto en las figuras con metodo_ue data4web
+##                                         ids = eu_id de la spec de las figuras con metodo_ue data4web
 ##   reference/<slug>/published/*.png      figuras publicadas remuestreadas a 96 dpi con resample_to_dpi() de
 ##                                         R/08_compare.R (el mismo remuestreo que --stage compare; igual en macOS y Linux)
 ##   reference/<slug>/README.md            nivel de cada figura, fuentes, md5 y fecha de los insumos, cómo regenerar
@@ -63,7 +63,7 @@ VIZ <- dirname(dirname(SRC))
 ADD <- file.path(VIZ, "analisis adicionales")
 UPSET_SVG <- file.path(VIZ, paste0(cfg$country, "_jg_upset.svg"))
 REF <- P$reference
-specs <- read_manifest(cfg)
+specs <- read_specs(cfg)
 
 
 ## Utilidades ---------------------------------------------------------------------------------------------------
@@ -356,7 +356,7 @@ ref_upset <- function(spec) {
   sets <- names(UPSET_SETS)
   if (!all(c(UPSET_SETS, "combinacion", "pct", "n") %in% names(f8)) || !all(c("necesidad", "pct_en_figura") %in% names(r4)))
     stop("F08.csv / R04_fig24_conjuntos.csv: columnas inesperadas", call. = FALSE)
-  if (!requireNamespace("ComplexUpset", quietly = TRUE)) stop("Falta ComplexUpset (deps.csv): da el orden de las intersecciones", call. = FALSE)
+  if (!requireNamespace("ComplexUpset", quietly = TRUE)) stop("Falta ComplexUpset (renv.lock): da el orden de las intersecciones", call. = FALSE)
   member <- as.matrix(f8[, unname(UPSET_SETS)]) == 1
   colnames(member) <- sets
   combo <- apply(member, 1, function(m) paste(sets[m], collapse = " + "))
@@ -447,19 +447,19 @@ BUILDERS <- list(grouped_bars = ref_standard, paired_bars = ref_standard, dumbbe
 
 ## Medias UE (data4web) --------------------------------------------------------------------------------------------
 
-# ids = columna eu_id del manifiesto en las figuras con metodo_ue == "data4web" (uno o varios separados por ";"), en el
-# orden del manifiesto. corregido: antes se sacaban con una regex de la prosa de fuente_datos. Filas level == "eu"
+# ids = eu_id de la spec de las figuras con metodo_ue == "data4web" (uno o varios separados por ";"), en el
+# orden de fig. corregido: antes se sacaban con una regex de la prosa de fuente_datos. Filas level == "eu"
 # (country "European Union"), demographic == "Total Sample"; valor del CSV en fracción 0-1 → ×100; rp_time viene
 # duplicado → distinct.
 build_eu_values <- function() {
-  if (!"eu_id" %in% names(specs[[1]])) stop("manifest/figures.csv sin columna eu_id (id de la media UE de cada figura)", call. = FALSE)
+  if (!"eu_id" %in% names(specs[[1]])) stop("las specs no traen el campo eu_id (id de la media UE de cada figura; SPEC_FIELDS)", call. = FALSE)
   d4w <- Filter(function(s) identical(s$metodo_ue, "data4web"), specs)
   ids_fig <- lapply(d4w, function(s) { x <- trimws(strsplit(coalesce(s$eu_id, ""), ";", fixed = TRUE)[[1]]); x[nzchar(x)] })
   sin_id <- vapply(ids_fig, length, 1L) == 0
-  if (any(sin_id)) stop("manifest/figures.csv: metodo_ue data4web sin eu_id en las figuras ",
+  if (any(sin_id)) stop("spec con metodo_ue data4web sin eu_id en las figuras ",
                         paste(vapply(d4w[sin_id], function(s) sprintf("%02d", s$fig), ""), collapse = ", "), call. = FALSE)
   ids <- unique(unlist(ids_fig))
-  if (length(ids) == 0) stop("El manifiesto no declara ninguna media UE de data4web (metodo_ue data4web + eu_id)", call. = FALSE)
+  if (length(ids) == 0) stop("Ninguna spec declara una media UE de data4web (metodo_ue data4web + eu_id)", call. = FALSE)
   d <- read_csv(P$data4web, col_select = c(country, level, id, demographic, value),
                 col_types = cols(.default = col_character(), value = col_double()), show_col_types = FALSE, progress = FALSE)
   sel <- d %>% filter(level == "eu", demographic == "Total Sample", id %in% ids)

@@ -4,7 +4,7 @@
 ## de textos dudosos al contornear). png_props (build_finales.R:154-157) no se porta: 07 lee las dimensiones del PNG
 ## con png_dims() y 08 con read_png_rgb().
 ## El flujo por figura (run_figures, validate_df, save_figure, figures_status.csv) es nuevo para src_reports.
-## Métodos de dibujo (columna metodo del manifiesto): wjpr (el motor por defecto desde 2026-10-23: plot() devuelve el
+## Métodos de dibujo (campo metodo de la spec): wjpr (el motor por defecto desde 2026-10-23: plot() devuelve el
 ## ggplot de wjpr_<tipo>(), R/09_wjpr.R, que se exporta como las ggplot con k = 1 y cuyos textos dibujados se comparan
 ## con df; si el adaptador expone lo dibujado por fila, attr(p, "wjpr")$drawn, va a drawn.csv como en svg_r), svg_r
 ## (respaldo: chart_out de chart_<tipo>(), R/05_charts.R), ggplot (lienzo × base_pt / text_pt) y static.
@@ -248,11 +248,11 @@ doubtful_texts <- function(lg) {
 # textos dudosos (medidos con otra familia que Inter o con textLength fuera de ±3 %) se anotan en el log y
 # save_figure da estado "texto"; antes el registro se descartaba y la figura quedaba "ok".
 # metodo wjpr: k = 1 sin base_pt (WJPr y sus complementos dan los tamaños en pt finales: 3.514598 mm = 10 pt) y el alto
-# del manifiesto también en set_size(), como wjpr_render() de la galería (09_wjpr.R): el mismo SVG que mide su f1.
+# de la spec también en set_size(), como wjpr_render() de la galería (09_wjpr.R): el mismo SVG que mide su f1.
 save_ggplot_svg <- function(plot, spec, cfg, svg) {
   if (requireNamespace("showtext", quietly = TRUE)) showtext::showtext_auto(FALSE)   # svglite debe emitir <text>
   wjpr <- identical(spec$metodo, "wjpr")
-  if (!wjpr && is.na(spec$base_pt)) stop("metodo ggplot requiere base_pt en el manifiesto (fig ", spec$fig, ")", call. = FALSE)
+  if (!wjpr && is.na(spec$base_pt)) stop("metodo ggplot requiere base_pt en la spec (fig ", spec$fig, ")", call. = FALSE)
   k <- if (wjpr) 1 else spec$base_pt / cfg$layout$text_pt
   tmp <- tempfile(fileext = ".svg")
   ggplot2::ggsave(tmp, plot, device = svglite::svglite, width = spec$w_in * k, height = spec$h_in * k, units = "in")
@@ -282,7 +282,7 @@ save_ggplot_svg <- function(plot, spec, cfg, svg) {
 # fila o NA) en metodo wjpr, NULL en el resto.
 save_figure <- function(out, df, spec, cfg, png = TRUE) {
   p <- figure_paths(spec, cfg); tag <- sprintf("fig %02d", spec$fig)
-  if (anyNA(c(spec$w_in, spec$h_in))) stop("w_in/h_in faltan en el manifiesto (fig ", spec$fig, ")", call. = FALSE)
+  if (anyNA(c(spec$w_in, spec$h_in))) stop("w_in/h_in faltan en la spec (fig ", spec$fig, ")", call. = FALSE)
   dif <- NULL; vdif <- NULL; mk <- character(); talla <- NA_character_; dud <- NULL; wj <- NULL; wt <- NULL
   if (identical(spec$metodo, "static")) {
     src <- file.path(cfg$paths$root, "static", paste0(p$stem, ".svg"))
@@ -291,7 +291,7 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
     drawn <- empty_drawn()
   } else if (inherits(out, "chart_out")) {
     if (!identical(spec$metodo, "svg_r")) {
-      stop("plot() devolvió chart_out pero el manifiesto dice metodo '", spec$metodo, "'",
+      stop("plot() devolvió chart_out pero la spec dice metodo '", spec$metodo, "'",
            if (identical(spec$metodo, "wjpr")) {
              " (con WJPr: plot = function(df, spec) wjpr_<tipo>(df, spec); chart_<tipo>() es el respaldo, metodo svg_r)"
            }, call. = FALSE)
@@ -307,7 +307,7 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
     }
   } else if (inherits(out, "ggplot")) {
     if (!spec$metodo %in% c("ggplot", "wjpr")) {
-      stop("plot() devolvió ggplot pero el manifiesto dice metodo '", spec$metodo, "'", call. = FALSE)
+      stop("plot() devolvió ggplot pero la spec dice metodo '", spec$metodo, "'", call. = FALSE)
     }
     dud <- doubtful_texts(save_ggplot_svg(out, spec, cfg, p$svg))
     drawn <- empty_drawn()
@@ -352,17 +352,17 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
         if (length(mk)) log_msg(tag, ": marca fija del diseño ausente del dibujo: ", paste(mk, collapse = "; "))
       }
       # corregido (cierre, revisión de usabilidad): el alto que pide el diseño (attr(p, "wjpr")$alto, hoy las agrupadas)
-      # frente al h_in del manifiesto: menor → estado "tamaño" (el dibujo se recorta abajo); mayor → aviso con el h_in
+      # frente al h_in de la spec: menor → estado "tamaño" (el dibujo se recorta abajo); mayor → aviso con el h_in
       # que pide (sobra espacio abajo; un país con menos filas, p. ej. small_sample). Antes los dos quedaban ok y, sin
       # figura publicada (una figura nueva), nada lo veía
       if (is.numeric(meta$alto) && length(meta$alto) == 1 && is.finite(meta$alto)) {
         d_in <- spec$h_in - meta$alto; tol_in <- cfg$verify$size_tol_in %||% 0.01
         if (d_in < -tol_in) {
-          talla <- sprintf("el diseño pide h_in = %.3f in y el manifiesto da %s: se recorta abajo", meta$alto, fmt_in(spec$h_in))
+          talla <- sprintf("el diseño pide h_in = %.3f in y la spec da %s: se recorta abajo", meta$alto, fmt_in(spec$h_in))
         } else if (d_in > tol_in) {
-          log_msg(tag, " aviso: el diseño pide h_in = ", sprintf("%.3f", meta$alto), " in y el manifiesto da ", fmt_in(spec$h_in),
-                  " (sobra espacio abajo): fíjelo en manifest/figures_<slug>.csv con la fila «", as.integer(spec$fig), ",",
-                  sprintf("%.3f", meta$alto), "» (columna h_in)")
+          log_msg(tag, " aviso: el diseño pide h_in = ", sprintf("%.3f", meta$alto), " in y la spec da ", fmt_in(spec$h_in),
+                  " (sobra espacio abajo): fíjelo en ", basename(cfg$paths$config), " con «figures: ",
+                  sprintf("fig%02d", as.integer(spec$fig)), ": h_in: ", sprintf("%.3f", meta$alto), "»")
         }
       }
       wj <- list(build = wjpr_build(), complementos = if (is.null(meta)) NA_integer_ else length(meta$complementos),
@@ -382,7 +382,7 @@ save_figure <- function(out, df, spec, cfg, png = TRUE) {
   flag <- function(e, m) { est <<- c(est, e); mot <<- c(mot, m) }
   size <- svg_size(p$svg)
   if (abs(size$width_in - spec$w_in) > 0.001 || abs(size$height_in - spec$h_in) > cfg$verify$size_tol_in) {
-    flag("tamaño", sprintf("tamaño %s×%s in ≠ %s×%s del manifiesto", fmt_in(size$width_in), fmt_in(size$height_in), fmt_in(spec$w_in), fmt_in(spec$h_in)))
+    flag("tamaño", sprintf("tamaño %s×%s in ≠ %s×%s de la spec", fmt_in(size$width_in), fmt_in(size$height_in), fmt_in(spec$w_in), fmt_in(spec$h_in)))
   }
   if (!is.na(talla)) flag("tamaño", talla)
   n_text <- count_live_text(p$svg)
@@ -467,6 +467,11 @@ export_figure <- function(spec, ctx, cfg, run_id, png = TRUE) {
   err <- tryCatch({
     withCallingHandlers({
       fig <- load_figure(spec, cfg)
+      # nuevo (sin manifiesto): la spec vive en el archivo; sin estos campos plot() fallaba con un error críptico
+      falta <- c("tipo", "metodo", "w_in", "h_in")[vapply(c("tipo", "metodo", "w_in", "h_in"), function(k) {
+        v <- spec[[k]]; length(v) != 1 || is.na(v)
+      }, logical(1))]
+      if (length(falta)) stop("faltan en la spec de ", basename(figure_file(spec, cfg)), ": ", paste(falta, collapse = ", "), call. = FALSE)
       df <- fig$data(ctx)
       validate_df(df)
       n_rows <- nrow(df)
@@ -502,8 +507,8 @@ export_figure <- function(spec, ctx, cfg, run_id, png = TRUE) {
          archivo = rel_path(archivo, cfg$paths$root))
 }
 
-# Etapa figures. Devuelve tibble(fig, metodo, estado, verificacion, archivo), una fila por spec en el orden del
-# manifiesto; spec$selected == FALSE → "omitida". Estados: ok | error | png | tamaño | texto | dibujo | omitida
+# Etapa figures. Devuelve tibble(fig, metodo, estado, verificacion, archivo), una fila por spec en orden de
+# fig; spec$selected == FALSE → "omitida". Estados: ok | error | png | tamaño | texto | dibujo | omitida
 # (dibujo: el valor que codifica la geometría, val/val2 de lo dibujado por fila, no es el de df; revisión 4).
 # Antes de dibujar, check_method_deps() (00_setup.R) detiene la etapa con un error legible si una figura seleccionada
 # con metodo wjpr no tiene WJPr o ggtext; con WJPr, wjpr_require() exige WJPr ≥ 1.2.0 y fija options(wjpr.family)

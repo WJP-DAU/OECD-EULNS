@@ -8,6 +8,12 @@
 
 fig_16 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "sankey", metodo = "wjpr", w_in = 8.4, h_in = 5.167, callout = FALSE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("DECISIÓN 22-oct: 56 % (partes a 1 decimal); la aritmética sin redondear da 55 % (README);",
+                           "referencia = PUBLISHED_SANKEY$drm (standard_figures.R:174-177)")),
+
   # Promedios nacionales ponderados por NUTS de las variables del recorrido (journey, memorizado por ctx).
   # rows_sankey(…, "drm") aplica el redondeo publicado y devuelve los 9 nodos (columna 1: contactó un DRM o no; 2:
   # acudió o motivo; 3: acceso entre quienes lo necesitaban y excluidos) con text = fmt_num(value, 0). En la columna 1
@@ -26,6 +32,6 @@ fig_16 <- list(
 
   # Dibujo: WJPr::wjp_sankey() con sus argumentos (wjpr_sankey, R/09_wjpr.R; WJPr 1.2.0),
   # con los rótulos y encabezados fijos de sankey_def("drm"), que el adaptador deduce del nodo "turned" de la columna
-  # 2; ancho del manifiesto (8.4 in). Respaldo sin WJPr: chart_sankey(df, spec, "drm") con metodo svg_r.
+  # 2; ancho de la spec (8.4 in). Respaldo sin WJPr: chart_sankey(df, spec, "drm") con metodo svg_r.
   plot = function(df, spec) wjpr_sankey(df, spec)
 )
