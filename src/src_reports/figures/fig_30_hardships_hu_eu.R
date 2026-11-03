@@ -10,6 +10,11 @@ fig30_hardships <- c("Health issues" = "hardships_health", "Economic issues" = "
 
 fig_30 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "columns", metodo = "wjpr", w_in = 6.5, h_in = 3.34, callout = TRUE, label_col = "none",
+              metodo_ue = "eu_est", eu_id = "hardships_health;hardships_income;hardships_emotional;hardships_drugs",
+              nota = "columnas verticales (16-oct); escala al máximo"),
+
   # País = promedio nacional ponderado por NUTS de cada dificultad (nat_est; n < 30 → N/A), UE = media simple de las
   # estimaciones nacionales (eu_est), como F07.R:19-23. Orden fijo del diseño (rows_columns, R/05_charts.R).
   data = function(ctx) {

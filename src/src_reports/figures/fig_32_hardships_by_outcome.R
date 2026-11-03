@@ -17,6 +17,12 @@ fig32_cols <- c("Fully resolved", "Not resolved")
 
 fig_32 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "cards", metodo = "wjpr", w_in = 6.5, h_in = 4.072, callout = TRUE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("etiquetas 11 pt (pedido); referencia de A03.csv confirmada con finales/datos (10",
+                           "tarjetas, |Δ| ≤ 0.005); text2 con signo U+2212 en negativos y sufijo ' points'")),
+
   # Entre quienes tienen un problema no trivial (has_nt), % con cada dificultad por desenlace (resuelto, de
   # add_report_vars: resolved = rp_outcome), con el promedio NUTS del reporte (xt, A03.R:7-12; n < 30 → N/A). Tarjeta de
   # referencia = la primera columna (Fully resolved); escala de color = rango de los valores redondeados (rows_cards).

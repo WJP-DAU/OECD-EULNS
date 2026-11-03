@@ -6,6 +6,12 @@
 
 fig_20 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "grouped_bars", metodo = "wjpr", w_in = 6.069, h_in = 5.486, callout = TRUE, label_col = "std",
+              metodo_ue = "data4web", eu_id = "rp_time",
+              nota = paste("1 N/A; v9 imprime '5 or more problems'; finales (16-oct) '6 or more problems' =",
+                           "referencia (README: diferencia v9/finales)")),
+
   # Promedio nacional ponderado por NUTS por grupo (n < 30 → N/A); sin el grupo Category (omit.cats de worker-viz.R:423)
   # y, con muestra pequeña, sin Age Group (:418); media UE de data4web. «6 or more problems» (la de las figuras finales
   # del 16-oct; v9 imprimía «5 or more») sale de 02_variables.R.
@@ -19,6 +25,6 @@ fig_20 <- list(
   },
 
   # Dibujo: WJPr::wjp_groupbars() con sus argumentos (wjpr_grouped_bars, R/09_wjpr.R; WJPr 1.2.0). Respaldo sin WJPr:
-  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en el manifiesto.
+  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en la spec.
   plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

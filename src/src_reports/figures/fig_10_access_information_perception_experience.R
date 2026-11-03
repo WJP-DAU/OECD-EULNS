@@ -6,6 +6,13 @@
 
 fig_10 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "dumbbell", metodo = "wjpr", w_in = 6.5, h_in = 5.25, callout = TRUE, label_col = "dumb",
+              metodo_ue = "none",
+              nota = paste("leyenda fija de dos líneas («General population: perception» / «People with a non-trivial",
+                           "problem: experience»), la misma en la 15; WJPr adoptada 23-oct (wjp_dumbbells +",
+                           "complementos; el piloto sin complementos: wjp_dumbbells 3/9)")),
+
   # Estimación. perception_experience() devuelve la fila nacional y los cortes Gender, Age Group, Financial
   # Situation y Area of Residence (promedio nacional ponderado por NUTS; n < 30 → NA: 18-24 sin percepción).
   # rows_dumbbell() fija el orden (National Average y, dentro de cada corte, alfabético inverso), kind (avg |

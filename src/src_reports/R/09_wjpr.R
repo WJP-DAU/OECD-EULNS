@@ -16,7 +16,7 @@
 ## Solo funciones: nada se ejecuta al cargar; WJPr solo se pide al llamar (wjpr_require: ≥ 1.2.0).
 
 WJPR_FAMILY <- "inter"   # familia registrada por setup_fonts() (Inter Tight); la de las figuras publicadas
-WJPR_MIN_VERSION <- "1.2.0"   # la que necesitan los adaptadores (deps.csv fija la build exacta: 1.2.0@1664a23)
+WJPR_MIN_VERSION <- "1.2.0"   # la que necesitan los adaptadores (renv.lock fija la build exacta: 1.2.0@1664a23)
 
 
 ## Utilidades comunes ----------------------------------------------------------------------------------------------
@@ -31,16 +31,14 @@ wjpr_complementos <- function() isTRUE(getOption("wjpr.complementos", TRUE))
 # wjp_font_family, con «Lato Full» fija y el complemento wjpr_font, ya no existe)
 wjpr_require <- function() {
   if (!requireNamespace("WJPr", quietly = TRUE)) {
-    stop("WJPr no está instalado: es el motor de dibujo (metodo wjpr). Instale la build de deps.csv ",
-         "(remotes::install_github(\"worldjusticeproject-org/WJPr@1664a23\")) o defina SRC_REPORTS_LIB con una librería ",
-         "que la tenga", call. = FALSE)
+    stop("WJPr no está instalado: es el motor de dibujo (metodo wjpr). Instale la build de renv.lock con ",
+         "renv::restore() desde la carpeta", call. = FALSE)
   }
   v <- utils::packageVersion("WJPr")
   if (v < package_version(WJPR_MIN_VERSION)) {
     stop("WJPr ", wjpr_build(), " es anterior a la ", WJPR_MIN_VERSION, " que necesitan los adaptadores de R/09_wjpr.R ",
-         "(layout = wjp_layout(), wjp_drawn(), wjp_funnel(), …). Instale la build de deps.csv ",
-         "(remotes::install_github(\"worldjusticeproject-org/WJPr@1664a23\")) o defina SRC_REPORTS_LIB con una librería ",
-         "que la tenga (SRC_REPORTS_LIB=", Sys.getenv("SRC_REPORTS_LIB"), ")", call. = FALSE)
+         "(layout = wjp_layout(), wjp_drawn(), wjp_funnel(), …). Instale la build de renv.lock con renv::restore() ",
+         "desde la carpeta (librería activa: ", .libPaths()[1], ")", call. = FALSE)
   }
   options(wjpr.family = WJPR_FAMILY)
   invisible(TRUE)
@@ -83,9 +81,9 @@ wjpr_build <- function() {
 # dibujo (character(), vacío si están todas; p. ej. la línea de corte de la 7, wjpr_sev_cut_missing): figures da
 # estado "dibujo" si devuelve alguna. NULL: el adaptador no tiene marcas fijas que comprobar.
 # corregido (cierre, revisión de usabilidad): alto = el h_in (in) que pide el diseño (hoy las agrupadas,
-# wjpr_gb_alto): figures da "tamaño" si el manifiesto da menos (el dibujo se recorta abajo) y un aviso si da más
+# wjpr_gb_alto): figures da "tamaño" si la spec da menos (el dibujo se recorta abajo) y un aviso si da más
 # (sobra espacio abajo), con el h_in a poner. Sin figura publicada, parecido no ve un alto equivocado. NULL: no lo
-# declara (las demás figuras llenan el lienzo del manifiesto).
+# declara (las demás figuras llenan el lienzo de la spec).
 wjpr_meta <- function(p, base, complementos = character(), compara = c("text", "text2"), drawn = NULL,
                       rotulos = character(), marcas = NULL, alto = NULL) {
   if (!is.null(drawn) && !is.function(drawn)) stop("wjpr_meta: drawn debe ser una función de ggplot_build()", call. = FALSE)
@@ -479,7 +477,7 @@ wjpr_same_color <- function(x, ref) {
   out
 }
 
-# Exporta como las figuras ggplot: svglite al tamaño del manifiesto (los tamaños de WJPr ya están en pt reales:
+# Exporta como las figuras ggplot: svglite al tamaño de la spec (los tamaños de WJPr ya están en pt reales:
 # 3.514598 mm = 10 pt) → texto en trazos → tamaño exacto → PNG a cfg$layout$dpi
 wjpr_render <- function(p, spec, cfg, out_dir) {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
@@ -1265,7 +1263,7 @@ wjpr_wb_need <- function(args = c("position", "layout", "value_position", "track
 wjpr_wb_fill <- function(avail, n, pitch, spec) {
   b <- (avail - n * pitch) / pitch + 0.5
   if (!is.finite(b) || b < 0) {
-    stop(sprintf("fig %02d: %d filas de %s pt no caben en el alto del manifiesto (h_in = %s in)", as.integer(spec$fig),
+    stop(sprintf("fig %02d: %d filas de %s pt no caben en el alto de la spec (h_in = %s in)", as.integer(spec$fig),
                  as.integer(n), format(pitch), format(spec$h_in)), call. = FALSE)
   }
   b
@@ -2607,11 +2605,11 @@ wjpr_network <- function(df, spec, complementos = wjpr_complementos(),
   h_need <- ks * (src_scale * diff(range(nodes$y)) + 82) / 72
   if (is.finite(h_need) && abs(h_need - spec$h_in) > h_tol) {
     log_msg(tag, " aviso: el layout de ", spec$country %||% "este país", " pide h_in = ", sprintf("%.3f", h_need),
-            " in y el manifiesto da ", sprintf("%.3f", spec$h_in), " (",
+            " in y la spec da ", sprintf("%.3f", spec$h_in), " (",
             if (h_need > spec$h_in) "los rótulos se acercan al borde de los nodos y quedan franjas a los lados" else
               "quedan franjas en blanco arriba y abajo",
-            "): fíjelo en manifest/figures_<slug>.csv con la fila «", spec$fig, ",", sprintf("%.3f", h_need),
-            "» (columnas fig,h_in)")
+            "): fíjelo en config/<pais>.yml con «figures: ", sprintf("fig%02d", as.integer(spec$fig)), ": h_in: ",
+            sprintf("%.3f", h_need), "»")
   }
   # centralidad (network_graph.R:116-126, strength sobre g_full = edges_all): suma de los lifts de TODAS las parejas
   # del nodo; la de wjp_network (fill = "centrality") suma las aristas que dibuja
@@ -2951,9 +2949,9 @@ wjpr_sankey <- function(df, spec, complementos = wjpr_complementos(), which = NU
   if (is.finite(bottom) && bottom > H + 1e-6) {
     h_need <- ceiling((bottom + 3) / 72 * 1000) / 1000
     log_msg(tag, " aviso: el layout de ", spec$country %||% "este país", " pide h_in = ", sprintf("%.3f", h_need),
-            " in y el manifiesto da ", sprintf("%.3f", spec$h_in), " (la caja o el texto más bajo acaba a ",
+            " in y la spec da ", sprintf("%.3f", spec$h_in), " (la caja o el texto más bajo acaba a ",
             sprintf("%.1f", bottom), " pt y el lienzo mide ", sprintf("%.1f", H), ": se corta por abajo): fíjelo en ",
-            "manifest/figures_<slug>.csv con la fila «", spec$fig, ",", sprintf("%.3f", h_need), "» (columnas fig,h_in)")
+            "config/<pais>.yml con «figures: ", sprintf("fig%02d", as.integer(spec$fig)), ": h_in: ", sprintf("%.3f", h_need), "»")
   }
   wjpr_meta(p, base = base, complementos = comp, drawn = drawn)
 }

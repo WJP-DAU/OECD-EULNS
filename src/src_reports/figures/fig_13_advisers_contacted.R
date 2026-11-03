@@ -8,6 +8,13 @@
 
 fig_13 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "hbars", metodo = "wjpr", w_in = 7.278, h_in = 2.778, callout = FALSE, label_col = "hbars",
+              metodo_ue = "none",
+              nota = paste("reproducida desde los microdatos (54.32/22.26/21.15/…; antes leída del SVG); 'Advisor' →",
+                           "'Adviser' corregido en fig_13; WJPr adoptada 23-oct (wjp_bars + complementos; el piloto",
+                           "sin complementos: wjp_bars 5/9)")),
+
   # Entre quienes tuvieron acceso a asistencia apropiada (access2rep == 1), % que acudió a cada tipo de asesor, con el
   # estimador del original (contacted_shares: sin renormalizar ni suprimir). Valores de control (2026-10-27): 54.32 /
   # 22.26 / 21.15 / 16.29 / 11.40 / 9.06 / 7.68 / 3.16.

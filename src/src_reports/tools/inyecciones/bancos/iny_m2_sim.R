@@ -10,7 +10,7 @@ for (f in sort(list.files(file.path(ROOT, "R"), pattern = "^[0-9]{2}_.*\\.R$", f
 source(file.path(PR, "iny_m2.R"))
 a <- commandArgs(trailingOnly = TRUE); fg <- as.integer(a[1]); inys <- a[-1]
 cfg <- load_config(ROOT, "hungary"); setup_fonts(cfg); wjpr_require()
-spec <- Filter(function(s) s$fig == fg, read_manifest(cfg))[[1]]
+spec <- Filter(function(s) s$fig == fg, read_specs(cfg))[[1]]
 out <- tempfile("iny_sim_"); for (d in c("tables", "figures", "log")) dir.create(file.path(out, d), recursive = TRUE)
 cfg$paths$output <- out
 lp <- verify_local_params(cfg)

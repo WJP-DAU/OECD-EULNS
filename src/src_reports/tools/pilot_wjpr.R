@@ -1,7 +1,7 @@
 ## tools/pilot_wjpr.R — prueba de WJPr por tipo de gráfica (regla 4 del encargo) -----------------------------------
 ## Para cada tipo de gráfica con posible equivalente en WJPr se dibuja la figura publicada con la función de WJPr
 ## usando solo argumentos documentados (args() y ayuda de la versión instalada), se exporta igual que las figuras
-## ggplot (svglite → texto en trazos → tamaño del manifiesto → PNG) y se evalúan criterios objetivos sobre el
+## ggplot (svglite → texto en trazos → tamaño de la spec → PNG) y se evalúan criterios objetivos sobre el
 ## objeto ggplot construido y el SVG. La entrada son los valores publicados de reference/<slug>/: se prueba el
 ## dibujo, no la estimación. Una función se adopta solo si cumple todos los criterios sin hacks (sin tocar p$layers,
 ## sin registrar alias de fuentes, sin capas añadidas); el tema solo se cambia por el argumento documentado ptheme.
@@ -10,7 +10,6 @@
 ## Uso: Rscript src/src_reports/tools/pilot_wjpr.R [--country hungary] [--out <carpeta>]
 ## No lo carga main.R. Nunca llama WJPr::wjp_fonts(): activa showtext y el texto ya no se podría contornear.
 
-lib <- Sys.getenv("SRC_REPORTS_LIB"); if (nzchar(lib)) .libPaths(unique(c(lib, .libPaths())))
 ROOT <- local({
   f <- grep("^--file=", commandArgs(FALSE), value = TRUE)
   r <- if (length(f) > 0) dirname(dirname(gsub("~\\+~", " ", sub("^--file=", "", f[1])))) else ""
@@ -22,12 +21,12 @@ for (f in sort(list.files(file.path(ROOT, "R"), pattern = "^[0-9]{2}_.*\\.R$", f
 a <- commandArgs(trailingOnly = TRUE)
 opt <- function(k) { i <- match(k, a); if (is.na(i) || i == length(a)) NULL else a[i + 1] }
 cfg <- load_config(ROOT, opt("--country")); check_deps(cfg); setup_fonts(cfg)
-specs <- read_manifest(cfg)
+specs <- read_specs(cfg)
 spec_of <- function(n) specs[[which(vapply(specs, function(s) s$fig, 0L) == n)]]
 out_dir <- opt("--out") %||% file.path(cfg$paths$output, "compare")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 log_open(file.path(out_dir, "pilot_wjpr.log"))
-if (!requireNamespace("WJPr", quietly = TRUE)) stop("WJPr no está instalado (deps.csv: opcional)", call. = FALSE)
+if (!requireNamespace("WJPr", quietly = TRUE)) stop("WJPr no está instalado (renv.lock; renv::restore())", call. = FALSE)
 WJPR_VER <- paste0(packageVersion("WJPr"), " (", packageDescription("WJPr")$RemoteUsername %||% "?", "/",
                    packageDescription("WJPr")$RemoteRepo %||% "WJPr", "@", substr(packageDescription("WJPr")$RemoteSha %||% "", 1, 7), ")")
 log_msg("WJPr ", WJPR_VER, " · ROOT ", ROOT)
@@ -105,7 +104,7 @@ common <- function(fig, funcion, p, b, expected_text, res) {
       paste0(res$doubtful, " dudosos; familia en el SVG: ", res$svg_family), identical(res$doubtful, 0L))
 }
 
-# Exporta como una figura ggplot: svglite al tamaño del manifiesto (texto a 10 pt) → trazos → PNG → hoja de comparación
+# Exporta como una figura ggplot: svglite al tamaño de la spec (texto a 10 pt) → trazos → PNG → hoja de comparación
 export_pilot <- function(p, fig) {
   s <- spec_of(fig); stem <- file.path(out_dir, sprintf("pilot_wjpr_fig%02d", fig))
   svg <- paste0(stem, ".svg"); png <- paste0(stem, ".png"); tmp <- tempfile(fileext = ".svg")

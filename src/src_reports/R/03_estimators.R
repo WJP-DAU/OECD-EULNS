@@ -519,7 +519,7 @@ memo <- function(ctx, key, expr) {
   val
 }
 
-# Nuevo: media UE que declara cada figura (columna metodo_ue del manifiesto). source = "data4web": escalar de
+# Nuevo: media UE que declara cada figura (metodo_ue de su spec). source = "data4web": escalar de
 # ctx$eu_values (reference/<slug>/eu_values.csv, escrito por tools/build_reference.R; sin transform). source = "eu_est":
 # eu_est(ctx, id, transform) sobre ctx$master, que debe caer en 0-100: fuera de ese rango la variable no es binaria y
 # falta transform (p. ej. binary_agree; para escalas use eu_est() directamente). Errores legibles si el id no está, si

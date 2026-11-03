@@ -13,6 +13,12 @@ fig06_bands <- c("Less than 25%", "25% to 50%", "50% or more")
 
 fig_06 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "matrix", metodo = "wjpr", w_in = 8.4, h_in = 7.56, callout = FALSE, label_col = "none",
+              base_pt = 11, metodo_ue = "none",
+              nota = paste("144 celdas verificadas por tabla (text + banda); no contadas en los 404; color de banda",
+                           "por nombre (F01.R:26)")),
+
   # Una fila por celda: filas de arriba abajo y, en cada una, columnas de izquierda a derecha, las dos en el orden de
   # prevalencia (F01.R:12 recorre columna × fila; el df va por filas, como la referencia). grouping = fila («People
   # who also experienced»), label = columna («Among people who experienced problems with»). value = % sin redondear

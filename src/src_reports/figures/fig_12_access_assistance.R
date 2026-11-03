@@ -7,6 +7,12 @@
 
 fig_12 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "grouped_bars", metodo = "wjpr", w_in = 6.069, h_in = 8.375, callout = TRUE, label_col = "std",
+              metodo_ue = "eu_est", eu_id = "access2rep",
+              nota = paste("8 N/A (18-24, Law Enforcement, Land, Housing, Employment, Education, Citizenship & ID,",
+                           "Accidental); eu_est con 26 países con dato de 27")),
+
   # Promedio nacional ponderado por NUTS por grupo (n < 30 → N/A; 8 en el país del reporte: 18-24 y 7 categorías). Media
   # UE = media simple de las estimaciones nacionales de los 27 países sobre ctx$master (eu_est, memorizada; el log da su
   # valor y el número de países con dato): la publicada (38 %) es la de access2rep desde los microdatos, que se puso a
@@ -21,6 +27,6 @@ fig_12 <- list(
   },
 
   # Dibujo: WJPr::wjp_groupbars() con sus argumentos (wjpr_grouped_bars, R/09_wjpr.R; WJPr 1.2.0). Respaldo sin WJPr:
-  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en el manifiesto.
+  # chart_grouped(df, spec) de R/05_charts.R con metodo svg_r en la spec.
   plot = function(df, spec) wjpr_grouped_bars(df, spec)
 )

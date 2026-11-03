@@ -7,6 +7,12 @@
 
 fig_19 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "hbars", metodo = "wjpr", w_in = 7.278, h_in = 1.861, callout = FALSE, label_col = "hbars",
+              metodo_ue = "none",
+              nota = paste("5 motivos: access2drm == 0 exige AJR_noresol_reason ∈ {3, 5, 6, 7, 8}",
+                           "(02_variables.R:480); referencia = fracciones de las barras publicadas (v1_frac·100)")),
+
   # Entre quienes no acudieron a un mecanismo de resolución aunque lo necesitaban (access2drm == 0), % que dio cada
   # motivo. access2drm == 0 exige AJR_noresol_reason ∈ {3, 5, 6, 7, 8} (02_variables.R:480): solo esos cinco motivos
   # pueden salir. Valores de control (2026-10-27): 37.16 / 22.32 / 20.96 / 11.18 / 8.29.

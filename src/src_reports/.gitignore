@@ -1,5 +1,8 @@
 # src_reports: nunca microdatos ni salidas en el repo
-cache/
+# data/: caché de microdatos (master.rds, ctx_<slug>.rds y sus .key); solo se versionan regions.csv y README.md
+data/*
+!data/regions.csv
+!data/README.md
 output/
 config/local.yml
 .Rhistory

@@ -6,6 +6,10 @@
 
 fig_01 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "grouped_bars", metodo = "wjpr", w_in = 6.069, h_in = 4.319, callout = TRUE, label_col = "std",
+              metodo_ue = "data4web", eu_id = "prevalence2"),
+
   # Promedio nacional ponderado por NUTS por grupo (n < 30 → N/A); media UE de data4web (cacheada)
   data = function(ctx) {
     tbl <- get_results_table(ctx, target = "prevalence2", ctype = "short")

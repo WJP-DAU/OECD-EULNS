@@ -38,6 +38,13 @@ fig29_combos <- function(ctx) {
 
 fig_29 <- list(
 
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "upset", metodo = "wjpr", w_in = 6.5, h_in = 5.4, callout = TRUE, label_col = "none",
+              base_pt = 10.24, metodo_ue = "none",
+              nota = paste("valores no contados en los 404; referencia F08.csv (intersecciones en el orden de",
+                           "ComplexUpset) + R04_fig24_conjuntos.csv (pct_en_figura) + textos de",
+                           "<country>_jg_upset.svg; ComplexUpset 1.3.3 exacta")),
+
   # Una fila «row» por barra de intersección (label = sus conjuntos en el orden de fig29_sets unidos por " + ", value =
   # pct sin redondear, text con un decimal), de izquierda a derecha como las dibuja ComplexUpset con las réplicas
   # round(pct · 10) de lo publicado (render_figure.R:44-57: upset_data(min_size = 1, sort_sets = FALSE), que ordena por
