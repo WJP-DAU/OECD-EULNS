@@ -1,0 +1,27 @@
+## Figura 11 · Pathways to Accessing Appropriate Assistance and Representation in {country}
+## Fuente de datos: journey(ctx) (R03.R:4-38): adv_contacted y adv_s_appropriate/nonappr/needed_no/noneed/unknown a 1
+##   decimal; not_contacted = 100 − contacted; access = round(rep_c_published); no_access = 100 − access; excluded =
+##   round(no_need_r1 + unknown_r1) = 33 (rows_sankey: método publicado, standard_figures.R:129-148)
+## Método UE: none
+## Código de origen: report_charts.R:311-382 chart_sankey (reescrito para df$text) + standard_figures.R:128-151
+##   sankey_def('assistance') (diseño charts5.py:79 sankey)
+
+fig_11 <- list(
+
+  # Spec: tipo y motor de dibujo, tamaño final (in), recuadro, columna de etiquetas y media UE (figures/_template.R)
+  spec = list(tipo = "sankey", metodo = "wjpr", w_in = 8.4, h_in = 5.167, callout = FALSE, label_col = "none",
+              metodo_ue = "none",
+              nota = paste("10 valores impresos no contados en los 404; referencia = PUBLISHED_SANKEY$assistance",
+                           "(standard_figures.R:174-177)")),
+
+  # Promedios nacionales ponderados por NUTS de las variables del recorrido (journey, memorizado por ctx). rows_sankey()
+  # aplica el redondeo publicado y devuelve los 10 nodos (columna 1: contactó o no; 2: tipo de asesor o motivo; 3:
+  # acceso entre quienes lo necesitaban y excluidos) con text = fmt_num(value, 0).
+  data = function(ctx) rows_sankey(journey(ctx), "assistance"),
+
+  # Dibujo: WJPr::wjp_sankey() (wjpr_sankey, R/09_wjpr.R; metodo wjpr) con los rótulos, notas y encabezados fijos de
+  # sankey_def("assistance"), que el adaptador deduce del df (sin el nodo "turned" de la 16); lienzo de la spec
+  # (8.4 × 5.167 in). Respaldo sin WJPr: chart_sankey(df, spec, "assistance") con metodo svg_r.
+  # corregido (1.2.0): el comentario decía que WJPr no tiene sankey; 1.2.0 trae wjp_sankey()
+  plot = function(df, spec) wjpr_sankey(df, spec)
+)

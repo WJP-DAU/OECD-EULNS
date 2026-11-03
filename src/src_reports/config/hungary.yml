@@ -1,0 +1,60 @@
+# config/hungary.yml — lo que cambia entre países y lo que pide el encargo. Rutas de la máquina: config/local.yml.
+country: "Hungary"          # country_name_ltn en el .dta y en regions$country
+slug: "hungary"             # reference/<slug>/, output/<slug>/, data/ctx_<slug>.rds
+small_sample: false         # true en un país de muestra pequeña (Malta en src/viz): las figuras 9, 12, 17, 20-26
+                            # quitan los grupos que quitaba el original (README, «Añadir un país», punto 4)
+report:
+  title: "Paths to Justice in Hungary"
+  reference_version: "OCT15_v9 / figuras finales 2026-10-16"
+data:
+  dta: "eu-gpp/1. Data/3. Merge/EU_GPP_2024.dta"      # relativo a path2EU (local.yml)
+  dta_md5: ""                                          # opcional: aviso en el log si el .dta difiere
+  regions: "data/regions.csv"                          # relativo a la carpeta; define los 27 países y regionpoppct
+  eu_values: "reference/hungary/eu_values.csv"         # medias UE de data4web cacheadas (ids = eu_id de la spec de cada figura)
+  data4web: "reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv"   # relativo a path2EU; solo tools/build_reference.R
+layout:
+  text_pt: 10                # tamaño final (pt) del texto de las figuras ggplot (lienzo × base_pt / text_pt, 06_export.R);
+                             # las svg_r no lo leen: su texto es STD$size_label = 10 pt (R/04_svg.R); las wjpr tampoco:
+                             # WJPr y sus complementos ya dan los tamaños en pt finales (k = 1)
+  max_w_callout_in: 6.5      # ancho máximo junto a un recuadro (callout true): read_specs() avisa si w_in lo supera
+  max_w_full_in: 8.4         # ancho máximo a página completa (callout false): ídem
+  dpi: 300
+verify:
+  tol_pp: 0.6                # puntos porcentuales (valor crudo vs referencia)
+  tol_frac: 0.006            # fracción de barra dibujada vs publicada (drawn.csv: chart_<tipo> en svg_r; en wjpr, lo
+                             # dibujado por fila que expone el adaptador: los 13, las 42 figuras)
+  size_tol_in: 0.01          # alto del SVG vs h_in de la spec
+  min_f1: 0.995              # metodo wjpr: parecido mínimo con el PNG publicado (f1 de tinta a 96 dpi, wjpr_similarity;
+                             # 1 = mismo dibujo). Con WJPr 1.2.0@1664a23 y sus argumentos (28-oct) las 42 dan
+                             # 0.997-1.000; el 23-oct, con 1.1.0@382aee9 y complementos, 0.996-1.000
+  max_local: 0.5             # metodo wjpr: diferencia LOCAL máxima con la publicada (parecido_local; wjpr_similarity):
+                             # peor ventana de local_block_px × local_block_px px a 96 dpi, fracción de píxeles cuyo
+                             # color (máx. |Δ| RGB) difiere en más de local_delta de todos los de la otra imagen a ≤ 1 px,
+                             # o en más de local_delta_flat donde las dos son planas (0 = igual, 1 = ventana entera
+                             # distinta). Calibrado el 23-oct con las 42 de tools/wjpr_gallery.R (las dos builds) y los
+                             # errores provocados por la revisión V3: correctas 0.000-0.444 (0.444 la 06: claves de
+                             # leyenda de 15.2 pt, V3-05; 0.424 la 29; 0.333 la 16), errores 0.833-1.000 (barra +10 pp,
+                             # −5 pp, +1.0 en la 4, colores de banda invertidos, −1 pp en la 7); la 42 da 0.715 por una
+                             # diferencia real (texto de la tarjeta 42 % negro; publicada, blanco)
+  local_block_px: 12         # lado de la ventana (px a 96 dpi = 9 pt)
+  local_delta: 0.2           # |Δ| por píxel (0-1) tolerando 1 px de desplazamiento
+  local_delta_flat: 0.05     # |Δ| en zonas planas de las dos imágenes (colores claros: pista frente a blanco = 0.10)
+checks:                      # comprobaciones de --stage data: se registran en el log, no detienen (tolerancia 0.01)
+  ncol_master_csv: 200       # columnas de master equivalentes a data/master.csv (53 study_vars + 147 AJP_/AJD_/AJR_/AJE_)
+  national:                  # nat_est(ctx, var): promedio nacional ponderado por NUTS
+    access2info: 61.46
+    inside_justice_gap_keepdk: 47.84
+  eu:                        # eu_est(ctx, var): media simple de las estimaciones nacionales de los 27 países
+    access2rep: 37.68
+  journey:                   # journey(ctx)$<campo>
+    adv_contacted: 29.17
+figures:                     # por figura: datos editoriales del reporte del país (no salen de los datos; los lee data()) y
+                             # campos de la spec que cambian en este país (h_in, w_in, nota…; read_specs, R/00_setup.R)
+  fig03:                     # Prevalence and Severity …, by Area of Residence (figures/fig_03: fig03_highlight)
+    highlight:               # categorías destacadas y rotuladas = top_cats de F02.R:33 (puestos 1-4, 8 y 9 de la
+      - "Public Services"    # prevalencia); sin la clave, las 6 de mayor prevalencia no trivial nacional (aviso)
+      - "Consumer"
+      - "Community"
+      - "Money & Debt"
+      - "Housing"
+      - "Family"

@@ -1,0 +1,5 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,row,,Health issues,36,31,36%,31%,1,0.8500072077266831,0.6
+2,row,,Economic issues,32,24,32%,24%,0.8921724088222575,0.6538128874153092,0.6
+3,row,,Relationship breakdown,24,17,24%,17%,0.6506414876747874,0.46720484359233094,0.6
+4,row,,Alcohol/Drug problems,4,5,4%,5%,0.11986449473835951,0.13406371630387776,0.6

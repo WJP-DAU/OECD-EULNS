@@ -1,0 +1,425 @@
+# src_reports — figuras del reporte *Paths to Justice* desde los microdatos
+
+Carpeta autocontenida: con `Rscript src/src_reports/main.R` se producen las 42 figuras del reporte (hoy Hungría) a partir
+de `EU_GPP_2024.dta`, con el mismo diseño, tamaño y tipografía que las publicadas, y se verifican contra los valores
+publicados. Pensada para reutilizarse con otro país (`config/<pais>.yml` + lo que lista «Añadir un país»); copiable tal
+cual a `automatic-reports/reports/pathways-to-justice-hungary/pipeline` (no hace `source()` de nada fuera de la carpeta;
+paquetes con renv, como los demás pipelines de ese repo). El inventario de figuras es el reporte publicado en PDF, que
+vive fuera de esta carpeta (en automatic-reports, `../report.pdf`): aquí cada figura es un archivo `figures/fig_NN_slug.R`.
+
+> Estado: **cerrado** (Etapa 4, 2026-10-29): las 42 figuras salen de los microdatos y verifican 42/42 con `--strict`
+> (también desde una copia limpia, sin caché: 4.4 min). Se dibujan con WJPr 1.2.0@1664a23 y sus argumentos (`metodo
+> wjpr`; 6 figuras con un complemento, las demás con ninguno; ver «WJPr»). Los errores inyectados en el dibujo se
+> detectan (`tools/inyecciones/`). 2026-11-03: paquetes con renv (`renv.lock`), sin manifiesto (la spec de cada figura en
+> su archivo; el inventario es el PDF publicado) y caché en `data/` (ignorada): 42/42 `--strict` con tablas y figuras
+> idénticas (md5) a las de antes, también desde una copia limpia con `renv::restore()` desde la red; inyecciones 47/47.
+
+## Requisitos
+- R 4.6.x y renv; los paquetes, en `renv.lock` (ver «Paquetes (renv)»): `renv::restore()` una vez por máquina.
+- Chrome o Chromium para los PNG (se busca en `CHROMOTE_CHROME`, `config/local.yml`, rutas habituales y `PATH`; sin él
+  los PNG se omiten con aviso, `--no-png` los omite a propósito).
+- Las fuentes Inter Tight (OFL) ya están en `fonts/`.
+- Acceso a `path2EU` (SharePoint *EU Subnational*): el `.dta` para `--stage data` sin caché y `data4web_gpp.csv` para
+  `tools/build_reference.R`; después todo corre desde el caché en `data/`.
+
+## Puesta en marcha
+```bash
+cd src/src_reports
+Rscript -e 'renv::restore()'                           # una vez: instala renv.lock en renv/library (ignorada)
+cp config/local.yml.example config/local.yml           # y editar path2EU
+Rscript main.R --stage data                            # lee el .dta (~35 s; 1-2 min si OneDrive aún no lo descargó)
+Rscript main.R --stage all --figs 09                  # una figura: tabla, SVG, PNG, verificación y comparación
+Rscript main.R --stage all --strict                    # todo; exit 1 si alguna figura no verifica
+```
+También desde otro directorio (`Rscript src/src_reports/main.R …`): `R/00_setup.R` activa el renv de la carpeta antes de
+cargar paquetes. La cabecera de la consola imprime `.libPaths()[1]` (la de `renv/library`) y `renv sí`.
+
+Variables de entorno opcionales: `SRC_REPORTS_CACHE` (caché fuera de `data/`, p. ej. fuera de OneDrive), `SRC_REPORTS_ROOT`,
+`CHROMOTE_CHROME`. Precedencia: entorno > `config/local.yml` > defectos.
+
+## Paquetes (renv)
+Todo el manejo de paquetes y versiones es de renv (1.3.1, como `automatic-reports`): `.Rprofile` → `renv/activate.R`;
+`renv/settings.json` con `snapshot.type: implicit` (renv toma los paquetes de los `library()`/`pkg::` del código);
+`_dependencies.R` declara los que el código usa de forma indirecta y renv no ve (ggrepel: rótulos de la 3 vía
+`WJPr::wjp_scatter(repel = TRUE)`, que WJPr solo trae en Suggests); `renv.lock` fija R 4.6.1, los repositorios (P3M y
+CRAN) y 62 paquetes, WJPr 1.2.0 desde GitHub con su commit (`worldjusticeproject-org/WJPr@1664a236…`). `renv/library/`
+y el resto de `renv/` salvo `activate.R`, `settings.json` y `.gitignore` no se versionan.
+- `check_deps()` (`R/00_setup.R`) lee `renv.lock`: si falta un paquete se detiene con «Faltan paquetes de renv.lock: …
+  Instálelos con renv::restore()»; si una versión instalada difiere (o, en WJPr, el commit frente al `RemoteSha`),
+  `aviso renv.lock: …` en la cabecera y fila `entorno` en verify (no es fallo). `wjpr_require()` exige además WJPr ≥ 1.2.0.
+- Cambiar o añadir un paquete: `renv::install("pkg")` (o `renv::install("worldjusticeproject-org/WJPr@<commit>")`),
+  correr `--stage all --strict` y, si verifica, `renv::snapshot()`. `renv.lock` entra en la clave del caché del master:
+  tras cambiarlo, `--stage data` relee el `.dta`.
+- `renv::status()` dice si la librería y `renv.lock` coinciden.
+- Binarios: todas las versiones de `renv.lock` tienen binario para macOS en P3M/CRAN (Matrix y lattice vienen con R
+  4.6.1; WJPr, de GitHub, es R puro). El 3-nov se subieron Rcpp 1.1.2, igraph 2.3.4, stringi 1.8.9, bit64 4.8.6 y
+  colorspace 2.1-4, cuyas versiones anteriores ya solo estaban como fuente: `renv::restore()` las compilaba y, sin
+  gfortran ni compilador de C++, fallaba. Con ellas las 42 tablas y figuras salen idénticas (md5) y `renv::restore()`
+  con el caché de renv vacío tarda ~90 s. Cuando CRAN publique versiones nuevas, las del lock volverán a quedar solo
+  como fuente: si `renv::restore()` intenta compilar y falla, `renv::update(<paquetes>)`, `--stage all --strict` y,
+  si verifica, `renv::snapshot()`.
+
+## Qué hace cada etapa
+| Etapa | Entrada | Salida |
+|---|---|---|
+| `data` | `.dta`, `data/regions.csv`, `reference/<slug>/eu_values.csv` | `data/master.rds` (27 países, un encuestado por fila), `data/ctx_<slug>.rds`; comprobaciones de `config/<pais>.yml` → log |
+| `figures` | caché de `data/`, `figures/fig_NN_slug.R` (spec, data y plot) | `output/<slug>/tables/Figure_NN_slug.csv` (+ `.drawn.csv`), `figures/Figure_NN_slug.svg|png`, `log/figures_status.csv` |
+| `verify` | tablas + `reference/<slug>/` (+ `published/` para el parecido de `metodo wjpr`) | `tables/00-verificacion.csv`; estados ok / fallo / sin dibujo / error / sin salida / sin referencia / desactualizada |
+| `compare` | PNG nuevos + `reference/<slug>/published/` | `compare/Figure_NN_slug.png`, `compare/index.html` |
+
+La consola muestra solo la tabla resumen; el detalle va a `output/<slug>/log/run_<id>.log`.
+
+## Consola, errores y códigos de salida
+- La consola muestra la cabecera (país, etapa, id de corrida, librería, renv, Chrome, locale y avisos), la tabla
+  `fig | metodo | estado | verificacion | archivo` (con `--figs`, solo las elegidas; las omitidas siguen en los CSV) y una
+  línea de cierre con la ruta del log; el detalle va a
+  `output/<slug>/log/run_<id>.log` (el id lleva milisegundos y PID: dos corridas a la vez no comparten log).
+- Un error que detiene una etapa se ve como `Error en la etapa <x>: <primera línea>` + `Detalle: <log>`, y la salida
+  es 1. Una figura que falla no detiene a las demás: queda en `error` con su motivo (en `--stage all`, verify la
+  muestra como `error · figures: <motivo>` y la línea de cierre la cuenta).
+- Salida 0 salvo error de etapa o argumentos inválidos; con `--strict`, 1 si alguna figura seleccionada no es `ok` en
+  figures o verify (o da error en compare).
+- Argumentos estrictos: una opción repetida, un valor ausente o un `--figs` que no sea de la forma `09,12` dan error; una
+  figura que no está en `figures/` se avisa en la cabecera.
+- Desde RStudio: `Sys.setenv(SRC_REPORTS_ARGS = "--stage figures --figs 09"); source("src/src_reports/main.R")`. Con
+  `source()` la sesión no se cierra y `source(...)$value` es el código de salida; sin argumentos solo muestra el uso.
+- Raíz de la carpeta: la del archivo que recibe `source()` o `--file` (resolviendo enlaces simbólicos); si ahí no está
+  `R/00_setup.R`, `SRC_REPORTS_ROOT`; si tampoco, el directorio actual.
+- Rutas de `config/local.yml` y `SRC_REPORTS_CACHE`: se expande `~` y las relativas se resuelven contra esta carpeta,
+  no contra el directorio desde el que se lanza `Rscript`.
+- Locale: si `LC_CTYPE` no es UTF-8 (cron, launchd, Docker sin `LANG`) se cambia a `C.UTF-8` o `en_US.UTF-8` con una
+  nota en la cabecera; si no hay ninguno, la corrida se detiene con un mensaje claro.
+
+## Método (igual al reporte publicado)
+- Estimaciones nacionales = promedio de las regiones NUTS ponderado por `regionpoppct` (`data/regions.csv`); celdas con
+  n < 30 suprimidas (`N/A`). Quality check: encuestados con más de 25 problemas no triviales excluidos de las experiencias.
+- Media UE: según la figura, `data4web` (ids en `eu_id` de la spec de la figura; valores cacheados en
+  `reference/<slug>/eu_values.csv`) o `eu_est()` (media simple de las estimaciones nacionales de los 27 países). La
+  fuente se declara en el código de cada figura y en su spec (`metodo_ue`, `eu_id`).
+- Diseño: WJPr 1.2.0, el paquete de diseño de WJP (`R/09_wjpr.R`: la función de WJPr del tipo con sus argumentos y las
+  medidas del diseño, + lo que aún le falte como complemento), exportado con svglite y texto en trazos para las 42. El
+  SVG propio (`R/04_svg.R`, `R/05_charts.R`, portado de `src/hungary/finales/`) queda de respaldo (`metodo svg_r`).
+  Tamaños exactos del `00-INDICE`.
+
+## Arquitectura y contratos
+`main.R` hace `source()` de `R/00..09` en orden en el entorno global; `figures/fig_NN_slug.R` se cargan con `sys.source()`
+y deben terminar en `fig_NN <- list(spec, data, plot)`. Los archivos de `R/` solo definen funciones (nada corre al cargar).
+
+**`ctx`** (lo construye `R/01_load.R`, que se detiene si el país no tiene módulo LNS: `prevalence2` vacío, como
+Irlanda): `cfg` (sin rutas; `cfg$figures` = datos editoriales del yml), `country`, `slug`, `master` (27 países, un
+encuestado por fila: `data/master.csv` + `non_trivial_problem_broader` + `jg_inverse_*_keepdk` + columnas de
+`add_report_vars()`), `national` (filas del país), `regions`, `jg` (tabla keepDK del país), `eu_values` (id, value),
+`meta` (clave de caché, versiones). Estimadores (`R/03_estimators.R`, siempre `ctx` primero salvo `problems_long`,
+literal de F02.R:3-12, que no estima: pasa a formato largo el df que recibe):
+`get_results_table(ctx, target, ctype, prop, transform, omit, df)`
+→ tibble(`grouping` factor con niveles = clabels; primera fila `National`/`National Average`, `category`, `value`);
+`nat_est(ctx, target, transform, by, df)` → tibble(country_name_ltn, by…, value, n); `eu_est(ctx, target, transform)` →
+escalar; `journey(ctx)` → lista (`adv_contacted`, `rep_c_published`, `drm_c_published`, `no_need_r1`, `unknown_r1`,
+`drm_no_need_r1`, `drm_unknown_r1`, …); `perception_experience(ctx, jse, exp)`; `xt()`, `diff_stratified()`;
+`eu_value(ctx, "data4web" | "eu_est", id)`; `memo(ctx, key, expr)`; `problems_long(df, extra)` → una fila por problema
+declarado (country_name_ltn, nuts_id, sev 0-10, category + `extra`; figuras 3 y 7); `cooc_flags(ctx)` → una fila por
+encuestado del país con 12 columnas 0/1 (problema no trivial por categoría; figuras 5 y 6, memorizada). **`spec`** = la
+de la figura (`read_specs()`, ver «Spec de cada figura») +
+`selected` + `country` (= `cfg$country`: `plot(df, spec)` no recibe ctx y las leyendas {country} | EU Average lo leen de ahí).
+
+**`df = data(ctx)`**: `order, kind, grouping, label, value, value2, text, text2` (+ `x, y, n, lo, hi, series`). Convención por tipo:
+
+| tipo | kind | grouping | label | value / value2 | text / text2 |
+|---|---|---|---|---|---|
+| grouped_bars | avg / header / row | "" en avg; grupo | National Average / EU Average; grupo; categoría | % (media 0-10 en la 4) | "61%", "N/A", "6.0" |
+| paired_bars (2), columns (30, 37) | row | "" | categoría | % país / % UE | "61%" / "49%" |
+| dumbbell (10, 15) | avg / header / row | "" / grupo | categoría | percepción / experiencia | "27%" o "" |
+| hbars (13, 14, 18, 19, 36) | row | "" | categoría | % | "54%" |
+| funnel (8, 34) | stage | "" | etapa (con `\n` donde corta la línea) | % | "61%" |
+| sankey (11, 16) | node | "1"/"2"/"3" | clave del nodo | % | "29%" |
+| cards (32, 41, 42) | card | fila impresa | columna impresa | % / % de la tarjeta de referencia (NA en ella) | "41%" / "+16 points" ("−" U+2212, "±"; "" en la de referencia) + `lo`, `hi` por figura |
+| matrix (6) | cell | categoría fila | categoría columna | % o NA | "62%", "N/A", "–" / banda |
+| upset (29) | row / set | "" | "A + B" (conjuntos en el orden fijo) / conjunto | % | "12.3%" (+ `n`) |
+| network (5) | node / edge (todas las parejas) | "" | problema / "A\|B" | prevalencia / lift (+ `x`, `y` del layout, sin renormalizar; `series` de la arista: "sig" = lift > 1.2 y n ≥ 10, se dibuja; "no" = solo centralidad) | "(40%)" |
+| scatter (3) | point | Rural / Urban | categoría | prevalencia (x) / severidad (y) | "" (+ `n`; `series` "destacada" = rotulada, de `config/<pais>.yml`) |
+| severity_bars (7) | bar | serie (país primero) | "0".."10" | % | "" |
+
+Orden en barras agrupadas: National Average, EU Average, cada grupo en el orden de clabels y dentro del grupo alfabético
+inverso (`arrange(desc(label), .locale = "C")`); la 27 es la excepción (sin avg; ver su encabezado). Upset: intersecciones
+de izquierda a derecha como las dibuja ComplexUpset. `rows_<tipo>()` construye el df y `wjpr_<tipo>(df, spec)` (`R/09_wjpr.R`)
+lo dibuja: un ggplot con `attr(, "wjpr")` = `list(base, complementos, compara)` (función de WJPr de partida, complementos
+aplicados y columnas cuyos textos se imprimen tal cual, por defecto `text` y `text2`). El respaldo, `chart_<tipo>(df,
+spec)`, devuelve un `chart_out` (`svg`, `width_in`, `height_in`, `text_pt`, `drawn` = order, kind, grouping, label, frac,
+frac2, text, text2; `frac` = fracción dibujada: valor/escala de la pista, barra/la más ancha en los embudos, valor/máximo
+de las dos series en las columnas 30 y 37). La verdad exacta de cada figura está en `reference/<slug>/Figure_NN_slug.csv`.
+
+**Salidas y verificación**: `tables/Figure_NN_slug.csv` (= df), `.drawn.csv`, `log/figures_status.csv` (md5, tamaños,
+estado por corrida); `reference/<slug>/Figure_NN_slug.csv` (order, kind, grouping, label, value, value2, text, text2,
+frac, frac2, tol + `tol2`, `tol_xy`, `x`, `y`, `n`, `lo`, `hi` si la figura los usa) es la verdad; `verify` une por (kind,
+grouping, label): texto exacto, `|value − ref| ≤ tol` (0.6 pp; 0.06 escala 0-10; 0.05 lift), `value2` con `tol2` (si
+falta, `tol`; 0.06 en la severidad de la 3), `x`, `y` con `tol_xy` (si falta, 0.01), `lo`, `hi`, `n` exactos, dibujo
+`|frac − ref| ≤ 0.006`, mismo orden, ancho exacto, alto ± 0.01 in, PNG `round(in·300)` px (±1 ancho, ±3 alto), 0
+`<text>`. Con `metodo wjpr` el dibujo se mide con `parecido` (f1 global) y `parecido_local` frente a
+`reference/<slug>/published/Figure_NN_slug.png`, `textos` y, en los adaptadores que exponen lo dibujado por fila (hoy
+las barras agrupadas), con su `drawn.csv` como en svg_r (detalle y umbrales en «WJPr», Verificación); figures lo guarda
+en `figures_status.csv` (columnas `wjpr_build`, `wjpr_complementos`, `wjpr_textos`, `wjpr_drawn`); una salida dibujada
+con otro metodo queda `desactualizada`, y una sin parecido medido (sin PNG nuevo o publicado), `sin dibujo`. Estados:
+figures ok | error | png | tamaño | texto | dibujo | omitida (`dibujo`: el valor que codifica la geometría no es el de
+df); verify ok | fallo | sin dibujo | error | sin salida | sin referencia | desactualizada | estatica | omitida (una
+figura que figures dejó en `texto`, `dibujo`, `tamaño` o `png` sale `fallo · figures: <motivo>`); compare ok | sin
+salida | sin publicada | error | omitida.
+`[conocida: <label>=<text>]` en la nota de la spec marca una discrepancia aceptada.
+
+**Decisiones del porte** (Etapa 1): `add_a2j_vars()` devuelve las tablas de brecha como `attr(, "jg")` en vez de escribir
+CSV; `add_report_vars()` = `build_analysis_frame()` + recodificaciones de A03/A04/A05 con sus nombres originales
+(`has_nt`, `resuelto`, `favor`, `exposicion`, `escalera_hardship`, `rep_c_published`, …); `get_results_table()` etiqueta la
+fila nacional `National Average` (el original: `National`); `first_line()` vive en `00_setup.R`; el log se escribe por
+mensaje (OneDrive); `main.R` decodifica los `~+~` de `--file=`; tarjetas con escala de color por figura (publicado 2/62,
+29/55, 30/55); `data/master.csv` equivale a 200 columnas (53 + 147 AJ*). `AJP_problem` conserva el `""` del `.dta`
+donde `data/master.csv` tiene NA (el viaje write_csv/read_csv del original convertía `""` en NA); ninguna figura lo usa.
+
+## Spec de cada figura
+No hay manifiesto: el inventario de figuras (títulos, secciones, páginas) es el reporte publicado en PDF, fuera de esta
+carpeta, y cada figura declara en su archivo lo que el código necesita, `fig_NN$spec`. `read_specs()` (`R/00_setup.R`)
+arma la spec de cada `figures/fig_NN_slug.R` (en orden de fig): `fig` y `slug` del nombre del archivo, `titulo` de su
+primera línea (`## Figura NN · <título con {country}>`), los campos de `fig_NN$spec` (los que faltan toman el valor de
+`SPEC_FIELDS`), `funcion` = `wjpr_<tipo>` con `metodo wjpr`, y `country`. Por país, `figures: figNN:` de
+`config/<pais>.yml` cambia cualquier campo (p. ej. `fig05: { h_in: 6.402 }`); las demás claves de `figNN` (p. ej.
+`highlight` de la 3) son datos editoriales que lee `data()`. Un archivo que no carga deja su spec vacía y la figura da
+`error` en figures, sin detener a las demás.
+
+| campo | valores | lo lee |
+|---|---|---|
+| `tipo` | grouped_bars, paired_bars, dumbbell, hbars, columns, funnel, sankey, cards, matrix, upset, network, scatter, severity_bars | 09 (`wjpr_<tipo>`), galería, 08 y `tools/build_reference.R` |
+| `metodo` | wjpr (las 42) · svg_r (respaldo) · ggplot · static | 06 (cómo guardar: wjpr y ggplot exportan el ggplot, wjpr con k = 1; textos dibujados y, si el adaptador lo expone, lo dibujado por fila) y 07 (wjpr → parecido, parecido_local, textos y drawn.csv si existe; static → estatica) |
+| `w_in`, `h_in` | pulgadas, 3 decimales (en la 5, `h_in` es el que pide el layout de Hungría: con otro país el log da el suyo) | 05 (ancho del lienzo), 06 y 07 (tamaño), 08 |
+| `callout` | TRUE · FALSE (junto a un recuadro) | `read_specs()`: avisa si `w_in` supera `max_w_callout_in` / `max_w_full_in` |
+| `label_col` | std · dumb · hbars · own · none | 05 (columna de etiquetas) |
+| `base_pt` | tamaño base con que se dibujó la figura publicada cuando era ggplot: 12, 11, 13 y 10.24 en 3, 6, 7 y 29; sin él en el resto | `wjpr_scatter`, `wjpr_matrix` y `wjpr_upset` dividen sus tamaños por base_pt/10 (sin él, k = 1 y el texto sale al tamaño por defecto) y `wjpr_severity_bars` los multiplica por 10/base_pt (sin él, 13); 06 solo en `metodo ggplot` (lienzo × base_pt / text_pt) |
+| `metodo_ue` | none · data4web · eu_est · eu_est_category · eu_est_distribution | `tools/build_reference.R` (con `eu_id`) |
+| `eu_id` | id de la media UE (varios con `;`) | `tools/build_reference.R`: ids de data4web → `eu_values.csv` |
+| `nota` | texto libre + `[conocida: <label>=<text>]` | 07 (discrepancias conocidas) |
+
+Lo que traía el manifiesto y no es dibujo quedó así: fuente de datos, método UE y código de origen, en el encabezado
+de cada figura (ya estaban); sección y página, en el PDF; `status`, `verificada` y `wjpr`, en `log/figures_status.csv`
+y `tables/00-verificacion.csv` de cada corrida.
+
+## Discrepancias conocidas con lo publicado (no se fuerzan)
+- Fig 16: "excluded" = 56 % (partes a 1 decimal, método publicado); la aritmética sin redondear da 55 %.
+- Fig 20: v9 imprimía "5 or more problems"; las figuras finales (16-oct) "6 or more problems" (la etiqueta correcta para
+  nproblems ≥ 6; `# corregido:` en `R/02_variables.R`).
+- Fig 22: media UE 54 % (data4web); `eu_est()` daría 53 %.
+- Fig 12: barra UE = 37.68 → 38 (R03 `rep_c_published`), no la de data4web (54.2).
+- Fig 42 (corregido en la referencia el 2026-10-29): la escala de color de las tarjetas es común con la 41, 29/55 (la
+  tarjeta del 30 % tiene t = 0.1535 en el PNG publicado); la referencia traía 30/55 y el dibujo salía con la tarjeta
+  del 42 % en negro (parecido local 0.715). Con la escala común, la 42 da 0.000.
+
+## Añadir un país
+Hoy solo Hungría tiene reporte publicado y referencia; para otro país hace falta, además del yml:
+1. `config/<pais>.yml`: `country` (= `country_name_ltn` del `.dta`), `slug`, rutas; los valores de `checks` son de
+   Hungría: cámbielos o bórrelos (solo se registran en el log). `data.eu_values` puede apuntar a un `eu_values.csv` ya
+   generado: las medias UE de data4web no dependen del país. `figures:` guarda las elecciones editoriales del reporte
+   (hoy `fig03: highlight`, las categorías rotuladas de la 3; las de hungary.yml son las de Hungría): sin la clave, la 3
+   rotula las 6 de mayor prevalencia no trivial nacional y lo avisa en el log. Un país sin módulo LNS (`prevalence2`
+   vacío, como Irlanda) no tiene figuras de problemas: la etapa que construye su ctx se detiene con ese motivo.
+2. Referencia: solo si el país tiene reporte publicado. `published_dir` y `reference_src_dir` están en `config/local.yml`
+   (son de la máquina, no del país): apúntelos a las figuras y los datos publicados de ese país y corra
+   `tools/build_reference.R --country <slug>`. La herramienta se detiene sin escribir en `reference/<slug>/` si las
+   fuentes no son del país (carpeta `output/viz/<country>`, `<country>_jg_upset.svg`, columna del país en F03.csv, títulos de
+   `00-INDICE.csv`). Sin referencia, verify da "sin referencia" y compare "sin publicada".
+3. Specs del país (`figures: figNN:` de `config/<pais>.yml`): el `h_in` de las figuras cuyo número de filas cambia (ver
+   CLAUDE.md, paso 4 de «Cómo añadir o arreglar una figura»: en las agrupadas figures da `tamaño` si no cabe y un aviso
+   con el h_in si sobra espacio), el de la red (5: el alto depende del layout del país; el log da lo que hay que poner,
+   p. ej. «figures: fig05: h_in: 6.402» en Finlandia) y las notas. Las notas `[conocida: …]` de las specs y los números
+   de «Fuente de datos» de los encabezados son de Hungría; los slugs `*_hu_eu` (2, 7, 30) son nombres de archivo y se
+   conservan.
+4. Muestra pequeña: `small_sample: true` en `config/<pais>.yml` (como `country_config[[país]]$small_sample` de
+   `src/viz/worker-viz.R`, que la pone en Malta) quita los grupos que el original quitaba: Category en 9 y 12; Category y
+   Age Group de la 17 a la 25; Age Group y Problem Status en la 26 (`small_sample()` en `R/03_estimators.R`; cada
+   `data()` decide qué grupos). Con menos filas, su `h_in` va en `figures: figNN: h_in:` del yml. Las barras horizontales
+   13, 14, 18 y 19 usan el estimador publicado, que no suprime n < 30: en Malta las bases de 18 y 19 son de 46 y 43
+   encuestados en una región (decisión del 29-oct: se conserva el estimador publicado). Lo que no es configurable:
+   relabels (en el `data()` de cada figura), etiquetas, orden y colores (del diseño).
+5. Lo que depende del país queda en el log sin cambiar el estado `ok` (los avisos llevan «aviso»: `grep aviso
+   output/<slug>/log/run_*.log`): la 3 cuenta los puntos suprimidos por faceta y avisa si no dibuja una faceta con
+   menos de 2 puntos (Malta y Bulgaria: Rural, como un `omit.cats` automático); la 5 avisa de las parejas sin
+   coocurrencias que deja fuera del layout (lift 0: igraph no admite peso 0; Malta, Bulgaria, Grecia, Letonia, Lituania y
+   Portugal) y del alto que pide su layout; la 2 registra la suma de `regionpoppct` de las regiones con muestra, que
+   escala sus valores (no renormaliza, como lo publicado), y avisa si se aleja de 1 en más de 0.01 (Francia 0.968).
+
+## Caché (`data/`)
+El caché de microdatos vive en `data/` (o en `cache_dir` / `SRC_REPORTS_CACHE`): `master.rds` (27 países),
+`ctx_<slug>.rds` y sus claves. `data/` está en `.gitignore` salvo `regions.csv` y `README.md`, que son insumos versionados.
+`data/master.key` = tamaño y fecha del `.dta` + md5 de `regions.csv`, `01_load.R`, `02_variables.R`, `renv.lock` +
+versiones de haven/dplyr/tidyr/readr + versión de R. `data/ctx_<slug>.key` añade `eu_values.csv` y el país. `--force`
+reconstruye. Sin acceso al `.dta`: si la clave difiere solo en el `.dta`, se usa el caché con aviso "sin comprobar"; si
+difiere en el código, `regions.csv`, `renv.lock`, los paquetes o R, se detiene y pide `--stage data` con acceso al `.dta`.
+
+## WJPr
+**Motor de dibujo: WJPr 1.2.0 (desde el 2026-10-27; adoptado el 23-oct con 1.1.0 + complementos).** Las 42 figuras se
+dibujan con WJPr, el paquete de diseño de WJP: `metodo wjpr` en la spec de la figura, `plot =
+function(df, spec) wjpr_<tipo>(df, spec)` en cada figura. `R/09_wjpr.R` tiene un adaptador por tipo (13) que es la
+función de WJPr 1.2.0 del tipo con sus argumentos (`layout = wjp_layout(…)`, `value_*`, `label_*`, `header_*`,
+`national_value` con nombres, `na_label`, `scale_max`, `position = "dodge"`, `ref_lines`, `wjp_funnel`, `wjp_cards`,
+`wjp_heatmap`, `wjp_scatter`, `wjp_network`, `wjp_upset`, `wjp_sankey`, `ptheme = WJP_theme(…) + theme(…)`), como los
+`fid_<tipo>` de `dev/report-fidelity*.R` del paquete, pero con el df del contrato de entrada (`value` crudo, `text`
+impreso) y las medidas del diseño de `STD`/`ST_*`/`LABEL_COL` (`R/04_svg.R`) y de `spec` (`w_in`, `h_in`, `base_pt`);
+las elecciones editoriales del país salen de df o de la config, nunca de listas fijas. Lo que 1.2.0 aún no cubre queda
+como complemento mínimo, `# complemento: <qué falta>` con su propuesta de argumento (la fuente del documento de brechas
+para el autor del paquete). Los `chart_<tipo>()` de `R/05_charts.R` quedan de respaldo: `metodo svg_r` en la spec y
+`plot = function(df, spec) chart_<tipo>(df, spec)` vuelven a la figura propia.
+- **Build exigida y fijada**: `wjpr_require()` se detiene con un error legible si la build cargada es anterior a la
+  1.2.0 («WJPr 1.1.0@382aee9 es anterior a la 1.2.0 que necesitan los adaptadores …: instale la build de renv.lock
+  con renv::restore()»); `renv.lock` fija WJPr 1.2.0 desde GitHub (`worldjusticeproject-org/WJPr@1664a236…`) y
+  `check_deps()` compara también el commit con el `RemoteSha` instalado ("local" si se instaló desde un clon con `R CMD
+  INSTALL`). ggtext no está en `renv.lock`: WJPr 1.2.0 solo lo sugiere para `wjp_edgebars`, `wjp_radar`, `wjp_rose` y
+  `wjp_groupbars` en modo strip, y las agrupadas del reporte van en modo fila, sin él (con renv las 42 salen idénticas,
+  md5, a las de la librería del sistema que sí lo tenía). ggrepel va en `_dependencies.R` (rótulos de la 3 vía
+  `wjp_scatter(repel = TRUE, seed =)`) e igraph lo detecta renv (layout de la red en `fig_05`; WJPr no lo usa).
+- **Fuente**: `options(wjpr.family = "inter")` (`wjpr_require()`); 1.2.0 la aplica en todas sus capas y temas, y las
+  caras de los valores, promedios y encabezados (`"semibold.italic"`) caen en el `bold.italic` de "inter", que
+  `setup_fonts()` registra como Inter Tight SemiBold Italic. `wjpr_font()` (la «Lato Full» fija de 1.1.0) ya no
+  existe; `wjpr_theme()` (= `WJP_theme()`) queda como punto de partida del `ptheme` de tres adaptadores.
+- **Tamaño**: con `layout` el gráfico tiene un tamaño definido; cada adaptador lo ajusta con los argumentos de WJPr
+  (p. ej. el ancho de la columna de valores y el margen inferior de `wjp_layout()`) para que mida `w_in × h_in` del
+  manifiesto: el SVG sale a ese tamaño y el dibujo llena el lienzo como la publicada.
+- **Exportación** (`R/06_export.R`): svglite a `w_in × h_in` con k = 1 (WJPr ya da los tamaños en pt; sin `base_pt`),
+  texto en trazos y PNG con Chrome, como `wjpr_render()` de la galería. Los textos dibujados (`wjpr_texts()`) deben ser
+  los de `df` en las columnas `attr(p, "wjpr")$compara` (+ los rótulos que el adaptador declare en `$rotulos`), con la
+  regla que usa también la galería (`drawn_text_diff_wjpr()`: solo sobran los valores que df no trae): si no, estado
+  `texto`. Los textos salen de `WJPr::wjp_drawn(p, "text")` y cuentan solo los que se ven (`wjpr_drawn_texts()`: no un
+  texto con alfa 0, del color de lo que tiene debajo o tapado; Markdown de ggtext leído; las etiquetas de eje y strip,
+  en coordenadas de datos). Si el adaptador expone lo dibujado por fila (`attr(p, "wjpr")$drawn`), figures lo escribe en
+  `drawn.csv` y compara cada fila con la de df: el texto, el nombre impreso en su posición (`label_drawn` con `label`,
+  `grouping_drawn` con `grouping`) → estado `texto`, y el valor que codifica la geometría (`val`, `val2` con `value`,
+  `value2`, tolerancia max(1e-6, 0.005 · máx |value|); un `val` donde df trae NA también falla) → estado `dibujo`; una
+  marca fija del diseño ausente (`marcas =`, p. ej. la pista 0-100 % de cada barra agrupada o la línea de corte de la
+  7) → `dibujo`. `log/figures_status.csv` guarda `wjpr_build` (versión@commit), `wjpr_complementos`, `wjpr_textos` y
+  `wjpr_drawn` (filas de `drawn.csv`; NA si no lo expone).
+- **Verificación** (`R/07_verify.R`; umbrales en `config/<pais>.yml`, `verify`): además de la tabla, el dibujo de cada
+  figura `metodo wjpr` se comprueba con:
+  - `parecido`: f1 de tinta (gris < 0.75, ±2 px) del PNG nuevo frente a la publicada a 96 dpi ≥ `min_f1` = 0.995. Ve la
+    maqueta global (una build que reordena las filas o añade una leyenda), pero no un error localizado.
+  - `parecido_local`: peor ventana de `local_block_px` = 12 px (9 pt) a 96 dpi; fracción de píxeles distintos (en algún
+    canal RGB a más de `local_delta` = 0.2 del rango de la otra imagen en ±1 px, o a más de `local_delta_flat` = 0.05
+    donde las dos son planas, para los colores claros) ≤ `max_local` = 0.5 (`wjpr_similarity()`). Ve una barra unos pp
+    más larga, colores de banda o de serie cambiados, un tono de relleno; la nota da el centro de la peor ventana en
+    pulgadas. Calibrado el 23-oct con las 42 de la galería y los errores provocados de la revisión V3: correctas
+    0.000-0.444, errores 0.833-1.000. La 42 daba 0.715 con la escala de color 30/55 de la referencia (tarjeta del 42 %
+    en negro); con la escala común 29/55 de la publicada (corregida el 29-oct) da 0.000.
+  - por fila (`drawn.csv`, como en svg_r), en los adaptadores que exponen lo dibujado (`attr(p, "wjpr")$drawn`, leído
+    de `ggplot_build()`): en cada posición, la fila del df que la ocupa según el dibujo (`order, kind, grouping,
+    label`), la fracción de su barra (`frac`, `frac2`), el texto impreso en ella (`text`, `text2`), el nombre impreso
+    en esa posición (`label_drawn`; `grouping_drawn`: el encabezado bajo el que queda; NA = no expuesto, "" = nada
+    impreso) y el valor decodificado de la geometría en las unidades de df (`val`, `val2`). verify compara `frac` ±
+    `tol_frac` = 0.006, el texto y el nombre impreso exactos (espacios normalizados), `val`/`val2` con la tol de la
+    referencia y el orden. Ve un valor en la fila equivocada, dos etiquetas o dos encabezados intercambiados y un valor
+    oculto, que no cambian ni el parecido ni el multiconjunto de textos. Lo exponen los 13 adaptadores (las 42
+    figuras): una fila por línea en agrupadas, pareadas, barras horizontales y pesas, por columna o barra en columnas
+    y severidad, por etapa en el embudo, por tarjeta en las tarjetas (`val` = el valor que dice su color), por celda en
+    la matriz (`text2` = banda leída del color), por punto en la dispersión (`val`, `val2` = x, y; `label_drawn` = el
+    rótulo anclado; `text2` = «n < 30» si es hueco), por nodo y arista en la red (`val` = lift leído del ancho; 0 si
+    falta), por caja en el sankey (`val` = alto en %, salvo la tercera columna) y, en el UpSet, por barra de
+    intersección y por conjunto. Una marca dibujada sin fila en la referencia da una fila `extra`. En las barras agrupadas (modo fila de 1.2.0:
+    un panel con y continua) cada línea es una posición de la columna de etiquetas y su fila la da la línea de WJPr
+    que la dibuja (los datos de la capa); para exponerlo en otro tipo: `wjpr_meta(…, drawn = function(b) …)` con
+    `wjpr_slots()`/`wjpr_slot_of()` o `wjpr_pos_slots()` (la fila de cada posición en un eje discreto),
+    `WJPr::wjp_drawn(p, "marks")` (las marcas con sus columnas) y `wjpr_drawn_texts()` (lo impreso y visible).
+  - `textos`: multiconjunto de los textos dibujados frente a df, medido en figures; sin textos esperados ni valores
+    dibujados (figs 3 y 7), `suprimido` con la nota «sin textos que comparar».
+  - Sin PNG nuevo (`--no-png`, sin Chrome) o sin publicada, `parecido` y `parecido_local` quedan `suprimido` y la figura
+    `sin dibujo`: no es `ok`, no cuenta como verificada en la línea de cierre y `--strict` sale con 1.
+- **Otra build**: en una copia de la carpeta, `renv::install("worldjusticeproject-org/WJPr@<commit>")` (sin
+  snapshot) y `Rscript main.R --stage all --figs …` (o `tools/wjpr_gallery.R` con `--out` para no mezclar salidas).
+  Una anterior a la 1.2.0 se detiene en `wjpr_require()`; una ≥ 1.2.0 con otro commit da en la cabecera
+  `aviso renv.lock: WJPr <versión>@<commit> (esperada 1.2.0@1664a236…)`, verify añade la fila `entorno` y, si cambia el
+  dibujo, la figura queda `fallo · parecido` aunque la tabla y los textos estén bien. Una build nueva se adopta cuando
+  verify vuelve a dar `ok` (y la galería 42/42): `renv::snapshot()` fija su commit en `renv.lock`.
+- `options(wjpr.complementos = FALSE)` dibuja con la llamada a WJPr sola (la galería con `--sin-complementos`): con
+  1.2.0 debe quedar igual o casi a la completa.
+
+| Build | Origen | Uso |
+|---|---|---|
+| 1.2.0@1664a23 | `github worldjusticeproject-org/WJPr@1664a23` | fijada en `renv.lock`; la que dibuja desde el 27-oct |
+| 1.1.0@382aee9 | `github worldjusticeproject-org/WJPr@382aee9` (13-jul) | la de la adopción (23-oct, con 5-13 complementos por figura); `wjpr_require()` la rechaza |
+| main a46c831 | clon de la rama main (23-oct; `1.1.0@local`) | histórica: midió el 23-oct que una build con la misma versión cambia el dibujo |
+
+**Complementos que quedan con 1.2.0** (cada uno con `# complemento:` y su propuesta en `R/09_wjpr.R`):
+- Barras agrupadas (20 figuras: 1, 4, 9, 12, 17, 20-28, 31, 33, 35, 38-40): ninguno (antes 9-11). `wjp_groupbars()` en
+  modo fila con `wjp_layout()` dibuja los dos promedios, los encabezados en la columna de etiquetas, la columna de
+  valores, las «N/A», la media 0-10 de la 4 (`scale_max = 10`, `show_complement = FALSE`) y la 27 (pista de 6.5 in, sin
+  promedios) solo con argumentos.
+- Lectura del dibujo (infraestructura): `wjp_drawn()` lista también lo que no se ve (propuesta `visible = TRUE`), no
+  lee el Markdown de ggtext ni el color de su `<span>`, da las etiquetas de eje en 0-1 del panel y por eje de pantalla
+  (propuesta `coords = "data"`) y no lee la leyenda (propuesta `what = "legend"`): lo suplen `wjpr_drawn_texts()` y
+  `wjpr_legend_drawn()`.
+- `wjp_bars` (pareadas 2, severidad 7, barras horizontales 13, 14, 18, 19, 36, columnas 30, 37): ninguno (antes 6-8).
+  En las columnas, solo si una etiqueta no cabe en su grupo, el ajuste de línea en pt (`label_wrap` cuenta caracteres).
+- Pesas (10, 15), embudo (8, 34) y UpSet (29): ninguno (antes 13, 8 y 5).
+- Tarjetas (32, 41, 42): uno, los encabezados en Inter Tight Bold Italic 700 (`wjpr_cards_family`; propuesta
+  `header_weight`): la familia "inter" del proyecto registra bold.italic como SemiBoldItalic (600).
+- Sankey (11, 16): uno, los encabezados 700 (propuesta `header_family`); en Polonia y Malta otro, la escala al 100 %
+  (propuesta `total = 100`).
+- Matriz (6): uno, el margen del título (propuesta `title_margin`). Dispersión (3): ninguno en Hungría; en Malta, la
+  faceta sin puntos (propuesta `min_points`). Red (5): ninguno en Hungría; en Polonia y Malta, la centralidad sobre
+  todas las parejas (propuesta `centrality_edges`). Agrupadas: en Polonia y Malta, la «N/A» de la 4 en la columna de
+  valores (propuesta `na_position = "column"`).
+
+**Galería** (`Rscript src/src_reports/tools/wjpr_gallery.R [--figs …] [--out …] [--sin-complementos]`): dibuja las 42 (con
+`data()` si la figura existe; si no, desde la referencia) y mide textos (la regla de figures), fuente, parecido con lo
+publicado (f1 y local, con los umbrales de verify) y lo dibujado por fila frente a la referencia →
+`output/<slug>/wjpr/00-wjpr.csv` (columnas `f1_publicada`, `local_publicada`, `local_xy_in`, `por_fila`, `dibujo` = ok o
+lo que no pasaría verify), `index.html` y `compare/`. Las 42 con 1.2.0@1664a23 y su `data()` (29-oct): 42/42 ok, textos
+iguales, f1 0.997-1.000, local ≤ 0.354, por fila «n filas ok». Barras agrupadas con 1.2.0@1664a23 (27-oct): 20/20 ok, textos
+iguales, f1 1.000, local 0.000, por fila «n filas ok», 0 complementos, SVG idénticos con y sin `--sin-complementos` y del
+tamaño exacto de la spec (antes, con 1.1.0@382aee9 y 9-11 complementos: los mismos f1 y local). Resultado del
+23-oct con 1.1.0@382aee9 y con main (a46c831), las 42: f1 0.996-1.000, local 0.000-0.444 en 41 y 0.715 en la 42; 367
+complementos con 1.1.0 (5-13 por figura) y 333 con main. Las brechas del paquete están en el documento «WJPr: brechas
+para automatizar las figuras de Paths to Justice».
+
+**Piloto sin complementos (histórico, `tools/pilot_wjpr.R`, 2026-10-23).** Con WJPr 1.2.0 la tabla ya no vale: los 13
+tipos tienen función propia y se dibujan con sus argumentos. Para cada tipo con posible equivalente se
+dibujó la figura publicada con la función de WJPr 1.1.0 (`worldjusticeproject-org/WJPr@382aee9`) usando solo argumentos
+documentados y el tema por `ptheme`, y se midieron 45 criterios sobre el ggplot construido y el SVG. Ninguna los cumplía
+todos: la familia "Lato Full" está fijada dentro de las capas (sin esa fuente el texto cae en una de reemplazo con otras
+métricas); `wjp_groupbars` admite un solo promedio y no dibuja las «N/A»; `wjp_dumbbells` no trae leyenda ni
+encabezados y pierde el valor de experiencia de la fila sin percepción; `wjp_bars` centra los valores sobre el final de
+la barra y fija `position = "stack"`. Esos huecos son los que cubren hoy los complementos.
+
+| Tipo (figuras) | Figura probada | Función | Criterios cumplidos | Fallados | Decisión del piloto |
+|---|---|---|---|---|---|
+| paired_bars (2) | 02 | `wjp_bars` | 3/6 | país y UE lado a lado (horizontal); fuente Inter Tight solo con argumentos (ptheme); métrica del texto = Inter Tight (0 dudosos) | **descartada** |
+| severity_bars (7) | 07 | `wjp_bars` | 4/6 | dos series por severidad lado a lado; fuente Inter Tight solo con argumentos (ptheme) | **descartada** |
+| grouped_bars (1, 4, 9, 12, 17, 20-28, 31, 33, 35, 38-40) | 09 | `wjp_groupbars` | 2/9 | dos filas de promedio (National + EU Average); encabezados como filas de la columna de etiquetas; filas de barra (promedios + categorías); celdas suprimidas impresas 'N/A'; fuente Inter Tight solo con argumentos (ptheme); textos de valor = publicados; métrica del texto = Inter Tight (0 dudosos) | **descartada** |
+| dumbbell (10, 15) | 10 | `wjp_dumbbells` | 3/9 | encabezados de grupo; eje 0-100 % cada 25; leyenda Perception / Experience; fuente Inter Tight solo con argumentos (ptheme); textos de valor = publicados; métrica del texto = Inter Tight (0 dudosos) | **descartada** |
+| hbars (13, 14, 18, 19, 36) | 13 | `wjp_bars` | 5/9 | valor a continuación del final de la barra; valores en semibold cursiva; fuente Inter Tight solo con argumentos (ptheme); métrica del texto = Inter Tight (0 dudosos) | **descartada** |
+| columns (30, 37) | 30 | `wjp_bars` | 3/6 | país y UE lado a lado (vertical); fuente Inter Tight solo con argumentos (ptheme); métrica del texto = Inter Tight (0 dudosos) | **descartada** |
+| funnel (8, 34) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+| sankey (11, 16) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+| cards (32, 41, 42) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+| matrix (6) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+| upset (29) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+| network (5) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+| scatter (3) | — | — | — | WJPr no tiene función de este tipo | **sin_equivalente** |
+
+Salidas del piloto en `output/<slug>/compare/`: `pilot_wjpr_figNN.svg|png`, `pilot_wjpr_figNN_comparacion.png` y
+`pilot_wjpr_criterios.csv` (fig, tipo, función, criterio, esperado, obtenido, cumple); `Rscript
+src/src_reports/tools/pilot_wjpr.R` lo repite.
+
+## Tiempos (medidos el 2026-10-22, 23 y 29, MacBook, .dta ya descargado)
+| Etapa | Tiempo |
+|---|---|
+| Las 42 desde una copia limpia (sin `cache/` ni `output/`; 29-oct, WJPr 1.2.0) | 4.4 min: data 77 s, figures 159 s (con PNG), verify 21 s, compare 7 s |
+| `--stage all --strict`, las 42, con caché (29-oct) | 132 s |
+| Copia limpia con renv (3-nov): `renv::restore()` con el caché de renv vacío + `--stage all --strict` sin `data/` | 54 s + 183 s (data 31 s) |
+| `tools/inyecciones/correr.sh` (47 por main.R + 43 simuladas) | 30-60 min (18 min con renv, 3-nov) |
+| `--stage data` en frío (`--force`) | 33 s (lectura del `.dta` 3 s; variables y master de 27 países 28 s) · la primera vez OneDrive tarda además ~50 s en descargar los 295 MB |
+| `--stage data` con caché | 3 s |
+| `--stage data` tras cambiar 01/02 o `renv.lock` (reconstruye el master, 23-oct) | 40-63 s |
+| `--stage all --figs 09,10,11` con caché | 21 s con el dibujo propio (svg_r); 15 s con WJPr (23-oct: figures 09 4.5 s, 10 2 s, 11 1.9 s con PNG; verify con el parecido 1 s) |
+| `tools/pilot_wjpr.R` | 15 s |
+| `--stage verify` / `--stage compare` | 1-3 s |
+| `--stage figures --figs 09,10,11` | 7 s (09: 4 s, 10: 1.8 s, 11: 1.5 s, con PNG; medido el 2026-10-23) |
+
+## OneDrive
+La carpeta vive en OneDrive: una conexión de archivo abierta durante toda la corrida pierde escrituras y falla al
+cerrar ("Operation timed out"), por eso el log se escribe mensaje a mensaje y la salida capturada pasa por un
+temporal local. Si un `.ttf` o el `.dta` pesan 0 bytes es que no están descargados. `cache_dir` en `config/local.yml`
+permite sacar el caché de OneDrive. `renv::restore()` dentro de OneDrive crea `renv/library/` con enlaces simbólicos
+al caché de renv (OneDrive no los sincroniza bien): conviene correr el pipeline desde un clon fuera de OneDrive (p. ej.
+`automatic-reports`).

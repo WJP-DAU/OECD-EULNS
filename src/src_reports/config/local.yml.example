@@ -1,0 +1,12 @@
+# config/local.yml.example — copie a config/local.yml (está en .gitignore) y ajuste las rutas de su máquina.
+# Precedencia: variables de entorno (SRC_REPORTS_CACHE, CHROMOTE_CHROME) > local.yml > valores por defecto. Rutas
+# absolutas, con "~" o relativas a la carpeta src_reports (no al directorio de trabajo).
+# path2EU = raíz de "EU-S Data" (SharePoint EU Subnational): contiene eu-gpp/1. Data/3. Merge/EU_GPP_2024.dta (data.dta
+# del yml del país) y reports/eu-thematic-reports/data-viz/output/data4web_gpp.csv (data.data4web). Hace falta para
+# --stage data sin caché y para tools/build_reference.R; con el caché construido, figures/verify/compare no lo usan.
+path2EU: "/Users/<usuario>/Library/CloudStorage/OneDrive-WorldJusticeProject/EU Subnational/EUROVOICES 2024/EU-S Data"
+chrome: ""             # binario de Chrome/Chromium para los PNG; vacío = CHROMOTE_CHROME, rutas habituales de macOS/Linux, PATH
+cache_dir: ""          # vacío = <carpeta>/data (microdatos; ignorados por git salvo regions.csv); conviene fuera de OneDrive
+published_dir: ""      # PNG publicados (Figure_NN_slug.png, 300 dpi) del país del yml; solo tools/build_reference.R
+reference_src_dir: ""  # CSV de valores de esas figuras (…/output/viz/<country>/finales/datos); solo tools/build_reference.R,
+                       # que se detiene si estas dos rutas no son del país de --country

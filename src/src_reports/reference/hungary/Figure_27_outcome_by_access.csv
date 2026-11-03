@@ -1,0 +1,10 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,header,Information and advice,Information and advice,NA,NA,,,NA,NA,0.6
+2,row,Information and advice,With access,83.89016722350055,NA,84%,,0.8389016722350056,NA,0.6
+3,row,Information and advice,Without access,53.13443483008702,NA,53%,,0.5313443483008702,NA,0.6
+4,header,Appropriate assistance,Appropriate assistance,NA,NA,,,NA,NA,0.6
+5,row,Appropriate assistance,With access,72.78914134260046,NA,73%,,0.7278914134260046,NA,0.6
+6,row,Appropriate assistance,Without access,65.70356132389796,NA,66%,,0.6570356132389796,NA,0.6
+7,header,Dispute resolution mechanism,Dispute resolution mechanism,NA,NA,,,NA,NA,0.6
+8,row,Dispute resolution mechanism,With access,60.526315789473685,NA,61%,,0.6052631578947368,NA,0.6
+9,row,Dispute resolution mechanism,Without access,61.36259845312853,NA,61%,,0.6136259845312853,NA,0.6

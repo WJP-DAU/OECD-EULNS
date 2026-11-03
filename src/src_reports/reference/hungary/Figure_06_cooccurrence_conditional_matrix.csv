@@ -1,0 +1,145 @@
+order,kind,grouping,label,value,value2,text,text2,frac,frac2,tol
+1,cell,Public Services,Public Services,NA,NA,–,,NA,NA,0.6
+2,cell,Public Services,Consumer,62.49588834954688,NA,62%,50% or more,NA,NA,0.6
+3,cell,Public Services,Community,64.35383063125249,NA,64%,50% or more,NA,NA,0.6
+4,cell,Public Services,Money & Debt,67.75172154270514,NA,68%,50% or more,NA,NA,0.6
+5,cell,Public Services,Accidental,76.99451684505455,NA,77%,50% or more,NA,NA,0.6
+6,cell,Public Services,Employment,72.17609262553084,NA,72%,50% or more,NA,NA,0.6
+7,cell,Public Services,Land,65.17610554381137,NA,65%,50% or more,NA,NA,0.6
+8,cell,Public Services,Family,64.94198090583635,NA,65%,50% or more,NA,NA,0.6
+9,cell,Public Services,Housing,68.96716255181865,NA,69%,50% or more,NA,NA,0.6
+10,cell,Public Services,Education,71.07069023955181,NA,71%,50% or more,NA,NA,0.6
+11,cell,Public Services,Citizenship & ID,76.66666666666667,NA,77%,50% or more,NA,NA,0.6
+12,cell,Public Services,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+13,cell,Consumer,Public Services,62.436563191687256,NA,62%,50% or more,NA,NA,0.6
+14,cell,Consumer,Consumer,NA,NA,–,,NA,NA,0.6
+15,cell,Consumer,Community,65.83280718108907,NA,66%,50% or more,NA,NA,0.6
+16,cell,Consumer,Money & Debt,65.08069172003599,NA,65%,50% or more,NA,NA,0.6
+17,cell,Consumer,Accidental,68.90501291740735,NA,69%,50% or more,NA,NA,0.6
+18,cell,Consumer,Employment,68.85721462500489,NA,69%,50% or more,NA,NA,0.6
+19,cell,Consumer,Land,78.04242728303481,NA,78%,50% or more,NA,NA,0.6
+20,cell,Consumer,Family,65.63270870499787,NA,66%,50% or more,NA,NA,0.6
+21,cell,Consumer,Housing,73.5801277467944,NA,74%,50% or more,NA,NA,0.6
+22,cell,Consumer,Education,75.90798941236298,NA,76%,50% or more,NA,NA,0.6
+23,cell,Consumer,Citizenship & ID,60,NA,60%,50% or more,NA,NA,0.6
+24,cell,Consumer,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+25,cell,Community,Public Services,45.41928037073668,NA,45%,25% to 50%,NA,NA,0.6
+26,cell,Community,Consumer,46.618693447961746,NA,47%,25% to 50%,NA,NA,0.6
+27,cell,Community,Community,NA,NA,–,,NA,NA,0.6
+28,cell,Community,Money & Debt,47.909254261713286,NA,48%,25% to 50%,NA,NA,0.6
+29,cell,Community,Accidental,54.56835412482779,NA,55%,50% or more,NA,NA,0.6
+30,cell,Community,Employment,52.611477180765576,NA,53%,50% or more,NA,NA,0.6
+31,cell,Community,Land,58.32025616198278,NA,58%,50% or more,NA,NA,0.6
+32,cell,Community,Family,54.73434509579089,NA,55%,50% or more,NA,NA,0.6
+33,cell,Community,Housing,58.01252877972455,NA,58%,50% or more,NA,NA,0.6
+34,cell,Community,Education,58.891460640883466,NA,59%,50% or more,NA,NA,0.6
+35,cell,Community,Citizenship & ID,50,NA,50%,50% or more,NA,NA,0.6
+36,cell,Community,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+37,cell,Money & Debt,Public Services,37.37884428283565,NA,37%,25% to 50%,NA,NA,0.6
+38,cell,Money & Debt,Consumer,35.8593352089287,NA,36%,25% to 50%,NA,NA,0.6
+39,cell,Money & Debt,Community,37.95068316229256,NA,38%,25% to 50%,NA,NA,0.6
+40,cell,Money & Debt,Money & Debt,NA,NA,–,,NA,NA,0.6
+41,cell,Money & Debt,Accidental,47.21820064185944,NA,47%,25% to 50%,NA,NA,0.6
+42,cell,Money & Debt,Employment,50.66290474530175,NA,51%,50% or more,NA,NA,0.6
+43,cell,Money & Debt,Land,45.07089023475914,NA,45%,25% to 50%,NA,NA,0.6
+44,cell,Money & Debt,Family,50.33768708467504,NA,50%,50% or more,NA,NA,0.6
+45,cell,Money & Debt,Housing,60.27648964156901,NA,60%,50% or more,NA,NA,0.6
+46,cell,Money & Debt,Education,60.41324386201309,NA,60%,50% or more,NA,NA,0.6
+47,cell,Money & Debt,Citizenship & ID,60,NA,60%,50% or more,NA,NA,0.6
+48,cell,Money & Debt,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+49,cell,Accidental,Public Services,40.2706249523941,NA,40%,25% to 50%,NA,NA,0.6
+50,cell,Accidental,Consumer,36.0886173894304,NA,36%,25% to 50%,NA,NA,0.6
+51,cell,Accidental,Community,40.631102855913575,NA,41%,25% to 50%,NA,NA,0.6
+52,cell,Accidental,Money & Debt,45.039907642366664,NA,45%,25% to 50%,NA,NA,0.6
+53,cell,Accidental,Accidental,NA,NA,–,,NA,NA,0.6
+54,cell,Accidental,Employment,49.94655436603003,NA,50%,25% to 50%,NA,NA,0.6
+55,cell,Accidental,Land,45.034912101259025,NA,45%,25% to 50%,NA,NA,0.6
+56,cell,Accidental,Family,48.28139075127027,NA,48%,25% to 50%,NA,NA,0.6
+57,cell,Accidental,Housing,54.62143927752393,NA,55%,50% or more,NA,NA,0.6
+58,cell,Accidental,Education,54.96997664265899,NA,55%,50% or more,NA,NA,0.6
+59,cell,Accidental,Citizenship & ID,66.66666666666667,NA,67%,50% or more,NA,NA,0.6
+60,cell,Accidental,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+61,cell,Employment,Public Services,33.622087775270074,NA,34%,25% to 50%,NA,NA,0.6
+62,cell,Employment,Consumer,32.306816371857025,NA,32%,25% to 50%,NA,NA,0.6
+63,cell,Employment,Community,34.26399705860005,NA,34%,25% to 50%,NA,NA,0.6
+64,cell,Employment,Money & Debt,43.597901179868394,NA,44%,25% to 50%,NA,NA,0.6
+65,cell,Employment,Accidental,44.55706085817271,NA,45%,25% to 50%,NA,NA,0.6
+66,cell,Employment,Employment,NA,NA,–,,NA,NA,0.6
+67,cell,Employment,Land,42.38963183807309,NA,42%,25% to 50%,NA,NA,0.6
+68,cell,Employment,Family,42.89055042067091,NA,43%,25% to 50%,NA,NA,0.6
+69,cell,Employment,Housing,47.85061894850255,NA,48%,25% to 50%,NA,NA,0.6
+70,cell,Employment,Education,46.353484496104734,NA,46%,25% to 50%,NA,NA,0.6
+71,cell,Employment,Citizenship & ID,46.666666666666664,NA,47%,25% to 50%,NA,NA,0.6
+72,cell,Employment,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+73,cell,Land,Public Services,29.58764922087468,NA,30%,25% to 50%,NA,NA,0.6
+74,cell,Land,Consumer,35.22635506375343,NA,35%,25% to 50%,NA,NA,0.6
+75,cell,Land,Community,38.07326254618043,NA,38%,25% to 50%,NA,NA,0.6
+76,cell,Land,Money & Debt,37.20230103426826,NA,37%,25% to 50%,NA,NA,0.6
+77,cell,Land,Accidental,39.16690248788189,NA,39%,25% to 50%,NA,NA,0.6
+78,cell,Land,Employment,40.65745788592231,NA,41%,25% to 50%,NA,NA,0.6
+79,cell,Land,Land,NA,NA,–,,NA,NA,0.6
+80,cell,Land,Family,40.18128415718777,NA,40%,25% to 50%,NA,NA,0.6
+81,cell,Land,Housing,54.71968567206663,NA,55%,50% or more,NA,NA,0.6
+82,cell,Land,Education,48.24939725274651,NA,48%,25% to 50%,NA,NA,0.6
+83,cell,Land,Citizenship & ID,73.33333333333333,NA,73%,50% or more,NA,NA,0.6
+84,cell,Land,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+85,cell,Family,Public Services,28.77091679680677,NA,29%,25% to 50%,NA,NA,0.6
+86,cell,Family,Consumer,29.163242008770464,NA,29%,25% to 50%,NA,NA,0.6
+87,cell,Family,Community,34.55803405813113,NA,35%,25% to 50%,NA,NA,0.6
+88,cell,Family,Money & Debt,41.246882128029675,NA,41%,25% to 50%,NA,NA,0.6
+89,cell,Family,Accidental,40.88692252614726,NA,41%,25% to 50%,NA,NA,0.6
+90,cell,Family,Employment,41.02969743419182,NA,41%,25% to 50%,NA,NA,0.6
+91,cell,Family,Land,39.57823094513741,NA,40%,25% to 50%,NA,NA,0.6
+92,cell,Family,Family,NA,NA,–,,NA,NA,0.6
+93,cell,Family,Housing,53.47723952221306,NA,53%,50% or more,NA,NA,0.6
+94,cell,Family,Education,51.372629091876,NA,51%,50% or more,NA,NA,0.6
+95,cell,Family,Citizenship & ID,50,NA,50%,50% or more,NA,NA,0.6
+96,cell,Family,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+97,cell,Housing,Public Services,17.402806507445128,NA,17%,Less than 25%,NA,NA,0.6
+98,cell,Housing,Consumer,18.52029201622697,NA,19%,Less than 25%,NA,NA,0.6
+99,cell,Housing,Community,21.006325681146105,NA,21%,Less than 25%,NA,NA,0.6
+100,cell,Housing,Money & Debt,27.782439667685576,NA,28%,25% to 50%,NA,NA,0.6
+101,cell,Housing,Accidental,26.291021564124428,NA,26%,25% to 50%,NA,NA,0.6
+102,cell,Housing,Employment,25.67846605299789,NA,26%,25% to 50%,NA,NA,0.6
+103,cell,Housing,Land,30.58362482822914,NA,31%,25% to 50%,NA,NA,0.6
+104,cell,Housing,Family,30.524639560784145,NA,31%,25% to 50%,NA,NA,0.6
+105,cell,Housing,Housing,NA,NA,–,,NA,NA,0.6
+106,cell,Housing,Education,38.51051649965577,NA,39%,25% to 50%,NA,NA,0.6
+107,cell,Housing,Citizenship & ID,50,NA,50%,50% or more,NA,NA,0.6
+108,cell,Housing,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+109,cell,Education,Public Services,15.677107694367676,NA,16%,Less than 25%,NA,NA,0.6
+110,cell,Education,Consumer,16.759993020155626,NA,17%,Less than 25%,NA,NA,0.6
+111,cell,Education,Community,18.72680290463245,NA,19%,Less than 25%,NA,NA,0.6
+112,cell,Education,Money & Debt,24.28158411764969,NA,24%,Less than 25%,NA,NA,0.6
+113,cell,Education,Accidental,23.191829048807,NA,23%,Less than 25%,NA,NA,0.6
+114,cell,Education,Employment,21.6837168897094,NA,22%,Less than 25%,NA,NA,0.6
+115,cell,Education,Land,23.466995809122103,NA,23%,Less than 25%,NA,NA,0.6
+116,cell,Education,Family,26.072063722666133,NA,26%,25% to 50%,NA,NA,0.6
+117,cell,Education,Housing,34.33888347909512,NA,34%,25% to 50%,NA,NA,0.6
+118,cell,Education,Education,NA,NA,–,,NA,NA,0.6
+119,cell,Education,Citizenship & ID,46.666666666666664,NA,47%,25% to 50%,NA,NA,0.6
+120,cell,Education,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+121,cell,Citizenship & ID,Public Services,9.94075977894748,NA,10%,Less than 25%,NA,NA,0.6
+122,cell,Citizenship & ID,Consumer,8.092525003094108,NA,8%,Less than 25%,NA,NA,0.6
+123,cell,Citizenship & ID,Community,9.226678629707168,NA,9%,Less than 25%,NA,NA,0.6
+124,cell,Citizenship & ID,Money & Debt,13.50617569879865,NA,14%,Less than 25%,NA,NA,0.6
+125,cell,Citizenship & ID,Accidental,15.966522449297832,NA,16%,Less than 25%,NA,NA,0.6
+126,cell,Citizenship & ID,Employment,13.376319069202966,NA,13%,Less than 25%,NA,NA,0.6
+127,cell,Citizenship & ID,Land,18.392093132300964,NA,18%,Less than 25%,NA,NA,0.6
+128,cell,Citizenship & ID,Family,15.411704568331077,NA,15%,Less than 25%,NA,NA,0.6
+129,cell,Citizenship & ID,Housing,24.5077560553751,NA,25%,Less than 25%,NA,NA,0.6
+130,cell,Citizenship & ID,Education,21.401689791765556,NA,21%,Less than 25%,NA,NA,0.6
+131,cell,Citizenship & ID,Citizenship & ID,NA,NA,–,,NA,NA,0.6
+132,cell,Citizenship & ID,Law Enforcement,NA,NA,N/A,,NA,NA,0.6
+133,cell,Law Enforcement,Public Services,4.1727147444515325,NA,4%,Less than 25%,NA,NA,0.6
+134,cell,Law Enforcement,Consumer,4.4608308022942165,NA,4%,Less than 25%,NA,NA,0.6
+135,cell,Law Enforcement,Community,4.3308538591008,NA,4%,Less than 25%,NA,NA,0.6
+136,cell,Law Enforcement,Money & Debt,7.394922866234342,NA,7%,Less than 25%,NA,NA,0.6
+137,cell,Law Enforcement,Accidental,7.518734482705558,NA,8%,Less than 25%,NA,NA,0.6
+138,cell,Law Enforcement,Employment,8.45476830495557,NA,8%,Less than 25%,NA,NA,0.6
+139,cell,Law Enforcement,Land,9.009096299264169,NA,9%,Less than 25%,NA,NA,0.6
+140,cell,Law Enforcement,Family,9.534627305711645,NA,10%,Less than 25%,NA,NA,0.6
+141,cell,Law Enforcement,Housing,11.285539129454476,NA,11%,Less than 25%,NA,NA,0.6
+142,cell,Law Enforcement,Education,8.647258125357823,NA,9%,Less than 25%,NA,NA,0.6
+143,cell,Law Enforcement,Citizenship & ID,23.33333333333333,NA,23%,Less than 25%,NA,NA,0.6
+144,cell,Law Enforcement,Law Enforcement,NA,NA,–,,NA,NA,0.6
